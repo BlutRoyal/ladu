@@ -285,27 +285,38 @@ function juhis(koht, pool) {
 /* ============================================================
    SERVER
    ============================================================ */
+// Google annab vahel ajutiselt 404 / HTML-lehe – proovime paar korda uuesti.
+// Kõik muudatused on korduvsaatmisel ohutud (sama seos / sama loenduse ID).
 async function api(p, ms = 25000) {
   if (!SEADED) throw new Error('Telefon on seadistamata');
-  const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), ms);
-  try {
-    const r = await fetch(SEADED.url, {
-      method: 'POST', signal: ctl.signal,
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(Object.assign({ voti: SEADED.voti, kes: SEADED.kes }, p))
-    });
-    const tekst = await r.text();
-    let j;
-    try { j = JSON.parse(tekst); }
-    catch (e) {
-      // Google saatis HTML-i (nt veateade või sisselogimisleht) – näita, mis see oli
-      const pealkiri = (tekst.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1] || tekst.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
-      throw new Error(`Google vastas HTTP ${r.status}, mitte andmetega: „${pealkiri || 'tühi vastus'}“`);
-    }
-    j._server = true;           // vastus tuli serverist (ka siis, kui ok:false)
-    return j;
-  } finally { clearTimeout(t); }
+  let viga;
+  for (let katse = 0; katse < 3; katse++) {
+    if (katse) await new Promise(r => setTimeout(r, 2000 * katse));
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), ms);
+    try {
+      const r = await fetch(SEADED.url, {
+        method: 'POST', signal: ctl.signal, credentials: 'omit', cache: 'no-store', redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(Object.assign({ voti: SEADED.voti, kes: SEADED.kes }, p))
+      });
+      const tekst = await r.text();
+      try {
+        const j = JSON.parse(tekst);
+        j._server = true;           // vastus tuli serverist (ka siis, kui ok:false)
+        return j;
+      } catch (e) {
+        // Google saatis HTML-i (nt ajutine 404 või sisselogimisleht) – näita, mis see oli
+        const pealkiri = (tekst.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1] || tekst.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+        viga = new Error(`Google vastas HTTP ${r.status}, mitte andmetega: „${pealkiri || 'tühi vastus'}“`);
+      }
+    } catch (e) {
+      if (e.name === 'AbortError') throw e;
+      viga = e;
+      if (!navigator.onLine) break;         // võrguta pole mõtet korrata
+    } finally { clearTimeout(t); }
+  }
+  throw viga;
 }
 
 let laeb = false, VIIMANE_VIGA = '', VIIMANE_AEG = '';

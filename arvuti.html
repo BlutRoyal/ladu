@@ -115,8 +115,12 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
 .kitsas .pool { padding: 2px; font-size: 10px; }
 .kitsas .pool b { font-size: 10px; }
 .kitsas .tase { padding: 0 4px; }
-.kitsas .pesa .pool + .pool b, .kitsas .pesa .pool:has(+ .pool) b { writing-mode: vertical-rl; transform: rotate(180deg); word-break: normal; white-space: nowrap; margin: 0 auto; }
-.kitsas .pesa { min-height: 40px; }
+.kitsas .pesa { flex-direction: column; }
+.kitsas .pool b { word-break: normal; overflow-wrap: normal; white-space: normal; overflow: hidden; letter-spacing: -.2px; line-height: 1.1; }
+.kitsas .pool { display: flex; align-items: center; min-height: 0; }
+.pesa.uus-p, .veerusilt.uus-p { border-left: 3px solid var(--hall); padding-left: 4px; margin-left: 2px; }
+.veerusilt.p { border-bottom: 2px solid var(--hall); }
+.kitsas .pesa { min-height: 46px; }
 
 /* põrandaplaan */
 #plaanKast { padding: 8px 16px 0; background: var(--paneel); border-bottom: 1px solid var(--joon); }
@@ -316,17 +320,27 @@ function teade(t, viga) {
 /* ============================================================
    SERVER
    ============================================================ */
+// Google annab vahel ajutiselt 404 / HTML-lehe (nt kohe pärast juurutust) – proovime paar korda uuesti
 async function api(p, ms = 60000) {
-  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms);
-  try {
-    const r = await fetch(SEADED.url, {
-      method: 'POST', signal: ctl.signal, headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(Object.assign({ voti: SEADED.voti, kes: SEADED.kes || 'arvuti' }, p))
-    });
-    const tekst = await r.text();
-    try { return JSON.parse(tekst); }
-    catch (e) { throw new Error(`Google vastas HTTP ${r.status}: ${(tekst.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1] || tekst.slice(0, 100)}`); }
-  } finally { clearTimeout(t); }
+  let viga;
+  for (let katse = 0; katse < 3; katse++) {
+    if (katse) await new Promise(r => setTimeout(r, 2500 * katse));
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms);
+    try {
+      const r = await fetch(SEADED.url, {
+        method: 'POST', signal: ctl.signal, credentials: 'omit', cache: 'no-store', redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(Object.assign({ voti: SEADED.voti, kes: SEADED.kes || 'arvuti' }, p))
+      });
+      const tekst = await r.text();
+      try { return JSON.parse(tekst); }
+      catch (e) { viga = new Error(`Google vastas HTTP ${r.status}: ${(tekst.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1] || tekst.slice(0, 100)}`); }
+    } catch (e) {
+      if (e.name === 'AbortError') throw e;          // aegumist ei korda (päring võib olla juba tehtud)
+      viga = e;
+    } finally { clearTimeout(t); }
+  }
+  throw viga;
 }
 
 let laeb = false, VIGA = '';
@@ -553,20 +567,24 @@ function renderAside() {
     if (UI.meta !== 'ALL' && !M.has(UI.meta)) UI.meta = 'ALL';
     $('meta').value = UI.meta;
   }
-  const baas = koik.filter(t => vp || UI.meta === 'ALL' || t.meta === UI.meta);
+  // Grupi olek arvestab ainult selle vaate tooteid (VP: KOTT või V-kohal; ladu: muu või laokohal),
+  // „Kõik tooted“ ei tee gruppi poolikuks
+  const oma = t => vp ? (onVP(t) || vpSeosed(t.kood).length) : (!onVP(t) || suurSeosed(t.kood).length);
+  const baas = koik.filter(t => oma(t) && (vp || UI.meta === 'ALL' || t.meta === UI.meta));
 
   // kaubagrupid
   const G = new Map();
   baas.forEach(t => { const x = G.get(t.grupp) || { n: 0, pl: 0, h: 0 }; x.n++; x.h += kohti(t); if (onKoht(t)) x.pl++; G.set(t.grupp, x); });
   const grupid = [...G.keys()].sort((a, b) => (vp ? gi(a) - gi(b) : 0) || CN.compare(a, b));
   const gKey = vp ? 'gruppVP' : 'gruppL';
+  const lisaGrupid = new Set(koik.filter(t => !oma(t)).map(t => t.grupp).filter(g => !G.has(g)));
   $('grupp').innerHTML = `<option value="ALL">Kõik grupid (${baas.length})</option>` + grupid.map(g => {
     const x = G.get(g), taies = x.n && x.pl === x.n;
     return `<option value="${esc(g)}">${taies ? '🟢' : x.pl ? '🟡' : '⚪'} ${esc(g)} (${x.pl}/${x.n}${vp ? `, ~${Math.ceil(x.h / 2)} kasti` : ''})</option>`;
-  }).join('');
-  if (UI[gKey] !== 'ALL' && !G.has(UI[gKey])) UI[gKey] = 'ALL';
+  }).join('') + [...lisaGrupid].sort(CN.compare).map(g => `<option value="${esc(g)}">· ${esc(g)} (teised tooted)</option>`).join('');
+  if (UI[gKey] !== 'ALL' && !G.has(UI[gKey]) && !lisaGrupid.has(UI[gKey])) UI[gKey] = 'ALL';
   $('grupp').value = UI[gKey];
-  const gx = UI[gKey] === 'ALL' ? baas.reduce((a, t) => ({ n: a.n + 1, pl: a.pl + (onKoht(t) ? 1 : 0), h: a.h + kohti(t) }), { n: 0, pl: 0, h: 0 }) : G.get(UI[gKey]);
+  const gx = UI[gKey] === 'ALL' ? baas.reduce((a, t) => ({ n: a.n + 1, pl: a.pl + (onKoht(t) ? 1 : 0), h: a.h + kohti(t) }), { n: 0, pl: 0, h: 0 }) : (G.get(UI[gKey]) || { n: 0, pl: 0, h: 0 });
   $('grupiInfo').textContent = `${gx.pl}/${gx.n} paigutatud` + (vp ? ` · vaja ~${Math.ceil(gx.h / 2)} täiskasti (${gx.h} poolkohta)` : '');
   $('koik').checked = vp ? UI.koikVP : UI.koikL;
   $('koikSilt').title = vp ? 'Näita ka tooteid, mis pole KOTT' : 'Näita ka KOTT-tooteid';
@@ -645,31 +663,37 @@ function poolHTML(list, koht, h, print) {
   const bg = print ? `hsl(0 0% ${88 + (grupiToon(t.grupp) % 3) * 4}%)` : varv(t);
   const title = t.kood + ' ' + t.nimi + (t.ak ? ' · ' + t.ak + ' tk/a' : '') + (PEIDETUD.has(t.kood) ? ' · VALIKUST VÄLJAS' : '') +
                 (list.length > 1 ? ' · TOPELT: ' + list.map(x => x.kood).join(', ') : '');
-  return `<div class="${cl.join(' ')}" style="background:${bg}" data-kood="${esc(s.kood)}" data-koht="${koht}" title="${esc(title)}"><b>${esc(t.kood)}</b><i>${esc(t.nimi)}</i>${t.ak ? `<u>${t.ak} /a</u>` : ''}</div>`;
+  return `<div class="${cl.join(' ')}" style="background:${bg}" data-kood="${esc(s.kood)}" data-koht="${koht}" title="${esc(title)}"><b>${koodWbr(t.kood)}</b><i>${esc(t.nimi)}</i>${t.ak ? `<u>${t.ak} /a</u>` : ''}</div>`;
 }
 
-function pesaHTML(koht, print) {
-  if (!koht) return '<div></div>';
+// kood murdub kitsas lahtris numbri ja tähtede piirilt: 5040EHKP -> 5040 / EHKP
+const TAHT = 'A-ZÕÄÖÜŠŽ';
+const koodWbr = k => esc(k).replace(new RegExp(`(\\d)(?=[${TAHT}])|([${TAHT}])(?=\\d)`, 'g'), '$1$2<wbr>');
+
+function pesaHTML(koht, print, uusP) {
+  if (!koht) return `<div${uusP ? ' class="pesa uus-p"' : ''}></div>`;
   const o = OCC.get(koht) || { a: [], b: [] };
   const terve = o.a.length && o.a[0] === o.b[0];
   const k = KOHAD.get(koht);
-  return `<div class="pesa${k && k.fluid ? ' fluid' : ''}">` + (terve ? poolHTML(o.a, koht, 0, print) : poolHTML(o.a, koht, 0, print) + poolHTML(o.b, koht, 1, print)) + '</div>';
+  return `<div class="pesa${k && k.fluid ? ' fluid' : ''}${uusP ? ' uus-p' : ''}">` + (terve ? poolHTML(o.a, koht, 0, print) : poolHTML(o.a, koht, 0, print) + poolHTML(o.b, koht, 1, print)) + '</div>';
 }
 
 // veerud: [{silt}] või grupid [{silt, alam: [silt…]}] (kahe tasandiga päis: püstak üle alusekohtade)
 function ruudustik(veerud, read, print, kitsas) {
   const lamedad = veerud.flatMap(v => v.alam ? v.alam : [v.silt]);
-  const cols = `grid-template-columns: ${print ? '20mm' : kitsas ? '62px' : '76px'} repeat(${lamedad.length}, minmax(${kitsas ? 40 : 96}px, 1fr))`;
+  const cols = `grid-template-columns: ${print ? '20mm' : kitsas ? '62px' : '76px'} repeat(${lamedad.length}, minmax(${kitsas ? 50 : 96}px, 1fr))`;
   let h = `<div class="riiul${kitsas ? ' kitsas' : ''}" style="${cols}">`;
+  const algus = new Set();            // veergude indeksid, kust algab uus püstak
   if (veerud.some(v => v.alam)) {
-    h += '<div></div>' + veerud.map(v => `<div class="veerusilt p" style="grid-column: span ${v.alam.length}">${esc(v.silt)}</div>`).join('');
-    h += '<div></div>' + lamedad.map(x => `<div class="veerusilt">${esc(x)}</div>`).join('');
+    let i = 0; veerud.forEach((v, j) => { if (j > 0) algus.add(i); i += v.alam.length; });
+    h += '<div></div>' + veerud.map((v, j) => `<div class="veerusilt p${j > 0 ? ' uus-p' : ''}" style="grid-column: span ${v.alam.length}">${esc(v.silt)}</div>`).join('');
+    h += '<div></div>' + lamedad.map((x, i) => `<div class="veerusilt${algus.has(i) ? ' uus-p' : ''}">${esc(x)}</div>`).join('');
   } else {
     h += '<div></div>' + veerud.map(v => `<div class="veerusilt">${esc(v.silt)}</div>`).join('');
   }
   read.forEach(r => {
     h += `<div class="tase ${r.klass || ''}">${esc(r.silt)}<span class="ergo">${esc(r.alam || '')}</span></div>`;
-    h += r.lahtrid.map(k => pesaHTML(k, print)).join('');
+    h += r.lahtrid.map((k, i) => pesaHTML(k, print, algus.has(i))).join('');
   });
   return h + '</div>';
 }
@@ -750,15 +774,17 @@ function renderPlaan() {
   const x0 = 96;                                  // estakaadist paremal
   const vpX = W - 64, vpY1 = 22, vpY2 = 210;      // VP-riiul: paremas servas ~1,8 m seinast, Rida 1 ja ülaseina vahel
   let s = `<rect class="ala" x="2" y="2" width="${W - 4}" height="${H - 4}" rx="8"/>`;
-  s += `<rect class="ala" x="8" y="40" width="58" height="200" rx="5"/><text x="37" y="136" text-anchor="middle" class="markus">estakaad</text>`;
-  s += `<g class="muu"><rect x="70" y="120" width="16" height="60" rx="2"/></g><text x="78" y="194" text-anchor="middle" class="markus">?</text>`;
+  s += `<rect class="ala" x="8" y="30" width="58" height="190" rx="5"/><text x="37" y="130" text-anchor="middle" class="markus">estakaad</text>`;
+  // märkimata riiul vasakus alanurgas Uks 1 kõrval, enne estakaadi
+  s += `<g class="muu"><rect x="8" y="238" width="58" height="14" rx="2"/></g><text x="72" y="249" class="markus">märkimata riiul</text>`;
   s += `<text x="12" y="${H - 6}" class="markus">▲ Uks 1</text><text x="${W - 150}" y="${H - 6}" class="markus">▲ Uks 2</text>`;
   Object.keys(Y).map(Number).forEach(r => {
     const info = READ.get(r);
     const x = r === 11 ? 8 : x0;
-    const lopp = r === 1 ? W - 14 : r === 0 ? W - 170 : r === 11 ? W / 2 : vpX - 40;   // Rida 1 peaaegu seinani; 2–10 jätavad VP-riiulile ruumi
-    let lai = info ? Math.min(lopp - x, (lopp - x) * info.p / maxP * 1.05) : (lopp - x) * 0.92;
-    if (r === 1) lai = lopp - x;
+    // Rida 1 peaaegu seinani; 3–10 ühepikkused (VP-riiulile jääb ruumi); Rida 2 nende vahepeal
+    const pikk310 = vpX - 40 - x0, pikk1 = W - 14 - x0;
+    let lai = r === 1 ? pikk1 : r === 2 ? (pikk1 + pikk310) / 2 : (r >= 3 && r <= 10) ? pikk310
+            : r === 11 ? W / 2 - 8 : W - 170 - x0;
     s += `<g class="riul${info ? '' : ' maaramata'}${UI.rida === r ? ' akt' : ''}" data-rida="${r}">
       <rect x="${x}" y="${Y[r]}" width="${lai}" height="${rh}" rx="2"/>
       <text x="${x + 6}" y="${Y[r] + 10}" style="font-size:11px">Rida ${r}${info ? ` · ${info.p}` : ''}</text></g>`;
