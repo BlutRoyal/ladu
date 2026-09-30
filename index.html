@@ -70,6 +70,17 @@ table.kokku td.n { text-align: right; font-weight: 700; font-variant-numeric: ta
 h2 { font-size: 17px; margin: 18px 0 6px; }
 .valitud-toode { padding: 10px 12px; border-radius: 12px; background: var(--roh-hele); border: 1px solid var(--roh-joon); margin-top: 8px; }
 .soovitused .rida-tulemus { padding: 8px 12px; }
+.otsirida { display: flex; gap: 8px; align-items: stretch; }
+.otsirida input { flex: 1; min-width: 0; }
+.skann-nupp { flex: none; width: 52px; border-radius: 12px; border: 1px solid var(--roheline); background: var(--roheline); color: #fff; font-size: 22px; cursor: pointer; }
+@media (prefers-color-scheme: dark) { .skann-nupp { color: #10200f; } }
+#skanner { position: fixed; inset: 0; z-index: 50; background: #000; display: none; flex-direction: column; }
+#skanner.lahti { display: flex; }
+#skanner video { flex: 1; width: 100%; min-height: 0; object-fit: cover; }
+#skanner .raam { position: absolute; left: 12%; right: 12%; top: 30%; height: 26%; border: 3px solid rgba(255,255,255,.85); border-radius: 16px; box-shadow: 0 0 0 9999px rgba(0,0,0,.35); pointer-events: none; }
+#skanner .ulal { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; padding: calc(12px + env(safe-area-inset-top)) 16px 12px; color: #fff; }
+#skanner .ulal button { background: rgba(0,0,0,.5); color: #fff; border: 1px solid rgba(255,255,255,.4); border-radius: 12px; min-height: 44px; padding: 0 14px; font-size: 16px; }
+#skanner .all { position: absolute; bottom: 0; left: 0; right: 0; padding: 16px 16px calc(20px + env(safe-area-inset-bottom)); color: #fff; text-align: center; font-size: 16px; background: linear-gradient(transparent, rgba(0,0,0,.7)); }
 </style>
 </head>
 <body>
@@ -98,7 +109,10 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
 
   <!-- OTSING -->
   <section class="vaade" id="v-otsing">
-    <input id="otsing" type="search" placeholder="Kood, EAN, nimi või asukoht" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="search">
+    <div class="otsirida">
+      <input id="otsing" type="search" placeholder="Kood, EAN, nimi või asukoht" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="search">
+      <button class="skann-nupp" id="skannOtsing" aria-label="Skänni">⌗</button>
+    </div>
     <div id="otsingTulemus"></div>
   </section>
 
@@ -115,7 +129,10 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
 
     <div class="kaart">
       <label for="iToode" style="margin-top:0">Toode (kood, EAN või nimi)</label>
-      <input id="iToode" type="search" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="next">
+      <div class="otsirida">
+        <input id="iToode" type="search" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="next">
+        <button class="skann-nupp" id="skannInv" aria-label="Skänni toode või asukoht">⌗</button>
+      </div>
       <div id="iSoovitused" class="soovitused"></div>
       <div id="iValitud"></div>
       <div class="valik">
@@ -170,6 +187,16 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
 </nav>
 
 <div class="teade" id="teade"></div>
+
+<div id="skanner" role="dialog" aria-label="Skänner">
+  <video id="skannVideo" playsinline muted autoplay></video>
+  <div class="raam"></div>
+  <div class="ulal">
+    <button id="skannSulge">✕ Sulge</button>
+    <button id="skannValgus" style="display:none">Taskulamp</button>
+  </div>
+  <div class="all" id="skannTekst">Suuna kaamera ribakoodile või QR-ile</div>
+</div>
 
 <script>
 'use strict';
@@ -343,7 +370,10 @@ function ehitaIndeks() {
   ANDMED.tooted.read.forEach(r => {
     const t = { kood: normKood(r[0]), nimi: r[1], ean: String(r[2] || '').trim(), maardu: r[5], uhik: r[6], grupp: r[7] };
     tooted.set(t.kood, t);
-    if (t.ean && t.ean !== t.kood) ean.set(t.ean.toUpperCase(), t.kood);
+    if (t.ean && t.ean !== t.kood) {
+      ean.set(t.ean.toUpperCase(), t.kood);
+      if (/^\d+$/.test(t.ean)) ean.set('#' + t.ean.replace(/^0+/, ''), t.kood);  // null ees võib Sheetis kaduda
+    }
     otsi.push({ t, h: (t.kood + ' ' + t.nimi + ' ' + t.ean).toUpperCase() });
   });
   const kohad = new Map();
@@ -381,6 +411,10 @@ function leiaToode(q) {
   if (!IX || !q) return null;
   if (IX.tooted.has(q)) return IX.tooted.get(q);
   if (IX.ean.has(q)) return IX.tooted.get(IX.ean.get(q));
+  if (/^\d{6,}$/.test(q)) {
+    const k = IX.ean.get('#' + q.replace(/^0+/, ''));
+    if (k) return IX.tooted.get(k);
+  }
   return null;
 }
 
@@ -520,7 +554,10 @@ function renderKoht() {
     ${read || '<div class="tuhi">Siin pole ühtegi toodet</div>'}
     ${info.fluid ? `<div class="kaart">
       <label for="kLisa" style="margin-top:0">Lisa toode siia (fluid)</label>
-      <input id="kLisa" type="search" placeholder="Kood, EAN või nimi" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      <div class="otsirida">
+        <input id="kLisa" type="search" placeholder="Kood, EAN või nimi" autocomplete="off" autocapitalize="characters" spellcheck="false">
+        <button class="skann-nupp" data-skannikohta aria-label="Skänni toode">⌗</button>
+      </div>
       <div id="kSoovitused" class="soovitused"></div>
     </div>` : ''}`;
   const inp = $('kLisa');
@@ -741,6 +778,184 @@ async function salvestaSeadistus() {
 }
 
 /* ============================================================
+   SKÄNNER
+   Android: sisseehitatud BarcodeDetector. iPhone jt: ZXing teek CDN-ist
+   (laaditakse esimesel kasutusel, sw.js hoiab selle telefonis).
+   ============================================================ */
+const ZXING_URLID = [
+  'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js',
+  'https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js',
+  'https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js'
+];
+const SK = { tagasi: null, voog: null, taimer: 0, zx: null, tootab: false, detektor: null };
+
+function laeSkript(url) {
+  return new Promise((ok, viga) => {
+    const s = document.createElement('script');
+    s.src = url; s.async = true; s.crossOrigin = 'anonymous';
+    s.onload = ok; s.onerror = () => { s.remove(); viga(new Error('ei laadinud: ' + url)); };
+    document.head.appendChild(s);
+  });
+}
+
+async function laeZxing() {
+  if (window.ZXing) return window.ZXing;
+  for (const u of ZXING_URLID) {
+    try { await laeSkript(u); if (window.ZXing) return window.ZXing; } catch (e) { /* proovi järgmist */ }
+  }
+  throw new Error('Skänneri teeki ei saanud laadida. Esimene skännimine vajab internetti.');
+}
+
+async function sobivDetektor() {
+  if (!('BarcodeDetector' in window)) return null;
+  try {
+    const toetatud = await BarcodeDetector.getSupportedFormats();
+    const soov = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code'].filter(f => toetatud.includes(f));
+    if (!soov.includes('ean_13') || !soov.includes('qr_code')) return null;
+    return new BarcodeDetector({ formats: soov });
+  } catch (e) { return null; }
+}
+
+// Avab skänneri; tagasi(väärtus) kutsutakse esimese loetud koodiga.
+async function avaSkanner(tagasi, vihje) {
+  if (SK.tootab) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    naita('Kaamera pole saadaval. Leht peab olema avatud https-aadressilt.', true); return;
+  }
+  SK.tagasi = tagasi; SK.tootab = true;
+  $('skannTekst').textContent = vihje || 'Suuna kaamera ribakoodile või QR-ile';
+  $('skannValgus').style.display = 'none';
+  $('skanner').classList.add('lahti');
+  const video = $('skannVideo');
+  try {
+    SK.detektor = await sobivDetektor();
+    if (SK.detektor) {
+      SK.voog = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false
+      });
+      video.srcObject = SK.voog;
+      await video.play();
+      naitaTaskulamp();
+      const tsukkel = async () => {
+        if (!SK.tootab) return;
+        try {
+          if (video.readyState >= 2) {
+            const leitud = await SK.detektor.detect(video);
+            if (leitud.length && leitud[0].rawValue) { skannLeitud(leitud[0].rawValue); return; }
+          }
+        } catch (e) { /* üksik kaader ebaõnnestus */ }
+        SK.taimer = setTimeout(tsukkel, 120);
+      };
+      tsukkel();
+    } else {
+      $('skannTekst').textContent = 'Laen skännerit…';
+      const ZX = await laeZxing();
+      if (!SK.tootab) return;
+      $('skannTekst').textContent = vihje || 'Suuna kaamera ribakoodile või QR-ile';
+      const vihjed = new Map();
+      const F = ZX.BarcodeFormat;
+      vihjed.set(ZX.DecodeHintType.POSSIBLE_FORMATS, [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.QR_CODE]);
+      vihjed.set(ZX.DecodeHintType.TRY_HARDER, true);
+      SK.zx = new ZX.BrowserMultiFormatReader(vihjed, 150);
+      await SK.zx.decodeFromConstraints(
+        { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+        video,
+        (tulemus) => { if (tulemus && SK.tootab) skannLeitud(tulemus.getText()); }
+      );
+    }
+  } catch (e) {
+    const nimi = e && e.name;
+    const msg = nimi === 'NotAllowedError' ? 'Kaamera kasutamine on keelatud. Luba kaamera brauseri seadetes.'
+      : nimi === 'NotFoundError' ? 'Kaamerat ei leitud.'
+      : (e && e.message) || String(e);
+    sulgeSkanner();
+    naita(msg, true);
+  }
+}
+
+function naitaTaskulamp() {
+  try {
+    const rada = SK.voog && SK.voog.getVideoTracks()[0];
+    const v = rada && rada.getCapabilities ? rada.getCapabilities() : {};
+    if (!v.torch) return;
+    let sees = false;
+    const b = $('skannValgus');
+    b.style.display = '';
+    b.onclick = () => { sees = !sees; rada.applyConstraints({ advanced: [{ torch: sees }] }).catch(() => {}); b.textContent = sees ? 'Taskulamp ✓' : 'Taskulamp'; };
+  } catch (e) { /* taskulampi pole */ }
+}
+
+function skannLeitud(v) {
+  const tagasi = SK.tagasi;
+  sulgeSkanner();
+  try { if (navigator.vibrate) navigator.vibrate(60); } catch (e) {}
+  if (tagasi) tagasi(String(v).trim());
+}
+
+function sulgeSkanner() {
+  SK.tootab = false;
+  clearTimeout(SK.taimer);
+  try { if (SK.zx) SK.zx.reset(); } catch (e) {}
+  SK.zx = null;
+  if (SK.voog) SK.voog.getTracks().forEach(t => t.stop());
+  SK.voog = null;
+  const video = $('skannVideo');
+  try { video.pause(); } catch (e) {}
+  video.srcObject = null;
+  $('skanner').classList.remove('lahti');
+  $('skannValgus').textContent = 'Taskulamp';
+}
+
+// QR-link (…?asukoht=3-2-3-1) -> {koht}; muu -> {kood}
+function tolgenda(v) {
+  v = String(v || '').trim();
+  if (/^https?:\/\//i.test(v)) {
+    try { const k = new URL(v).searchParams.get('asukoht'); if (k) return { koht: normKoht(k) }; } catch (e) {}
+    return { vale: v };
+  }
+  if (IX && IX.kohad.has(normKoht(v))) return { koht: normKoht(v) };
+  return { kood: v };
+}
+
+function skanniOtsing() {
+  avaSkanner(v => {
+    const t = tolgenda(v);
+    if (t.koht) { avaKoht(t.koht); return; }
+    if (t.vale) { naita('Tundmatu QR: ' + t.vale, true); return; }
+    otsingValitud = null;
+    $('otsing').value = t.kood;
+    renderOtsing();
+    if (!leiaToode(t.kood)) naita('Toodet ei leitud: ' + t.kood, true);
+  });
+}
+
+function skanniInventuur() {
+  avaSkanner(v => {
+    const t = tolgenda(v);
+    if (t.koht) {
+      $('iKoht').value = t.koht;
+      naita('Asukoht ' + t.koht + ' – nüüd skänni toode');
+      setTimeout(skanniInventuur, 600);     // järgmiseks toode
+      return;
+    }
+    if (t.vale) { naita('Tundmatu QR: ' + t.vale, true); return; }
+    const toode = leiaToode(t.kood);
+    if (!toode) { $('iToode').value = t.kood; invOtsi(); naita('Toodet ei leitud: ' + t.kood, true); return; }
+    valiInvToode(toode);
+  }, 'Skänni asukoha QR või toote ribakood');
+}
+
+function skanniKohta() {
+  const koht = kohtVaates;
+  avaSkanner(v => {
+    const t = tolgenda(v);
+    const toode = t.kood && leiaToode(t.kood);
+    if (!toode) { naita('Toodet ei leitud: ' + (t.kood || v), true); return; }
+    if (confirm(`Lisan ${toode.kood} (${toode.nimi}) kohta ${koht}?`)) lisaSeos(toode.kood, koht);
+  }, 'Skänni toote ribakood');
+}
+
+/* ============================================================
    SÜNDMUSED
    ============================================================ */
 document.addEventListener('click', e => {
@@ -761,6 +976,7 @@ document.addEventListener('click', e => {
     return;
   }
   if (d.lisasiia) { lisaSeos(d.lisasiia, kohtVaates); return; }
+  if ('skannikohta' in d) { skanniKohta(); return; }
   if (d.eemalda) { eemaldaSeos(d.eemalda, d.kohast); return; }
   if (d.invvali) { valiInvToode(IX.tooted.get(d.invvali)); return; }
   if (d.invmuuda) { invAlustaParandus(d.invmuuda); return; }
@@ -768,6 +984,10 @@ document.addEventListener('click', e => {
 });
 
 $('otsing').addEventListener('input', () => { otsingValitud = null; renderOtsing(); });
+$('skannOtsing').addEventListener('click', skanniOtsing);
+$('skannInv').addEventListener('click', skanniInventuur);
+$('skannSulge').addEventListener('click', sulgeSkanner);
+document.addEventListener('visibilitychange', () => { if (document.hidden && SK.tootab) sulgeSkanner(); });
 $('otsing').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
 $('uuendaNupp').addEventListener('click', () => laeAndmed(false));
 $('sSalvesta').addEventListener('click', salvestaSeadistus);
