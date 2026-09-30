@@ -238,22 +238,42 @@ async function api(p, ms = 25000) {
   } finally { clearTimeout(t); }
 }
 
-let laeb = false;
+let laeb = false, VIIMANE_VIGA = '', VIIMANE_AEG = '';
 async function laeAndmed(vaikne) {
-  if (laeb || !SEADED) return;
-  laeb = true; olek('Laen andmeid…');
+  if (!SEADED) return;
+  if (laeb) { naita('Laadimine juba käib, oota…'); return; }
+  laeb = true;
+  const t0 = Date.now();
+  const nupp = $('uuendaNupp');
+  nupp.disabled = true;
+  const taimer = setInterval(() => {
+    const s = Math.round((Date.now() - t0) / 1000);
+    nupp.textContent = 'Laen… ' + s + ' s'; olek('Laen andmeid…');
+  }, 1000);
+  nupp.textContent = 'Laen…'; olek('Laen andmeid…');
   try {
     await saadaValjas();
-    const j = await api({ tegevus: 'andmed', osad: 'tooted,asukohad,paigutus' }, 60000);
+    let j, katse = 0;
+    while (true) {
+      try { j = await api({ tegevus: 'andmed', osad: 'tooted,asukohad,paigutus' }, 90000); break; }
+      catch (e) { if (++katse >= 3) throw e; await new Promise(r => setTimeout(r, 1500 * katse)); }  // võrguviga: proovi uuesti
+    }
     if (!j.ok) throw new Error(j.viga);
     delete j._server;
     ANDMED = j; kirjuta(V.andmed, ANDMED);
     ehitaIndeks();
-    if (!vaikne) naita('Andmed uuendatud');
-    renderAktiivne();
+    VIIMANE_VIGA = '';
+    VIIMANE_AEG = ((Date.now() - t0) / 1000).toFixed(1) + ' s';
+    if (!vaikne) naita('Andmed uuendatud (' + VIIMANE_AEG + ')');
   } catch (e) {
-    if (!vaikne) naita(ANDMED ? 'Ühendust pole – kasutan telefoni andmeid' : 'Andmeid ei saanud: ' + e.message, true);
-  } finally { laeb = false; olek(); }
+    const msg = e.name === 'AbortError' ? 'Google ei vastanud 90 sekundi jooksul' : e.message;
+    VIIMANE_VIGA = msg;
+    if (!vaikne || !ANDMED) naita(ANDMED ? 'Uuendamine ebaõnnestus – kasutan telefoni andmeid' : 'Andmeid ei saanud: ' + msg, true);
+  } finally {
+    clearInterval(taimer);
+    nupp.disabled = false; nupp.textContent = 'Uuenda';
+    laeb = false; olek(); renderAktiivne();
+  }
 }
 
 // Saadab järjekorras kõik saatmata muudatused. Võrgu vea korral jääb ootele.
@@ -405,7 +425,12 @@ function olek(tekst) {
 function renderOtsing() {
   const q = $('otsing').value;
   const el = $('otsingTulemus');
-  if (!IX) { el.innerHTML = `<div class="tuhi">${SEADED ? 'Andmed puuduvad. Vajuta „Uuenda“, kui oled võrgus.' : ''}</div>`; return; }
+  if (!IX) {
+    el.innerHTML = !SEADED ? '' : laeb
+      ? '<div class="tuhi">Laen andmeid Google\'ist… Esimene kord võib võtta kuni pool minutit.</div>'
+      : `<div class="tuhi">Andmed puuduvad. Vajuta „Uuenda“.${VIIMANE_VIGA ? `<div style="color:var(--punane);margin-top:8px">Viga: ${esc(VIIMANE_VIGA)}</div>` : ''}</div>`;
+    return;
+  }
 
   if (otsingValitud) { el.innerHTML = tooteKaart(otsingValitud); return; }
   if (!q.trim()) { el.innerHTML = `<div class="tuhi">${IX.tooted.size} toodet · ${IX.kohad.size} asukohta</div>`; return; }
@@ -666,7 +691,8 @@ async function invCsv(kohtadega) {
 /* ---------- Seaded ---------- */
 function renderSeaded() {
   $('aKes').textContent = SEADED ? SEADED.kes : '';
-  $('aAndmed').textContent = IX ? `${IX.tooted.size} toodet, ${IX.kohad.size} asukohta telefonis` : 'Andmed puuduvad';
+  $('aAndmed').textContent = (IX ? `${IX.tooted.size} toodet, ${IX.kohad.size} asukohta telefonis` : 'Andmed puuduvad') +
+    (VIIMANE_AEG ? ` · viimane laadimine ${VIIMANE_AEG}` : '') + (VIIMANE_VIGA ? ` · viimane viga: ${VIIMANE_VIGA}` : '');
   $('aOotel').textContent = VALJAS.length ? VALJAS.length + ' muudatust ootab saatmist' : 'Kõik muudatused on saadetud';
 }
 
