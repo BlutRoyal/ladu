@@ -70,6 +70,9 @@ table.kokku td.n { text-align: right; font-weight: 700; font-variant-numeric: ta
 h2 { font-size: 17px; margin: 18px 0 6px; }
 .valitud-toode { padding: 10px 12px; border-radius: 12px; background: var(--roh-hele); border: 1px solid var(--roh-joon); margin-top: 8px; }
 .soovitused .rida-tulemus { padding: 8px 12px; }
+.laoseis { margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: var(--bg); font-size: 16px; }
+.laoseis-markus { font-size: 12px; color: var(--hall); margin-top: 2px; }
+.laoseis-markus.vana { color: var(--punane); }
 .otsirida { display: flex; gap: 8px; align-items: stretch; }
 .otsirida input { flex: 1; min-width: 0; }
 .skann-nupp { flex: none; width: 52px; border-radius: 12px; border: 1px solid var(--roheline); background: var(--roheline); color: #fff; font-size: 22px; cursor: pointer; }
@@ -197,6 +200,7 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
   </div>
   <div class="all" id="skannTekst">Suuna kaamera ribakoodile või QR-ile</div>
 </div>
+<input type="file" id="skannFoto" accept="image/*" capture="environment" style="display:none">
 
 <script>
 'use strict';
@@ -368,7 +372,7 @@ function ehitaIndeks() {
   if (!ANDMED || !ANDMED.tooted) { IX = null; return; }
   const tooted = new Map(), ean = new Map(), otsi = [];
   ANDMED.tooted.read.forEach(r => {
-    const t = { kood: normKood(r[0]), nimi: r[1], ean: String(r[2] || '').trim(), maardu: r[5], uhik: r[6], grupp: r[7] };
+    const t = { kood: normKood(r[0]), nimi: r[1], ean: String(r[2] || '').trim(), k3: r[4], maardu: r[5], uhik: r[6], grupp: r[7] };
     tooted.set(t.kood, t);
     if (t.ean && t.ean !== t.kood) {
       ean.set(t.ean.toUpperCase(), t.kood);
@@ -516,12 +520,32 @@ function tooteKaart(t) {
   return `<div class="kaart">
     <div class="toode-kood">${esc(t.kood)}</div>
     <div>${esc(t.nimi)}</div>
-    <div class="hall">${t.ean && t.ean !== t.kood ? 'EAN ' + esc(t.ean) + ' · ' : ''}${esc(t.grupp || '')} · Maardu ${fmtNr(nr(t.maardu))} ${esc(t.uhik || '')}</div>
+    <div class="hall">${t.ean && t.ean !== t.kood ? 'EAN ' + esc(t.ean) + ' · ' : ''}${esc(t.grupp || '')}</div>
+    ${laoseis(t)}
     ${kohad || '<div class="tuhi" style="padding:14px 0 4px">Asukoht puudub</div>'}
     <div class="nupud">
       <button class="nupp vaike" data-lisafluid="${esc(t.kood)}">＋ Lisa fluid-kohta</button>
       ${otsingValitud ? '<button class="nupp vaike" data-sulge>Sulge</button>' : ''}
     </div>
+  </div>`;
+}
+
+// Laoseis Buumi ekspordist + hoiatus, et see ei pruugi olla värske
+function laoseis(t) {
+  if (t.maardu === undefined) return '';
+  const u = esc(t.uhik || '');
+  const aeg = ANDMED && ANDMED.laoAndmedUuendatud ? new Date(ANDMED.laoAndmedUuendatud) : null;
+  let seisuga, vana = true;
+  if (aeg && !isNaN(aeg)) {
+    const paevi = (Date.now() - aeg) / 864e5;
+    vana = paevi > 2;
+    seisuga = aeg.toLocaleDateString('et-EE', { day: 'numeric', month: 'numeric' }) + ' ' +
+              aeg.toLocaleTimeString('et-EE', { hour: '2-digit', minute: '2-digit' }) +
+              (paevi >= 1 ? ` (${Math.floor(paevi)} p tagasi)` : '');
+  } else seisuga = 'teadmata ajal';
+  return `<div class="laoseis">
+    <div><span class="hall">Maardu</span> <b>${fmtNr(nr(t.maardu))}</b> ${u} &nbsp; <span class="hall">Kauplus 3</span> <b>${fmtNr(nr(t.k3))}</b> ${u}</div>
+    <div class="laoseis-markus${vana ? ' vana' : ''}">Buumi seis ${esc(seisuga)}. Võib olla vananenud; pakkimata/konverteerimata kaup ei kajastu.</div>
   </div>`;
 }
 
@@ -787,7 +811,7 @@ const ZXING_URLID = [
   'https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js',
   'https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js'
 ];
-const SK = { tagasi: null, voog: null, taimer: 0, zx: null, tootab: false, detektor: null };
+const SK = { tagasi: null, voog: null, taimer: 0, zx: null, tootab: false, detektor: null, foto: false };
 
 function laeSkript(url) {
   return new Promise((ok, viga) => {
@@ -820,8 +844,12 @@ async function sobivDetektor() {
 async function avaSkanner(tagasi, vihje) {
   if (SK.tootab) return;
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    naita('Kaamera pole saadaval. Leht peab olema avatud https-aadressilt.', true); return;
+    // Otsekaamerat ei lubata (nt iPhone'i Chrome/äpi sisebrauser): pildista ja loe fotolt
+    SK.tagasi = tagasi; SK.foto = true;
+    const inp = $('skannFoto'); inp.value = ''; inp.click();
+    return;
   }
+  SK.foto = false;
   SK.tagasi = tagasi; SK.tootab = true;
   $('skannTekst').textContent = vihje || 'Suuna kaamera ribakoodile või QR-ile';
   $('skannValgus').style.display = 'none';
@@ -872,6 +900,45 @@ async function avaSkanner(tagasi, vihje) {
     naita(msg, true);
   }
 }
+
+// Foto -> vähendatud pilt -> BarcodeDetector või ZXing
+async function loeFotolt(fail) {
+  const url = URL.createObjectURL(fail);
+  try {
+    const img = await new Promise((ok, viga) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => viga(new Error('Pilti ei saanud avada')); i.src = url; });
+    const MAX = 1600, s = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(img.naturalWidth * s); cv.height = Math.round(img.naturalHeight * s);
+    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+    const det = await sobivDetektor();
+    if (det) {
+      const r = await det.detect(cv);
+      if (r.length && r[0].rawValue) return r[0].rawValue;
+    }
+    const ZX = await laeZxing();
+    const vihjed = new Map(), F = ZX.BarcodeFormat;
+    vihjed.set(ZX.DecodeHintType.POSSIBLE_FORMATS, [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.QR_CODE]);
+    vihjed.set(ZX.DecodeHintType.TRY_HARDER, true);
+    const lugeja = new ZX.BrowserMultiFormatReader(vihjed);
+    const tulemus = await lugeja.decodeFromImageUrl(cv.toDataURL('image/jpeg', 0.92));
+    return tulemus.getText();
+  } finally { URL.revokeObjectURL(url); }
+}
+
+$('skannFoto').addEventListener('change', async e => {
+  const fail = e.target.files && e.target.files[0];
+  const tagasi = SK.tagasi;
+  if (!fail || !tagasi) return;
+  naita('Loen koodi…');
+  try {
+    const v = await loeFotolt(fail);
+    try { if (navigator.vibrate) navigator.vibrate(60); } catch (x) {}
+    tagasi(String(v).trim());
+  } catch (err) {
+    naita(/NotFound|No MultiFormat/i.test((err && (err.name + err.message)) || '')
+      ? 'Koodi ei leitud. Pildista lähemalt ja ilma läiketa.' : 'Lugemine ebaõnnestus: ' + (err.message || err), true);
+  }
+});
 
 function naitaTaskulamp() {
   try {
@@ -935,7 +1002,7 @@ function skanniInventuur() {
     if (t.koht) {
       $('iKoht').value = t.koht;
       naita('Asukoht ' + t.koht + ' – nüüd skänni toode');
-      setTimeout(skanniInventuur, 600);     // järgmiseks toode
+      if (!SK.foto) setTimeout(skanniInventuur, 600);     // järgmiseks toode (fotorežiimis vajab uut vajutust)
       return;
     }
     if (t.vale) { naita('Tundmatu QR: ' + t.vale, true); return; }
