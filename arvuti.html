@@ -21,29 +21,30 @@
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--tekst); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
-.nupp { border: 1px solid var(--joon); background: var(--paneel); border-radius: 8px; padding: 5px 12px; min-height: 32px; }
-.nupp:hover { border-color: var(--hall); }
+button:disabled { opacity: .45; cursor: default; }
+.nupp { border: 1px solid var(--joon); background: var(--paneel); border-radius: 8px; padding: 4px 11px; min-height: 30px; }
+.nupp:hover:not(:disabled) { border-color: var(--hall); }
 .nupp.pea { background: var(--roheline); border-color: var(--roheline); color: #fff; }
-@media (prefers-color-scheme: dark) { .nupp.pea { color: #10200f; } }
 .nupp[aria-pressed="true"] { background: var(--roheline); border-color: var(--roheline); color: #fff; }
-@media (prefers-color-scheme: dark) { .nupp[aria-pressed="true"] { color: #10200f; } }
+@media (prefers-color-scheme: dark) { .nupp.pea, .nupp[aria-pressed="true"] { color: #10200f; } }
 .nupp.ohtlik { color: var(--punane); }
 input[type=search], input[type=text], input[type=url], select {
-  border: 1px solid var(--joon); background: var(--paneel); border-radius: 8px; padding: 6px 10px; min-height: 32px;
+  border: 1px solid var(--joon); background: var(--paneel); border-radius: 8px; padding: 5px 9px; min-height: 30px;
 }
 input:focus, select:focus { outline: 2px solid var(--valik); outline-offset: -1px; }
 .hall { color: var(--hall); }
 .vaike { font-size: 12px; }
+.silt { display: inline-block; font-size: 11px; font-weight: 600; padding: 0 6px; border-radius: 5px; border: 1px solid currentColor; margin-left: 6px; vertical-align: 1px; color: var(--hall); }
 
 /* päis */
-header { display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: var(--paneel); border-bottom: 1px solid var(--joon); position: sticky; top: 0; z-index: 20; }
-header h1 { font-size: 16px; margin: 0 8px 0 0; }
+header { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: var(--paneel); border-bottom: 1px solid var(--joon); height: 50px; }
+header h1 { font-size: 16px; margin: 0 6px 0 0; }
 .vahekaardid { display: flex; gap: 4px; }
 .vahekaardid button { border: 0; background: none; padding: 7px 14px; border-radius: 8px; color: var(--hall); font-weight: 600; }
 .vahekaardid button[aria-selected="true"] { background: var(--roh-hele); color: var(--roheline); }
-.otsing-kast { position: relative; flex: 1; max-width: 520px; margin-left: auto; }
+.otsing-kast { position: relative; flex: 1; max-width: 480px; margin-left: auto; }
 .otsing-kast input { width: 100%; }
-#otsTulemus { position: absolute; top: 100%; left: 0; right: 0; margin-top: 4px; background: var(--paneel); border: 1px solid var(--joon); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.15); max-height: 60vh; overflow: auto; display: none; }
+#otsTulemus { position: absolute; top: 100%; left: 0; right: 0; margin-top: 4px; background: var(--paneel); border: 1px solid var(--joon); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.15); max-height: 60vh; overflow: auto; display: none; z-index: 30; }
 #otsTulemus.lahti { display: block; }
 .ots-rida { padding: 7px 12px; border-top: 1px solid var(--joon2); cursor: pointer; }
 .ots-rida:first-child { border-top: 0; }
@@ -53,17 +54,14 @@ header h1 { font-size: 16px; margin: 0 8px 0 0; }
 .olek b { color: var(--tekst); }
 .olek .viga { color: var(--punane); }
 
-main { height: calc(100% - 49px); }
-.vaade { display: none; height: 100%; }
-.vaade.aktiivne { display: flex; }
-
-/* ---------- VÄIKEPAKEND ---------- */
-#v-vp aside { width: 360px; flex: none; display: flex; flex-direction: column; border-right: 1px solid var(--joon); background: var(--paneel); min-height: 0; }
-.kast { padding: 10px 14px; border-bottom: 1px solid var(--joon2); }
+/* põhipaigutus: vasak paneel + tööala */
+#paigutus { display: flex; height: calc(100% - 50px); }
+aside { width: 350px; flex: none; display: flex; flex-direction: column; border-right: 1px solid var(--joon); background: var(--paneel); min-height: 0; }
+.kast { padding: 9px 14px; border-bottom: 1px solid var(--joon2); }
 .kast label { display: block; font-size: 12px; color: var(--hall); margin-bottom: 3px; }
 .kast select, .kast input[type=search] { width: 100%; }
 .rida { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.linnuke { display: inline-flex; gap: 5px; align-items: center; font-size: 13px; margin-right: 10px; }
+.linnuke { display: inline-flex; gap: 5px; align-items: center; font-size: 13px; margin-right: 8px; }
 #tooteNimekiri { flex: 1; overflow: auto; min-height: 0; position: relative; }
 .toode-rida { display: grid; grid-template-columns: 12px 1fr auto; gap: 8px; align-items: center; padding: 5px 14px; border-bottom: 1px solid var(--joon2); cursor: pointer; }
 .toode-rida:hover { background: var(--tuhi); }
@@ -72,78 +70,85 @@ main { height: calc(100% - 49px); }
 .toode-rida .n { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .toode-rida .k { font-size: 12px; color: var(--hall); text-align: right; white-space: nowrap; }
 .toode-rida .k.ok { color: var(--roheline); font-weight: 600; }
-#valitudInfo { padding: 10px 14px; border-top: 1px solid var(--joon); background: var(--tuhi); }
+#valitudInfo { padding: 10px 14px; border-top: 1px solid var(--joon); background: var(--tuhi); max-height: 48%; overflow: auto; }
 #valitudInfo .kood { font-size: 16px; font-weight: 700; }
 .hoiatus { color: var(--punane); font-weight: 600; }
-.varvid { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
-.varvid button { width: 24px; height: 24px; border-radius: 6px; border: 1px solid rgba(0,0,0,.2); padding: 0; font-size: 11px; font-weight: 700; color: #1d2025; }
+.varvid { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; align-items: center; }
+.varvid button { width: 22px; height: 22px; border-radius: 6px; border: 1px solid rgba(0,0,0,.2); padding: 0; font-size: 11px; font-weight: 700; color: #1d2025; }
 .varvid button.praegu { outline: 2px solid var(--valik); outline-offset: 1px; }
 
-#vpPea { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.tooriba { display: flex; gap: 10px; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--joon); background: var(--paneel); flex-wrap: wrap; }
-.pystakud { display: flex; gap: 4px; }
-.pystakud button { min-width: 44px; position: relative; }
-.pystakud button i { position: absolute; top: -6px; right: -6px; font-style: normal; font-size: 10px; background: var(--hall); color: var(--paneel); border-radius: 8px; padding: 0 5px; line-height: 15px; }
-#vpLava { flex: 1; overflow: auto; padding: 14px 16px 30px; }
-.riiul { display: grid; grid-template-columns: 74px repeat(8, minmax(96px, 1fr)); gap: 4px; min-width: 900px; }
+#tooala { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.tooriba { display: flex; gap: 8px; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--joon); background: var(--paneel); flex-wrap: wrap; }
+.nupurida { display: flex; gap: 4px; flex-wrap: wrap; }
+.nupurida button { min-width: 38px; position: relative; }
+.nupurida button i { position: absolute; top: -6px; right: -6px; font-style: normal; font-size: 10px; background: var(--hall); color: var(--paneel); border-radius: 8px; padding: 0 5px; line-height: 15px; }
+#lava { flex: 1; overflow: auto; padding: 12px 16px 30px; }
+
+/* ühine riiuli ruudustik (väikepakend ja suur ladu) */
+.riiul { display: grid; gap: 4px; }
 .tase { display: flex; flex-direction: column; justify-content: center; padding: 0 6px; font-size: 12px; font-weight: 700; border-radius: 6px; background: var(--paneel); border: 1px solid var(--joon); }
 .tase .ergo { font-weight: 400; font-size: 11px; color: var(--hall); }
 .tase.redel { border-left: 4px solid #c9a227; }
 .tase.eba { border-left: 4px solid #d8c68a; }
-.kastipesa { display: flex; gap: 2px; min-height: 58px; }
+.tase.fluid { border-left: 4px solid var(--kol-joon); background: var(--kollane); }
+.pesa { display: flex; gap: 2px; min-height: 56px; }
+.pesa.fluid { padding: 2px; border-radius: 6px; background: var(--kollane); }
 .pool { flex: 1; min-width: 0; border-radius: 5px; padding: 3px 4px; font-size: 11px; line-height: 1.15; color: #1d2025; overflow: hidden; cursor: pointer; border: 1px solid rgba(0,0,0,.12); position: relative; }
 .pool b { display: block; font-size: 11px; word-break: break-all; }
 .pool i { font-style: normal; opacity: .8; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .pool u { display: block; text-decoration: none; font-size: 10px; opacity: .7; }
-.kastipesa .pool + .pool i, .kastipesa .pool:has(+ .pool) i { -webkit-line-clamp: 1; }
+.pesa .pool + .pool i, .pesa .pool:has(+ .pool) i { -webkit-line-clamp: 1; }
 .pool.tuhi { background: var(--tuhi); border: 1px dashed var(--joon); color: var(--hall); }
+.pesa.fluid .pool.tuhi { background: transparent; }
 .pool.tuhi:hover { border-color: var(--roheline); background: var(--roh-hele); }
 .pool.valitud { outline: 3px solid var(--valik); outline-offset: -1px; z-index: 1; }
+.pool.valitud-koht { outline: 3px solid var(--valik); outline-offset: -1px; z-index: 2; box-shadow: 0 0 0 3px var(--paneel) inset; }
 .pool.hamar { opacity: .28; }
+.pool.peidetud { background-image: repeating-linear-gradient(135deg, transparent 0 6px, rgba(0,0,0,.12) 6px 8px) !important; }
 .pool.hoiatus-redel::after { content: "⚠"; position: absolute; right: 3px; bottom: 1px; color: #a3120b; font-size: 12px; }
 .pool.konflikt { outline: 3px solid var(--punane); }
 .pool.valgus { animation: vilgu 1.4s ease-out 2; }
 @keyframes vilgu { 0%, 100% { box-shadow: none; } 30% { box-shadow: 0 0 0 5px var(--valik); } }
-.kast-silt { grid-column: 2 / -1; display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; font-size: 11px; color: var(--hall); text-align: center; }
+.veerusilt { font-size: 11px; color: var(--hall); text-align: center; align-self: end; }
+.veerusilt.p { font-weight: 700; color: var(--tekst); border-bottom: 2px solid var(--joon); }
+.kitsas .pool i, .kitsas .pool u { display: none; }
+.kitsas .pool { padding: 2px; font-size: 10px; }
+.kitsas .pool b { font-size: 10px; }
+.kitsas .tase { padding: 0 4px; }
+.kitsas .pesa .pool + .pool b, .kitsas .pesa .pool:has(+ .pool) b { writing-mode: vertical-rl; transform: rotate(180deg); word-break: normal; white-space: nowrap; margin: 0 auto; }
+.kitsas .pesa { min-height: 40px; }
 
-/* ---------- LAOPLAAN ---------- */
-#v-plaan { flex-direction: column; overflow: auto; }
-#plaanSvgKast { padding: 14px 16px 4px; }
-#plaanSvg { width: 100%; max-width: 1100px; height: auto; display: block; }
+/* põrandaplaan */
+#plaanKast { padding: 8px 16px 0; background: var(--paneel); border-bottom: 1px solid var(--joon); }
+#plaanSvg { width: 100%; max-width: 980px; max-height: 240px; height: auto; display: block; margin: 0 auto; }
 #plaanSvg .riul { cursor: pointer; }
 #plaanSvg .riul rect { fill: var(--paneel); stroke: var(--hall); stroke-width: 1.5; }
 #plaanSvg .riul:hover rect, #plaanSvg .riul.akt rect { fill: var(--roh-hele); stroke: var(--roheline); stroke-width: 2.5; }
 #plaanSvg .riul.maaramata rect { stroke-dasharray: 5 4; fill: none; }
-#plaanSvg text { fill: var(--tekst); font-size: 13px; font-weight: 600; pointer-events: none; }
+#plaanSvg text { fill: var(--tekst); font-size: 12px; font-weight: 600; pointer-events: none; }
 #plaanSvg .markus { fill: var(--hall); font-size: 11px; font-weight: 400; }
 #plaanSvg .ala { fill: var(--tuhi); stroke: var(--joon); }
 #plaanSvg .vp rect { fill: var(--kollane); stroke: var(--kol-joon); }
-#reaVaade { padding: 6px 16px 30px; }
-.reaTabel { display: grid; gap: 3px; margin-top: 8px; overflow: auto; }
-.reaTabel .p { font-size: 12px; font-weight: 700; text-align: center; color: var(--hall); }
-.reaTabel .t { font-size: 12px; font-weight: 700; display: flex; align-items: center; color: var(--hall); }
-.tala { display: flex; gap: 2px; }
-.alus { flex: 1; min-width: 0; min-height: 40px; border-radius: 4px; border: 1px solid var(--joon); background: var(--paneel); padding: 2px 3px; font-size: 11px; line-height: 1.2; cursor: pointer; overflow: hidden; }
-.alus.tyhi { background: var(--tuhi); color: var(--hall); }
-.alus.fluid { background: var(--kollane); border-color: var(--kol-joon); }
-.alus.valgus { animation: vilgu 1.4s ease-out 2; }
-.alus b { display: block; word-break: break-all; }
+#plaanSvg .muu rect { fill: none; stroke: var(--hall); stroke-dasharray: 3 3; }
 
-/* seadistus ja modaalid */
+/* modaalid */
 .katte { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 50; display: none; align-items: center; justify-content: center; }
 .katte.lahti { display: flex; }
-.modaal { background: var(--paneel); border-radius: 14px; padding: 20px; width: min(520px, calc(100% - 32px)); max-height: 85vh; overflow: auto; }
+.modaal { background: var(--paneel); border-radius: 14px; padding: 20px; width: min(560px, calc(100% - 32px)); max-height: 85vh; overflow: auto; }
+.modaal.lai { width: min(820px, calc(100% - 32px)); }
 .modaal h2 { margin: 0 0 10px; font-size: 18px; }
 .modaal label { display: block; font-size: 12px; color: var(--hall); margin: 10px 0 3px; }
-.modaal input { width: 100%; }
+.modaal input[type=text], .modaal input[type=url] { width: 100%; }
 .jrk-rida { display: flex; align-items: center; gap: 6px; padding: 3px 0; border-bottom: 1px solid var(--joon2); }
 .jrk-rida span { flex: 1; }
 .jrk-rida button { width: 28px; height: 26px; padding: 0; border: 1px solid var(--joon); border-radius: 6px; background: var(--paneel); }
+.tabel { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tabel td, .tabel th { padding: 6px 6px; border-bottom: 1px solid var(--joon2); text-align: left; vertical-align: top; }
+.tabel th { font-size: 12px; color: var(--hall); font-weight: 600; }
 
 #teade { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--tekst); color: var(--bg); padding: 9px 16px; border-radius: 10px; z-index: 60; display: none; max-width: 80vw; }
 #teade.viga { background: var(--punane); color: #fff; }
 
-/* print */
 #prindiAla { display: none; }
 @media print {
   @page { size: A4 landscape; margin: 8mm; }
@@ -151,13 +156,13 @@ main { height: calc(100% - 49px); }
   #prindiAla { display: block; }
   .leht { page-break-after: always; }
   .leht h2 { font: 700 14pt system-ui, sans-serif; margin: 0 0 4mm; }
-  .leht .riiul { min-width: 0; grid-template-columns: 22mm repeat(8, 1fr); gap: 1.2mm; }
-  .leht .tase { border: 1px solid #000; background: #fff; color: #000; }
-  .leht .pool { border: 1px solid #000; color: #000; min-height: 17mm; font-size: 7.5pt; }
+  .leht .riiul { gap: 1.2mm; }
+  .leht .tase { border: 1px solid #000; background: #fff !important; color: #000; }
+  .leht .pool { border: 1px solid #000; color: #000; min-height: 16mm; font-size: 7.5pt; }
   .leht .pool b { font-size: 8.5pt; }
   .leht .pool.tuhi { border: 1px dashed #999; background: #fff; }
-  .leht .kastipesa { min-height: 17mm; }
-  .leht .pool.hoiatus-redel::after { color: #000; }
+  .leht .pesa { min-height: 16mm; }
+  .leht .pesa.fluid { background: #fff; border: 1px dotted #000; }
 }
 </style>
 </head>
@@ -174,57 +179,42 @@ main { height: calc(100% - 49px); }
     <div id="otsTulemus"></div>
   </div>
   <span class="olek" id="olek"></span>
+  <button class="nupp" id="peidetudNupp" title="Valikust väljas tooted">Peidetud</button>
   <button class="nupp" id="uuenda">Uuenda</button>
   <button class="nupp" id="seadedNupp" title="Seaded">⚙</button>
 </header>
 
-<main>
-  <!-- LAOPLAAN -->
-  <section class="vaade" id="v-plaan">
-    <div id="plaanSvgKast"><svg id="plaanSvg" viewBox="0 0 1100 484" role="img" aria-label="Lao põrandaplaan"></svg></div>
-    <div id="reaVaade"><p class="hall">Klõpsa plaanil real, et näha selle kohti. Väikepakendi riiul (paremal) avab väikepakendi vaate.</p></div>
-  </section>
-
-  <!-- VÄIKEPAKEND -->
-  <section class="vaade" id="v-vp">
-    <aside>
-      <div class="kast">
-        <label for="grupp">Kaubagrupp (🟢 kõik paigutatud, 🟡 pooleli)</label>
-        <div class="rida">
-          <select id="grupp" style="flex:1"></select>
-          <button class="nupp" id="jrkNupp" title="Gruppide järjekord">↕</button>
-        </div>
-        <div class="hall vaike" id="grupiInfo" style="margin-top:4px"></div>
+<div id="paigutus">
+  <aside>
+    <div class="kast">
+      <div class="rida" id="metaRida" style="margin-bottom:6px">
+        <select id="meta" style="flex:1" title="Metagrupp"></select>
       </div>
-      <div class="kast">
-        <input id="nimOts" type="search" placeholder="Filtreeri nimekirja…" autocomplete="off">
-        <div class="rida" style="margin-top:6px">
-          <label class="linnuke"><input type="checkbox" id="peida"> Peida paigutatud</label>
-          <label class="linnuke"><input type="checkbox" id="auto" checked> Auto-järgmine</label>
-          <label class="linnuke" title="Näita ka tooteid, mis pole KOTT"><input type="checkbox" id="koik"> Kõik tooted</label>
-        </div>
+      <label for="grupp">Kaubagrupp (🟢 kõik paigutatud, 🟡 pooleli)</label>
+      <div class="rida">
+        <select id="grupp" style="flex:1"></select>
+        <button class="nupp" id="jrkNupp" title="Gruppide järjekord (väikepakend)">↕</button>
       </div>
-      <div id="tooteNimekiri"></div>
-      <div id="valitudInfo"></div>
-    </aside>
-
-    <div id="vpPea">
-      <div class="tooriba">
-        <div class="pystakud" id="kylg"></div>
-        <span class="hall">Püstak</span>
-        <div class="pystakud" id="pystak"></div>
-        <span style="flex:1"></span>
-        <span class="hall vaike">Teisalda püstak V-<span id="praeguPystak"></span> →</span>
-        <select id="sihtKylg"><option>1</option><option>2</option></select>
-        <select id="sihtPystak"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select>
-        <button class="nupp" id="teisalda" title="Kui sihtpüstak pole tühi, vahetatakse need omavahel">Teisalda</button>
-        <button class="nupp" id="prindiPystak">Prindi püstak</button>
-        <button class="nupp" id="prindiKylg">Prindi külg</button>
-      </div>
-      <div id="vpLava"></div>
+      <div class="hall vaike" id="grupiInfo" style="margin-top:4px"></div>
     </div>
-  </section>
-</main>
+    <div class="kast">
+      <input id="nimOts" type="search" placeholder="Filtreeri nimekirja…" autocomplete="off">
+      <div class="rida" style="margin-top:6px">
+        <label class="linnuke"><input type="checkbox" id="peida"> Peida paigutatud</label>
+        <label class="linnuke"><input type="checkbox" id="auto" checked> Auto-järgmine</label>
+        <label class="linnuke" id="koikSilt"><input type="checkbox" id="koik"> Kõik tooted</label>
+      </div>
+    </div>
+    <div id="tooteNimekiri"></div>
+    <div id="valitudInfo"></div>
+  </aside>
+
+  <div id="tooala">
+    <div id="plaanKast"><svg id="plaanSvg" viewBox="0 0 1000 300" role="img" aria-label="Lao põrandaplaan"></svg></div>
+    <div class="tooriba" id="tooriba"></div>
+    <div id="lava"></div>
+  </div>
+</div>
 
 <!-- seadistus -->
 <div class="katte" id="seadistus">
@@ -247,13 +237,30 @@ main { height: calc(100% - 49px); }
 <!-- gruppide järjekord -->
 <div class="katte" id="jrkAken">
   <div class="modaal">
-    <h2>Gruppide järjekord</h2>
+    <h2>Väikepakendi gruppide järjekord</h2>
     <p class="hall vaike">Järjekord määrab nimekirja ja värvide järjestuse. Salvestub Sheeti (Seaded).</p>
     <div id="jrkNimekiri"></div>
     <div class="rida" style="margin-top:14px;justify-content:flex-end">
       <button class="nupp" id="jrkLoobu">Loobu</button>
       <button class="nupp pea" id="jrkSalvesta">Salvesta</button>
     </div>
+  </div>
+</div>
+
+<!-- peidetud tooted -->
+<div class="katte" id="peidAken">
+  <div class="modaal lai">
+    <div class="rida" style="justify-content:space-between">
+      <h2 style="margin:0">Valikust väljas</h2>
+      <button class="nupp" id="peidSulge">Sulge</button>
+    </div>
+    <div class="rida" style="margin:10px 0">
+      <button class="nupp" data-peidvaade="peidetud" id="pvPeidetud">Peidetud</button>
+      <button class="nupp" data-peidvaade="kand" id="pvKand">Kandidaadid</button>
+      <input id="peidOts" type="search" placeholder="Filtreeri…" style="flex:1;min-width:160px">
+    </div>
+    <p class="hall vaike" id="peidSelgitus"></p>
+    <div id="peidSisu"></div>
   </div>
 </div>
 
@@ -267,7 +274,7 @@ main { height: calc(100% - 49px); }
    ============================================================ */
 const V = { seaded: 'ladu_arvuti_seaded', andmed: 'ladu_arvuti_andmed', valjas: 'ladu_arvuti_valjas', ui: 'ladu_arvuti_ui' };
 const loe = (k, v) => { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : v; } catch (e) { return v; } };
-const kirjuta = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* mälu täis – töötab ka ilma */ } };
+const kirjuta = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* täis */ } };
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const normKood = s => String(s == null ? '' : s).trim().toUpperCase();
@@ -276,11 +283,29 @@ const nr = x => { const n = Number(String(x).replace(',', '.')); return isFinite
 const fmt = n => (Math.round(n * 10) / 10).toLocaleString('et-EE');
 const CN = new Intl.Collator('et', { numeric: true, sensitivity: 'base' });
 
+// IndexedDB suurte andmete jaoks (20 000 toodet ei mahu kindlalt localStorage'isse)
+const IDB = {
+  db: null,
+  ava() {
+    if (this.db) return Promise.resolve(this.db);
+    return new Promise((ok, viga) => {
+      const r = indexedDB.open('ladu_arvuti', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('kv');
+      r.onsuccess = () => { this.db = r.result; ok(this.db); };
+      r.onerror = () => viga(r.error);
+    });
+  },
+  async loe(k) { const db = await this.ava(); return new Promise((ok, v) => { const q = db.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => ok(q.result); q.onerror = () => v(q.error); }); },
+  async kirjuta(k, x) { const db = await this.ava(); return new Promise((ok, v) => { const t = db.transaction('kv', 'readwrite'); t.objectStore('kv').put(x, k); t.oncomplete = () => ok(); t.onerror = () => v(t.error); }); }
+};
+const salvestaAndmed = () => IDB.kirjuta('andmed', ANDMED).catch(() => {});
+
 let SEADED = loe(V.seaded, null);
-let ANDMED = loe(V.andmed, null);
+let ANDMED = null;
 let VALJAS = loe(V.valjas, []);
-const UI = Object.assign({ vaade: 'vp', r: 1, u: 1, grupp: 'ALL', peida: false, auto: true, koik: false, rida: null }, loe(V.ui, {}));
+const UI = Object.assign({ vaade: 'vp', r: 1, u: 1, rida: 1, rp: 0, gruppVP: 'ALL', gruppL: 'ALL', meta: 'ALL', peida: false, auto: true, koikVP: false, koikL: false }, loe(V.ui, {}));
 const salvestaUI = () => kirjuta(V.ui, UI);
+const onVPvaade = () => UI.vaade === 'vp';
 
 let teadeT;
 function teade(t, viga) {
@@ -300,10 +325,7 @@ async function api(p, ms = 60000) {
     });
     const tekst = await r.text();
     try { return JSON.parse(tekst); }
-    catch (e) {
-      const pk = (tekst.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1] || tekst.slice(0, 100);
-      throw new Error(`Google vastas HTTP ${r.status}: ${pk}`);
-    }
+    catch (e) { throw new Error(`Google vastas HTTP ${r.status}: ${(tekst.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1] || tekst.slice(0, 100)}`); }
   } finally { clearTimeout(t); }
 }
 
@@ -312,10 +334,10 @@ async function laeAndmed(teavita) {
   if (!SEADED || laeb) return;
   laeb = true; olek();
   try {
-    const versioon = ANDMED && ANDMED.tooted ? ANDMED.versioon : undefined;
-    const j = await api({ tegevus: 'andmed', osad: 'tooted,asukohad,paigutus,seaded', versioon });
+    const versioon = ANDMED && ANDMED.tooted && ANDMED.tootekaart ? ANDMED.versioon : undefined;
+    const j = await api({ tegevus: 'andmed', osad: 'tooted,tootekaart,asukohad,paigutus,seaded', versioon });
     if (!j.ok) throw new Error(j.viga);
-    if (!j.muutmata) { ANDMED = j; kirjuta(V.andmed, ANDMED); }
+    if (!j.muutmata) { ANDMED = j; salvestaAndmed(); }
     VIGA = '';
     ehitaKoik();
     if (teavita) teade(j.muutmata ? 'Andmed on värsked' : 'Andmed uuendatud');
@@ -325,7 +347,6 @@ async function laeAndmed(teavita) {
   } finally { laeb = false; olek(); }
 }
 
-// Saatmata muudatused läbi, ükshaaval järjekorras
 let saadab = false;
 async function saada() {
   if (saadab || !VALJAS.length || !SEADED) return;
@@ -334,24 +355,25 @@ async function saada() {
     while (VALJAS.length) {
       const op = VALJAS[0];
       const j = await api(Object.assign({}, op.paring), 45000);
-      if (!j.ok) { teade('Salvestamine ebaõnnestus: ' + j.viga, true); VALJAS.shift(); kirjuta(V.valjas, VALJAS); ehitaSeosed(); renderAktiivne(); continue; }
-      rakenda(ANDMED, op.paring);          // kinnitatud -> serveri koopiasse
+      if (!j.ok) teade('Salvestamine ebaõnnestus: ' + j.viga, true);
+      else rakenda(ANDMED, op.paring);
       VALJAS.shift();
-      kirjuta(V.valjas, VALJAS); kirjuta(V.andmed, ANDMED);
+      kirjuta(V.valjas, VALJAS); salvestaAndmed();
+      if (!j.ok) { ehitaSeosed(); renderKoik(); }
       VIGA = '';
     }
   } catch (e) {
-    VIGA = 'ühendus: ' + (e.name === 'AbortError' ? 'aegus' : e.message);   // proovime hiljem
+    VIGA = 'ühendus: ' + (e.name === 'AbortError' ? 'aegus' : e.message);
   } finally { saadab = false; olek(); }
 }
 
-// Rakenda muudaPaigutust/salvestaSeade päring andmete koopiale
+// Rakenda päring andmete koopiale (sama loogika mis serveris)
 function rakenda(A, p) {
   if (!A) return;
   if (p.tegevus === 'muudaPaigutust') {
     const vp = (k, a) => normKood(k) + '|' + normKoht(a);
     const kustu = new Set((p.eemalda || []).map(o => vp(o.Kood, o.Asukoht)));
-    let P = (A.paigutus || []).filter(x => !kustu.has(vp(x.Kood, x.Asukoht)));
+    const P = (A.paigutus || []).filter(x => !kustu.has(vp(x.Kood, x.Asukoht)));
     (p.lisa || []).forEach(o => {
       const i = P.findIndex(x => vp(x.Kood, x.Asukoht) === vp(o.Kood, o.Asukoht));
       const uus = { Kood: normKood(o.Kood), Asukoht: normKoht(o.Asukoht), Liik: o.Liik || 'püsiv', Pool: o.Pool || '' };
@@ -359,14 +381,22 @@ function rakenda(A, p) {
     });
     A.paigutus = P;
   } else if (p.tegevus === 'salvestaSeade') {
-    A.seaded = A.seaded || {};
+    A.seaded = Object.assign({}, A.seaded);
     A.seaded[p.seade] = typeof p.vaartus === 'string' ? p.vaartus : JSON.stringify(p.vaartus);
+  } else if (p.tegevus === 'salvestaTootekaart') {
+    const K = (A.tootekaart || []).slice();
+    (p.read || []).forEach(o => {
+      const k = normKood(o.Kood), i = K.findIndex(x => normKood(x.Kood) === k);
+      if (i >= 0) K[i] = Object.assign({}, K[i], o, { Kood: k }); else K.push(Object.assign({}, o, { Kood: k }));
+    });
+    A.tootekaart = K;
   }
 }
 
-function muuda(paring) {
-  VALJAS.push({ paring }); kirjuta(V.valjas, VALJAS);
-  ehitaSeosed(); renderAktiivne(); olek();
+function muuda(...paringud) {
+  paringud.forEach(paring => VALJAS.push({ paring }));
+  kirjuta(V.valjas, VALJAS);
+  ehitaSeosed(); renderKoik(); olek();
   saada();
 }
 
@@ -382,66 +412,73 @@ function olek() {
 /* ============================================================
    ANDMED -> INDEKSID
    ============================================================ */
-let T = new Map(), EAN = new Map(), KOHAD = new Map(), SEOSED = [], VP_KOHT = new Map(), VP_OCC = new Map(), GJRK = [], VARVID = {};
+let T = new Map(), EAN = new Map(), KOHAD = new Map(), SEOSED = [], KOODI_SEOSED = new Map(), OCC = new Map(),
+    GJRK = [], VARVID = {}, PEIDETUD = new Map(), READ = new Map();
 
-function seade(nimi, vaikimisi) {
-  const v = ANDMED && ANDMED.seaded ? ANDMED.seaded[nimi] : undefined;
-  if (v === undefined || v === '') return vaikimisi;
+function jsonSeade(S, nimi, vaikimisi) {
+  const v = S ? S[nimi] : undefined;
+  if (v === undefined || v === '' || v === null) return vaikimisi;
   if (typeof v !== 'string') return v;
   try { return JSON.parse(v); } catch (e) { return vaikimisi; }
 }
 
 function ehitaKoik() {
-  T = new Map(); EAN = new Map(); KOHAD = new Map();
+  T = new Map(); EAN = new Map(); KOHAD = new Map(); READ = new Map();
   if (ANDMED && ANDMED.tooted) {
     ANDMED.tooted.read.forEach(r => {
       const t = { kood: normKood(r[0]), nimi: String(r[1] || ''), ean: String(r[2] || '').trim(), uld: r[3], k3: r[4], maardu: r[5],
-                  uhik: String(r[6] || ''), grupp: String(r[7] || '').trim() || 'Määramata', meta: r[8], ak: Math.round(nr(r[9]) * 12) };
+                  uhik: String(r[6] || ''), grupp: String(r[7] || '').trim() || 'Määramata', meta: String(r[8] || '').trim() || 'Määramata',
+                  ak: Math.round(nr(r[9]) * 12) };
       T.set(t.kood, t);
       if (t.ean && t.ean !== t.kood) { EAN.set(t.ean.toUpperCase(), t.kood); if (/^\d+$/.test(t.ean)) EAN.set('#' + t.ean.replace(/^0+/, ''), t.kood); }
     });
     (ANDMED.asukohad || []).forEach(a => {
       const k = normKoht(a.Asukoht);
-      if (k) KOHAD.set(k, { koht: k, fluid: a.Fluid === true || String(a.Fluid).toLowerCase() === 'jah', tyyp: a['Tüüp'], ala: a.Ala });
+      if (!k) return;
+      KOHAD.set(k, { koht: k, fluid: a.Fluid === true || String(a.Fluid).toLowerCase() === 'jah' });
+      const m = /^(\d+)-(\d+)-(\d+)-(\d+)$/.exec(k);
+      if (m) {
+        const r = +m[1], x = READ.get(r) || { p: 0, t: 0, kohad: new Map() };
+        x.p = Math.max(x.p, +m[2]); x.t = Math.max(x.t, +m[3]);
+        const pk = m[2] + '-' + m[3];
+        x.kohad.set(pk, Math.max(x.kohad.get(pk) || 0, +m[4]));
+        READ.set(r, x);
+      }
     });
   }
-  GJRK = seade('Väikepakendi grupijärjekord', []);
-  if (!Array.isArray(GJRK)) GJRK = [];
-  VARVID = seade('Väikepakendi värvid', {}) || {};
   ehitaSeosed();
-  renderAktiivne();
+  renderKoik();
 }
 
 // serveri seosed + saatmata muudatused
 function ehitaSeosed() {
-  const A = { paigutus: (ANDMED && ANDMED.paigutus || []).slice(), seaded: Object.assign({}, ANDMED && ANDMED.seaded) };
+  const A = { paigutus: (ANDMED && ANDMED.paigutus || []).slice(), seaded: Object.assign({}, ANDMED && ANDMED.seaded),
+              tootekaart: (ANDMED && ANDMED.tootekaart || []).slice() };
   VALJAS.forEach(op => rakenda(A, op.paring));
-  SEOSED = A.paigutus.map(x => ({ kood: normKood(x.Kood), koht: normKoht(x.Asukoht), liik: x.Liik, pool: String(x.Pool || '') }));
-  VP_KOHT = new Map(); VP_OCC = new Map();
+  SEOSED = A.paigutus.map(x => ({ kood: normKood(x.Kood), koht: normKoht(x.Asukoht), liik: x.Liik, pool: String(x.Pool || '') }))
+                     .filter(s => s.kood && s.koht);
+  KOODI_SEOSED = new Map(); OCC = new Map();
   SEOSED.forEach(s => {
-    const v = vpOsad(s.koht);
-    if (!v) return;
-    if (!VP_KOHT.has(s.kood)) VP_KOHT.set(s.kood, s);
-    const key = `${v.r},${v.u},${v.l},${v.b}`;
-    const o = VP_OCC.get(key) || { a: [], b: [] };
-    if (s.pool === 'terve') { o.a.push(s); o.b.push(s); }
-    else if (s.pool === 'parem') o.b.push(s);
-    else o.a.push(s);
-    VP_OCC.set(key, o);
+    (KOODI_SEOSED.get(s.kood) || KOODI_SEOSED.set(s.kood, []).get(s.kood)).push(s);
+    const o = OCC.get(s.koht) || { a: [], b: [] };
+    if (s.pool === 'parem') o.b.push(s);
+    else if (s.pool === 'vasak') o.a.push(s);
+    else { o.a.push(s); o.b.push(s); }             // terve (või määramata) võtab kogu koha
+    OCC.set(s.koht, o);
   });
-  if (ANDMED && ANDMED.seaded) {
-    const g = (() => { try { const v = A.seaded['Väikepakendi grupijärjekord']; return typeof v === 'string' ? JSON.parse(v) : v; } catch (e) { return null; } })();
-    if (Array.isArray(g)) GJRK = g;
-    const c = (() => { try { const v = A.seaded['Väikepakendi värvid']; return typeof v === 'string' ? JSON.parse(v) : v; } catch (e) { return null; } })();
-    if (c && typeof c === 'object') VARVID = c;
-  }
+  KOODI_SEOSED.forEach(l => l.sort((a, b) => CN.compare(a.koht, b.koht)));
+  GJRK = jsonSeade(A.seaded, 'Väikepakendi grupijärjekord', []); if (!Array.isArray(GJRK)) GJRK = [];
+  VARVID = jsonSeade(A.seaded, 'Väikepakendi värvid', {}) || {};
+  PEIDETUD = new Map();
+  A.tootekaart.forEach(k => { const v = String(k.Peidetud || '').trim(); if (v && k.Kood) PEIDETUD.set(normKood(k.Kood), v); });
 }
 
-function vpOsad(koht) {
-  const m = /^V-(\d+)-(\d+)-(\d+)-(\d+)$/.exec(koht);
-  return m ? { r: +m[1], u: +m[2], l: +m[3], b: +m[4] } : null;
-}
+const vpOsad = koht => { const m = /^V-(\d+)-(\d+)-(\d+)-(\d+)$/.exec(koht); return m ? { r: +m[1], u: +m[2], l: +m[3], b: +m[4] } : null; };
+const suurOsad = koht => { const m = /^(\d+)-(\d+)-(\d+)-(\d+)$/.exec(koht); return m ? { r: +m[1], p: +m[2], t: +m[3], a: +m[4] } : null; };
 const vpKood = (r, u, l, b) => `V-${r}-${u}-${l}-${b}`;
+const seosed = kood => KOODI_SEOSED.get(kood) || [];
+const vpSeosed = kood => seosed(kood).filter(s => vpOsad(s.koht));
+const suurSeosed = kood => seosed(kood).filter(s => !vpOsad(s.koht));
 
 function leiaToode(q) {
   q = normKood(q);
@@ -451,196 +488,344 @@ function leiaToode(q) {
   if (/^\d{6,}$/.test(q) && EAN.has('#' + q.replace(/^0+/, ''))) return T.get(EAN.get('#' + q.replace(/^0+/, '')));
   return null;
 }
+const toode = kood => T.get(kood) || { kood, nimi: '(Buumi ekspordis pole)', ean: '', uhik: '', grupp: 'Määramata', meta: 'Määramata', ak: 0, maardu: 0, k3: 0, puudub: true };
 
 /* ============================================================
-   VÄIKEPAKEND
+   TOOTENIMEKIRI JA VALIK (ühine mõlemale vaatele)
    ============================================================ */
 const PAL = ['#ffb3b3', '#ffd699', '#fff2a8', '#c8f0a8', '#a8e6cf', '#a8d8ff', '#c9b8ff', '#ffb8e6', '#cfcfcf'];
-let VALITUD = null;             // valitud toote kood
-const K_VALIK = new Map();      // paigutamata toote kohtade arv (1/2), kui kasutaja muutis
+let VALITUD = null;                 // { kood, koht? } – koht on olemas, kui valiti riiulist
+const K_VALIK = new Map();          // paigutamata toote kohtade arv (vaade|kood -> 1/2)
 
 const gi = g => { const i = GJRK.indexOf(g); return i < 0 ? 999 : i; };
 const onVP = t => (t.uhik.toUpperCase() === 'KOTT' || /PP$/.test(t.kood)) && t.nimi.indexOf('@') < 0 && !/^x\./i.test(t.nimi.trim());
-const varv = t => {
-  const c = VARVID[t.kood];
-  if (c !== undefined && c !== null && PAL[c]) return PAL[c];
-  let i = GJRK.indexOf(t.grupp);
-  if (i < 0) { i = 0; for (const ch of t.grupp) i = (i * 31 + ch.charCodeAt(0)) % 997; }
-  return `hsl(${Math.round(i * 137.5) % 360} 55% 78%)`;   // kuldnurk: naabergrupid erinevad selgelt
-};
-function kohti(t) {
-  const s = VP_KOHT.get(t.kood);
-  if (s) return s.pool === 'terve' ? 2 : 1;
-  if (K_VALIK.has(t.kood)) return K_VALIK.get(t.kood);
-  return t.ak > 300 ? 2 : 1;          // > 300 kotti/aastas = 2 kohta
+function grupiToon(g) {
+  let i = GJRK.indexOf(g);
+  if (i < 0) { i = 0; for (const ch of g) i = (i * 31 + ch.charCodeAt(0)) % 997; }
+  return Math.round(i * 137.5) % 360;
+}
+const varv = t => { const c = VARVID[t.kood]; return (c != null && PAL[c]) ? PAL[c] : `hsl(${grupiToon(t.grupp)} 55% 78%)`; };
+
+function kohti(t, koht) {
+  const s = koht ? seosed(t.kood).find(x => x.koht === koht) : (onVPvaade() ? vpSeosed(t.kood)[0] : null);
+  if (s) return s.pool === 'vasak' || s.pool === 'parem' ? 1 : 2;
+  const k = K_VALIK.get(UI.vaade + '|' + t.kood);
+  if (k) return k;
+  return onVPvaade() ? (t.ak > 300 ? 2 : 1) : 2;   // VP: >300/a = terve kast; suur ladu: täisalus
 }
 
-function vpTooted() {
+function vaateTooted() {
+  const vp = onVPvaade(), koik = vp ? UI.koikVP : UI.koikL;
   const list = [];
-  T.forEach(t => { if (UI.koik || onVP(t) || VP_KOHT.has(t.kood)) list.push(t); });
-  // Paigutuses olevad koodid, mida Buumis pole
-  VP_KOHT.forEach((s, k) => { if (!T.has(k)) list.push({ kood: k, nimi: '(Buumi ekspordis pole)', ean: '', uhik: '', grupp: 'Määramata', ak: 0, maardu: 0, k3: 0, puudub: true }); });
-  return list.sort((a, b) => gi(a.grupp) - gi(b.grupp) || CN.compare(a.grupp, b.grupp) || CN.compare(a.nimi, b.nimi));
+  T.forEach(t => {
+    if (PEIDETUD.has(t.kood) && !seosed(t.kood).length) return;          // peidetud ja kohata -> ei näita
+    const minu = vp ? vpSeosed(t.kood).length : suurSeosed(t.kood).length;
+    if (minu || koik || (vp ? onVP(t) : !onVP(t))) list.push(t);
+  });
+  KOODI_SEOSED.forEach((l, k) => { if (!T.has(k) && (vp ? l.some(s => vpOsad(s.koht)) : l.some(s => !vpOsad(s.koht)))) list.push(toode(k)); });
+  return list;
 }
 
-function nahtavad() {
+function nahtavad(list) {
   const q = $('nimOts').value.trim().toLowerCase();
-  return vpTooted().filter(t =>
-    (UI.grupp === 'ALL' || t.grupp === UI.grupp) &&
+  const vp = onVPvaade(), grupp = vp ? UI.gruppVP : UI.gruppL;
+  const onKoht = t => vp ? vpSeosed(t.kood).length : suurSeosed(t.kood).length;
+  return (list || vaateTooted()).filter(t =>
+    (vp || UI.meta === 'ALL' || t.meta === UI.meta) &&
+    (grupp === 'ALL' || t.grupp === grupp) &&
     (!q || (t.kood + ' ' + t.nimi).toLowerCase().includes(q)) &&
-    !(UI.peida && VP_KOHT.has(t.kood) && t.kood !== VALITUD));
+    !(UI.peida && onKoht(t) && (!VALITUD || t.kood !== VALITUD.kood)))
+    .sort((a, b) => (vp ? gi(a.grupp) - gi(b.grupp) : 0) || CN.compare(a.grupp, b.grupp) || CN.compare(a.nimi, b.nimi));
 }
 
-function renderVP() {
-  if (!ANDMED) { $('tooteNimekiri').innerHTML = '<p class="hall" style="padding:14px">Andmed puuduvad. Vajuta „Uuenda“.</p>'; return; }
-  const koik = vpTooted();
+function renderAside() {
+  const vp = onVPvaade();
+  if (!ANDMED) { $('tooteNimekiri').innerHTML = '<p class="hall" style="padding:14px">Andmed puuduvad. Vajuta „Uuenda“.</p>'; $('valitudInfo').innerHTML = ''; return; }
+  const koik = vaateTooted();
+  const onKoht = t => vp ? vpSeosed(t.kood).length : suurSeosed(t.kood).length;
 
-  // grupid
+  // metagrupp (ainult suur ladu)
+  $('metaRida').style.display = vp ? 'none' : '';
+  $('jrkNupp').style.display = vp ? '' : 'none';
+  if (!vp) {
+    const M = new Map(); koik.forEach(t => M.set(t.meta, (M.get(t.meta) || 0) + 1));
+    $('meta').innerHTML = `<option value="ALL">Kõik metagrupid</option>` + [...M.keys()].sort(CN.compare).map(m => `<option value="${esc(m)}">${esc(m)} (${M.get(m)})</option>`).join('');
+    if (UI.meta !== 'ALL' && !M.has(UI.meta)) UI.meta = 'ALL';
+    $('meta').value = UI.meta;
+  }
+  const baas = koik.filter(t => vp || UI.meta === 'ALL' || t.meta === UI.meta);
+
+  // kaubagrupid
   const G = new Map();
-  koik.forEach(t => { const x = G.get(t.grupp) || { n: 0, pl: 0, h: 0 }; x.n++; x.h += kohti(t); if (VP_KOHT.has(t.kood)) x.pl++; G.set(t.grupp, x); });
-  const grupid = [...G.keys()].sort((a, b) => gi(a) - gi(b) || CN.compare(a, b));
-  const sel = $('grupp');
-  sel.innerHTML = `<option value="ALL">Kõik grupid (${koik.length})</option>` + grupid.map(g => {
+  baas.forEach(t => { const x = G.get(t.grupp) || { n: 0, pl: 0, h: 0 }; x.n++; x.h += kohti(t); if (onKoht(t)) x.pl++; G.set(t.grupp, x); });
+  const grupid = [...G.keys()].sort((a, b) => (vp ? gi(a) - gi(b) : 0) || CN.compare(a, b));
+  const gKey = vp ? 'gruppVP' : 'gruppL';
+  $('grupp').innerHTML = `<option value="ALL">Kõik grupid (${baas.length})</option>` + grupid.map(g => {
     const x = G.get(g), taies = x.n && x.pl === x.n;
-    return `<option value="${esc(g)}">${taies ? '🟢' : x.pl ? '🟡' : '⚪'} ${esc(g)} (${x.pl}/${x.n}, ~${Math.ceil(x.h / 2)} kasti)</option>`;
+    return `<option value="${esc(g)}">${taies ? '🟢' : x.pl ? '🟡' : '⚪'} ${esc(g)} (${x.pl}/${x.n}${vp ? `, ~${Math.ceil(x.h / 2)} kasti` : ''})</option>`;
   }).join('');
-  if (UI.grupp !== 'ALL' && !G.has(UI.grupp)) UI.grupp = 'ALL';
-  sel.value = UI.grupp;
-  const gx = UI.grupp === 'ALL' ? koik.reduce((a, t) => ({ n: a.n + 1, pl: a.pl + (VP_KOHT.has(t.kood) ? 1 : 0), h: a.h + kohti(t) }), { n: 0, pl: 0, h: 0 }) : G.get(UI.grupp);
-  $('grupiInfo').textContent = `${gx.pl}/${gx.n} paigutatud · vaja ~${Math.ceil(gx.h / 2)} täiskasti (${gx.h} poolkohta)`;
+  if (UI[gKey] !== 'ALL' && !G.has(UI[gKey])) UI[gKey] = 'ALL';
+  $('grupp').value = UI[gKey];
+  const gx = UI[gKey] === 'ALL' ? baas.reduce((a, t) => ({ n: a.n + 1, pl: a.pl + (onKoht(t) ? 1 : 0), h: a.h + kohti(t) }), { n: 0, pl: 0, h: 0 }) : G.get(UI[gKey]);
+  $('grupiInfo').textContent = `${gx.pl}/${gx.n} paigutatud` + (vp ? ` · vaja ~${Math.ceil(gx.h / 2)} täiskasti (${gx.h} poolkohta)` : '');
+  $('koik').checked = vp ? UI.koikVP : UI.koikL;
+  $('koikSilt').title = vp ? 'Näita ka tooteid, mis pole KOTT' : 'Näita ka KOTT-tooteid';
 
-  // nimekiri
-  const L = nahtavad();
-  if (!VALITUD || !L.some(t => t.kood === VALITUD) && !T.has(VALITUD)) VALITUD = (L.find(t => !VP_KOHT.has(t.kood)) || L[0] || {}).kood || null;
+  const L = nahtavad(koik);
+  if (!VALITUD || (!L.some(t => t.kood === VALITUD.kood) && !VALITUD.koht && !T.has(VALITUD.kood))) {
+    const t = L.find(x => !onKoht(x)) || L[0];
+    VALITUD = t ? { kood: t.kood } : null;
+  }
   const el = $('tooteNimekiri'), sc = el.scrollTop;
-  el.innerHTML = L.length ? L.slice(0, 3000).map(t => {
-    const s = VP_KOHT.get(t.kood);
-    return `<div class="toode-rida${t.kood === VALITUD ? ' valitud' : ''}" data-kood="${esc(t.kood)}">
+  const MAX = 1500;
+  el.innerHTML = L.length ? L.slice(0, MAX).map(t => {
+    const s = vp ? vpSeosed(t.kood) : suurSeosed(t.kood);
+    const kohad = s.map(x => x.koht.replace(/^V-/, '')).join(', ');
+    return `<div class="toode-rida${VALITUD && t.kood === VALITUD.kood ? ' valitud' : ''}" data-kood="${esc(t.kood)}">
       <span class="laik" style="background:${varv(t)}"></span>
       <span class="n"><b>${esc(t.kood)}</b> ${esc(t.nimi)}</span>
-      <span class="k${s ? ' ok' : ''}">${s ? '✓ ' + esc(s.koht.replace(/^V-/, '')) : (t.ak ? t.ak + ' /a' : '')}${kohti(t) === 2 ? ' ·2' : ''}</span>
+      <span class="k${s.length ? ' ok' : ''}">${s.length ? '✓ ' + esc(kohad.length > 18 ? s.length + ' kohta' : kohad) : (t.ak ? t.ak + ' /a' : '')}${PEIDETUD.has(t.kood) ? ' · väljas' : ''}</span>
     </div>`;
-  }).join('') : '<p class="hall" style="padding:14px">Nimekiri on tühi.</p>';
+  }).join('') + (L.length > MAX ? `<p class="hall vaike" style="padding:8px 14px">… veel ${L.length - MAX} toodet – kasuta filtrit</p>` : '')
+    : '<p class="hall" style="padding:14px">Nimekiri on tühi.</p>';
   el.scrollTop = sc;
   const v = el.querySelector('.valitud');
   if (v && (v.offsetTop < el.scrollTop || v.offsetTop > el.scrollTop + el.clientHeight - 30)) el.scrollTop = v.offsetTop - 60;
-
   renderValitud();
-  renderRiiul();
 }
 
 function renderValitud() {
-  const t = VALITUD && (T.get(VALITUD) || vpTooted().find(x => x.kood === VALITUD));
   const el = $('valitudInfo');
-  if (!t) { el.innerHTML = '<span class="hall">Vali toode nimekirjast või riiulilt.</span>'; return; }
-  const s = VP_KOHT.get(t.kood), k = kohti(t), v = s && vpOsad(s.koht);
-  const muud = SEOSED.filter(x => x.kood === t.kood && !vpOsad(x.koht)).map(x => x.koht);
+  if (!VALITUD) { el.innerHTML = '<span class="hall">Vali toode nimekirjast või riiulilt.</span>'; return; }
+  const t = toode(VALITUD.kood), vp = onVPvaade();
+  const koik = seosed(t.kood);
+  const k = kohti(t, VALITUD.koht);
+  const peid = PEIDETUD.get(t.kood);
+  const kohaTekst = s => `${esc(s.koht)}${s.pool === 'vasak' ? ' (vasak)' : s.pool === 'parem' ? ' (parem)' : ''}${s.liik === 'fluid' ? ' <span class="silt">fluid</span>' : ''}`;
+  const vpS = vpSeosed(t.kood)[0], v = vpS && vpOsad(vpS.koht);
   const redel = v && v.l >= 6 && t.ak > 300;
   const c = VARVID[t.kood];
-  el.innerHTML = `<div class="kood">${esc(t.kood)}</div>
+  el.innerHTML = `<div class="kood">${esc(t.kood)}${peid ? '<span class="silt">valikust väljas</span>' : ''}</div>
     <div>${esc(t.nimi)}</div>
-    <div class="hall vaike">${esc(t.grupp)} · käive ${t.ak || 0} tk/a · Maardu ${fmt(nr(t.maardu))} · K3 ${fmt(nr(t.k3))}</div>
-    <div style="margin-top:6px">${s ? `<b>${esc(s.koht)}</b> · ${k === 2 ? 'terve kast' : s.pool === 'parem' ? 'parem pool' : 'vasak pool'}` : '<span class="hall">Paigutamata – klõpsa riiulil tühja kohta</span>'}</div>
-    ${muud.length ? `<div class="vaike">Ka: ${muud.map(esc).join(', ')}</div>` : ''}
+    <div class="hall vaike">${esc(t.meta)} · ${esc(t.grupp)} · käive ${t.ak || 0} tk/a · Maardu ${fmt(nr(t.maardu))} · K3 ${fmt(nr(t.k3))}</div>
+    ${peid ? `<div class="vaike hall">Peidetud: ${esc(peid)}</div>` : ''}
+    <div style="margin-top:6px">${koik.length ? koik.map(s => `<div${VALITUD.koht === s.koht ? ' style="font-weight:700"' : ''}>${kohaTekst(s)}</div>`).join('') : '<span class="hall">Paigutamata – klõpsa riiulil tühja kohta</span>'}</div>
     ${redel ? '<div class="hoiatus vaike">⚠ Kiire toode (>300/a) redeli kõrgusel – kaalu madalamat taset</div>' : ''}
     <div class="rida" style="margin-top:8px">
-      <span class="hall vaike">Kohti:</span>
-      <button class="nupp" data-k="1" aria-pressed="${k === 1}">1 (pool)</button>
-      <button class="nupp" data-k="2" aria-pressed="${k === 2}">2 (terve)</button>
-      ${s ? '<button class="nupp ohtlik" data-tegevus="eemalda" title="Delete-klahv">Eemalda riiulist</button>' : ''}
+      <span class="hall vaike">${vp ? 'Kast:' : 'Alus:'}</span>
+      <button class="nupp" data-k="1" aria-pressed="${k === 1}">${vp ? '½ pool' : '½ pool-alus'}</button>
+      <button class="nupp" data-k="2" aria-pressed="${k === 2}">${vp ? 'terve' : 'täisalus'}</button>
+      ${VALITUD.koht || (vp && vpS) ? '<button class="nupp ohtlik" data-tegevus="eemalda" title="Delete-klahv">Eemalda siit</button>' : ''}
     </div>
-    <div class="varvid">
-      <button data-varv="-1" class="${c == null ? 'praegu' : ''}" style="background:${varv(Object.assign({}, t, { kood: '' }))}" title="Grupi värv">A</button>
+    ${vp ? `<div class="varvid">
+      <button data-varv="-1" class="${c == null ? 'praegu' : ''}" style="background:hsl(${grupiToon(t.grupp)} 55% 78%)" title="Grupi värv">A</button>
       ${PAL.map((p, i) => `<button data-varv="${i}" class="${c === i ? 'praegu' : ''}" style="background:${p}" aria-label="Värv ${i + 1}"></button>`).join('')}
-      <label class="linnuke vaike" style="margin-left:6px" title="Värv kõigile nimekirjas nähtavatele toodetele"><input type="checkbox" id="varvKoigile"> kõigile nähtavatele</label>
+      <label class="linnuke vaike" style="margin-left:4px" title="Värv kõigile nimekirjas nähtavatele toodetele"><input type="checkbox" id="varvKoigile"> kõigile nähtavatele</label>
+    </div>` : ''}
+    <div class="rida" style="margin-top:8px">
+      ${t.puudub ? '' : peid ? `<button class="nupp" data-taasta="${esc(t.kood)}">Taasta valikusse</button>` : `<button class="nupp" data-peida="${esc(t.kood)}">Peida (valikust väljas)</button>`}
     </div>`;
 }
 
-function renderRiiul() {
-  $('kylg').innerHTML = [1, 2].map(r => `<button class="nupp" data-kylg="${r}" aria-pressed="${UI.r === r}">Külg ${r}</button>`).join('');
-  const arv = {};
-  VP_KOHT.forEach(s => { const v = vpOsad(s.koht); if (v) arv[v.r + ',' + v.u] = (arv[v.r + ',' + v.u] || 0) + 1; });
-  $('pystak').innerHTML = [1, 2, 3, 4, 5, 6, 7, 8].map(u => `<button class="nupp" data-pystak="${u}" aria-pressed="${UI.u === u}">${u}${arv[UI.r + ',' + u] ? `<i>${arv[UI.r + ',' + u]}</i>` : ''}</button>`).join('');
-  $('praeguPystak').textContent = UI.r + '-' + UI.u;
-  $('vpLava').innerHTML = riiulHTML(UI.r, UI.u, false);
-}
-
-function poolHTML(list, r, u, l, b, h, print) {
-  if (!list || !list.length) return `<div class="pool tuhi" data-tyhi="${r},${u},${l},${b},${h}">${print ? '' : ''}</div>`;
-  const s = list[0];
-  const t = T.get(s.kood) || { kood: s.kood, nimi: '(Buumis pole)', grupp: '', ak: 0 };
+/* ============================================================
+   ÜHINE RIIULI RUUDUSTIK
+   veerud: [{silt, p?}], read: [{silt, alam, klass, lahtrid: [koht|null]}]
+   ============================================================ */
+function poolHTML(list, koht, h, print) {
+  if (!list || !list.length) return `<div class="pool tuhi" data-tyhi="${koht}|${h}"></div>`;
+  const s = list[0], t = toode(s.kood);
   const cl = ['pool'];
-  if (!print && s.kood === VALITUD) cl.push('valitud');
-  if (!print && UI.grupp !== 'ALL' && t.grupp !== UI.grupp) cl.push('hamar');
-  if (l >= 6 && t.ak > 300) cl.push('hoiatus-redel');
+  const vp = !!vpOsad(koht);
+  if (!print && VALITUD && s.kood === VALITUD.kood) cl.push(VALITUD.koht === koht ? 'valitud-koht' : 'valitud');
+  const grupp = vp ? UI.gruppVP : UI.gruppL;
+  if (!print && grupp !== 'ALL' && t.grupp !== grupp) cl.push('hamar');
+  if (vp && vpOsad(koht).l >= 6 && t.ak > 300) cl.push('hoiatus-redel');
   if (list.length > 1) cl.push('konflikt');
-  const ak = t.ak ? `<u>${t.ak} /a</u>` : '';
-  return `<div class="${cl.join(' ')}" style="background:${print ? 'hsl(0 0% ' + (88 + (Math.max(0, GJRK.indexOf(t.grupp)) % 3) * 4) + '%)' : varv(t)}" data-kood="${esc(s.kood)}" title="${esc(t.kood + ' ' + t.nimi + (t.ak ? ' · ' + t.ak + ' tk/a' : '') + (list.length > 1 ? ' · TOPELT: ' + list.map(x => x.kood).join(', ') : ''))}"><b>${esc(t.kood)}</b><i>${esc(t.nimi)}</i>${ak}</div>`;
+  if (PEIDETUD.has(t.kood)) cl.push('peidetud');
+  const bg = print ? `hsl(0 0% ${88 + (grupiToon(t.grupp) % 3) * 4}%)` : varv(t);
+  const title = t.kood + ' ' + t.nimi + (t.ak ? ' · ' + t.ak + ' tk/a' : '') + (PEIDETUD.has(t.kood) ? ' · VALIKUST VÄLJAS' : '') +
+                (list.length > 1 ? ' · TOPELT: ' + list.map(x => x.kood).join(', ') : '');
+  return `<div class="${cl.join(' ')}" style="background:${bg}" data-kood="${esc(s.kood)}" data-koht="${koht}" title="${esc(title)}"><b>${esc(t.kood)}</b><i>${esc(t.nimi)}</i>${t.ak ? `<u>${t.ak} /a</u>` : ''}</div>`;
 }
 
-function riiulHTML(r, u, print) {
-  let h = '<div class="riiul">';
+function pesaHTML(koht, print) {
+  if (!koht) return '<div></div>';
+  const o = OCC.get(koht) || { a: [], b: [] };
+  const terve = o.a.length && o.a[0] === o.b[0];
+  const k = KOHAD.get(koht);
+  return `<div class="pesa${k && k.fluid ? ' fluid' : ''}">` + (terve ? poolHTML(o.a, koht, 0, print) : poolHTML(o.a, koht, 0, print) + poolHTML(o.b, koht, 1, print)) + '</div>';
+}
+
+// veerud: [{silt}] või grupid [{silt, alam: [silt…]}] (kahe tasandiga päis: püstak üle alusekohtade)
+function ruudustik(veerud, read, print, kitsas) {
+  const lamedad = veerud.flatMap(v => v.alam ? v.alam : [v.silt]);
+  const cols = `grid-template-columns: ${print ? '20mm' : kitsas ? '62px' : '76px'} repeat(${lamedad.length}, minmax(${kitsas ? 40 : 96}px, 1fr))`;
+  let h = `<div class="riiul${kitsas ? ' kitsas' : ''}" style="${cols}">`;
+  if (veerud.some(v => v.alam)) {
+    h += '<div></div>' + veerud.map(v => `<div class="veerusilt p" style="grid-column: span ${v.alam.length}">${esc(v.silt)}</div>`).join('');
+    h += '<div></div>' + lamedad.map(x => `<div class="veerusilt">${esc(x)}</div>`).join('');
+  } else {
+    h += '<div></div>' + veerud.map(v => `<div class="veerusilt">${esc(v.silt)}</div>`).join('');
+  }
+  read.forEach(r => {
+    h += `<div class="tase ${r.klass || ''}">${esc(r.silt)}<span class="ergo">${esc(r.alam || '')}</span></div>`;
+    h += r.lahtrid.map(k => pesaHTML(k, print)).join('');
+  });
+  return h + '</div>';
+}
+
+/* ---------- väikepakend ---------- */
+function vpRuudustik(r, u, print) {
+  const veerud = [1, 2, 3, 4, 5, 6, 7, 8].map(b => ({ silt: 'kast ' + b }));
+  const read = [];
   for (let l = 8; l >= 1; l--) {
-    const ergo = l >= 6 ? 'redel' : l === 5 ? 'eba' : '';
-    h += `<div class="tase ${ergo}">V-${r}-${u}-${l}<span class="ergo">${l >= 6 ? 'redeliga' : l === 5 ? 'ebamugav' : 'kerge'}</span></div>`;
-    for (let b = 1; b <= 8; b++) {
-      const o = VP_OCC.get(`${r},${u},${l},${b}`) || { a: [], b: [] };
-      const terve = o.a.length && o.a[0] === o.b[0];
-      h += '<div class="kastipesa">' + (terve ? poolHTML(o.a, r, u, l, b, 0, print) : poolHTML(o.a, r, u, l, b, 0, print) + poolHTML(o.b, r, u, l, b, 1, print)) + '</div>';
-    }
+    read.push({ silt: `V-${r}-${u}-${l}`, alam: l >= 6 ? 'redeliga' : l === 5 ? 'ebamugav' : 'kerge', klass: l >= 6 ? 'redel' : l === 5 ? 'eba' : '',
+                lahtrid: [1, 2, 3, 4, 5, 6, 7, 8].map(b => vpKood(r, u, l, b)) });
   }
-  h += '<div></div><div class="kast-silt">' + [1, 2, 3, 4, 5, 6, 7, 8].map(b => `<span>kast ${b}</span>`).join('') + '</div></div>';
-  return h;
+  return ruudustik(veerud, read, print, false);
 }
 
-// ---- tegevused ----
-function vpSeosed(kood) { return SEOSED.filter(s => s.kood === kood && vpOsad(s.koht)); }
+/* ---------- suur ladu ---------- */
+function reaRuudustik(rida, pystak, print) {
+  const info = READ.get(rida);
+  if (!info) return '<p class="hall">Sellel real pole veel asukohti. Need tulevad, kui rea mõõdud ja püstakud on teada.</p>';
+  const pystakud = pystak ? [pystak] : Array.from({ length: info.p }, (_, i) => i + 1);
+  const maxA = p => { let m = 0; for (let t = 1; t <= info.t; t++) m = Math.max(m, info.kohad.get(p + '-' + t) || 0); return m; };
+  const veerud = pystakud.map(p => ({ silt: `Püstak ${p}`, alam: Array.from({ length: maxA(p) }, (_, i) => String(i + 1)) }));
+  const read = [];
+  for (let t = info.t; t >= 1; t--) {
+    const lahtrid = [];
+    pystakud.forEach(p => { const n = maxA(p); for (let a = 1; a <= n; a++) { const k = `${rida}-${p}-${t}-${a}`; lahtrid.push(KOHAD.has(k) ? k : null); } });
+    const fl = lahtrid.some(k => k && KOHAD.get(k).fluid);
+    read.push({ silt: `Tala ${t}`, alam: t === 1 ? 'põrand' : fl ? 'fluid' : '', klass: fl ? 'fluid' : '', lahtrid });
+  }
+  return ruudustik(veerud, read, print, !pystak && !print);
+}
 
-function paiguta(r, u, l, b, h) {
-  const t = VALITUD && (T.get(VALITUD) || vpTooted().find(x => x.kood === VALITUD));
-  if (!t) { teade('Vali enne toode', true); return; }
-  const k = kohti(t);
-  const o = VP_OCC.get(`${r},${u},${l},${b}`) || { a: [], b: [] };
+/* ============================================================
+   TÖÖALA
+   ============================================================ */
+function renderTooala() {
+  const vp = onVPvaade();
+  $('plaanKast').style.display = vp ? 'none' : '';
+  if (vp) {
+    const arv = {};
+    SEOSED.forEach(s => { const v = vpOsad(s.koht); if (v) arv[v.r + ',' + v.u] = (arv[v.r + ',' + v.u] || 0) + 1; });
+    $('tooriba').innerHTML = `
+      <div class="nupurida">${[1, 2].map(r => `<button class="nupp" data-kylg="${r}" aria-pressed="${UI.r === r}">Külg ${r}</button>`).join('')}</div>
+      <span class="hall">Püstak</span>
+      <div class="nupurida">${[1, 2, 3, 4, 5, 6, 7, 8].map(u => `<button class="nupp" data-pystak="${u}" aria-pressed="${UI.u === u}">${u}${arv[UI.r + ',' + u] ? `<i>${arv[UI.r + ',' + u]}</i>` : ''}</button>`).join('')}</div>
+      <span style="flex:1"></span>
+      <span class="hall vaike">Teisalda V-${UI.r}-${UI.u} →</span>
+      <select id="sihtKylg">${[1, 2].map(x => `<option${x === UI.r ? ' selected' : ''}>${x}</option>`).join('')}</select>
+      <select id="sihtPystak">${[1, 2, 3, 4, 5, 6, 7, 8].map(x => `<option>${x}</option>`).join('')}</select>
+      <button class="nupp" data-tegevus="teisalda" title="Kui sihtpüstak pole tühi, vahetatakse need omavahel">Teisalda</button>
+      <button class="nupp" data-tegevus="prindiPystak">Prindi püstak</button>
+      <button class="nupp" data-tegevus="prindiKylg">Prindi külg</button>`;
+    $('lava').innerHTML = vpRuudustik(UI.r, UI.u, false);
+  } else {
+    renderPlaan();
+    const info = READ.get(UI.rida);
+    const arv = {};
+    SEOSED.forEach(s => { const o = suurOsad(s.koht); if (o && o.r === UI.rida) arv[o.p] = (arv[o.p] || 0) + 1; });
+    $('tooriba').innerHTML = `
+      <b>Rida ${UI.rida}</b>
+      <div class="nupurida">
+        <button class="nupp" data-rp="0" aria-pressed="${!UI.rp}">Kogu rida</button>
+        ${info ? Array.from({ length: info.p }, (_, i) => i + 1).map(p => `<button class="nupp" data-rp="${p}" aria-pressed="${UI.rp === p}">${p}${arv[p] ? `<i>${arv[p]}</i>` : ''}</button>`).join('') : ''}
+      </div>
+      <span style="flex:1"></span>
+      <span class="hall vaike">püstak 1 vasakul · tala 1 = põrand · kollane = fluid</span>
+      <button class="nupp" data-tegevus="prindiRida">Prindi ${UI.rp ? 'püstak' : 'rida'}</button>`;
+    $('lava').innerHTML = reaRuudustik(UI.rida, UI.rp, false);
+  }
+}
+
+/* ---------- põrandaplaan (ülalt; mõõdud täpsustuvad) ---------- */
+function renderPlaan() {
+  const W = 1000, H = 300;
+  const maxP = Math.max(10, ...[...READ.values()].map(x => x.p));
+  // Alt üles: 0 (alaseinas uste vahel) | lai vahe | 1+2 seljad | lai vahe | 3+4 | 5+6 | 7+8 | 9+10 | 11 (ülaseinas vasakul)
+  const rh = 12, Y = { 0: 268, 1: 226, 2: 214, 3: 176, 4: 164, 5: 132, 6: 120, 7: 88, 8: 76, 9: 44, 10: 32, 11: 10 };
+  const x0 = 96;                                  // estakaadist paremal
+  const vpX = W - 64, vpY1 = 22, vpY2 = 210;      // VP-riiul: paremas servas ~1,8 m seinast, Rida 1 ja ülaseina vahel
+  let s = `<rect class="ala" x="2" y="2" width="${W - 4}" height="${H - 4}" rx="8"/>`;
+  s += `<rect class="ala" x="8" y="40" width="58" height="200" rx="5"/><text x="37" y="136" text-anchor="middle" class="markus">estakaad</text>`;
+  s += `<g class="muu"><rect x="70" y="120" width="16" height="60" rx="2"/></g><text x="78" y="194" text-anchor="middle" class="markus">?</text>`;
+  s += `<text x="12" y="${H - 6}" class="markus">▲ Uks 1</text><text x="${W - 150}" y="${H - 6}" class="markus">▲ Uks 2</text>`;
+  Object.keys(Y).map(Number).forEach(r => {
+    const info = READ.get(r);
+    const x = r === 11 ? 8 : x0;
+    const lopp = r === 1 ? W - 14 : r === 0 ? W - 170 : r === 11 ? W / 2 : vpX - 40;   // Rida 1 peaaegu seinani; 2–10 jätavad VP-riiulile ruumi
+    let lai = info ? Math.min(lopp - x, (lopp - x) * info.p / maxP * 1.05) : (lopp - x) * 0.92;
+    if (r === 1) lai = lopp - x;
+    s += `<g class="riul${info ? '' : ' maaramata'}${UI.rida === r ? ' akt' : ''}" data-rida="${r}">
+      <rect x="${x}" y="${Y[r]}" width="${lai}" height="${rh}" rx="2"/>
+      <text x="${x + 6}" y="${Y[r] + 10}" style="font-size:11px">Rida ${r}${info ? ` · ${info.p}` : ''}</text></g>`;
+  });
+  s += `<g class="riul vp" data-vp="1"><rect x="${vpX}" y="${vpY1}" width="26" height="${vpY2 - vpY1}" rx="3"/>
+    <text x="${vpX + 13}" y="${(vpY1 + vpY2) / 2}" text-anchor="middle" transform="rotate(-90 ${vpX + 13} ${(vpY1 + vpY2) / 2})" style="font-size:11px">Väikepakend</text></g>`;
+  s += `<text x="${W - 22}" y="${(vpY1 + vpY2) / 2}" text-anchor="middle" class="markus" transform="rotate(-90 ${W - 22} ${(vpY1 + vpY2) / 2})">~1,8 m</text>`;
+  $('plaanSvg').setAttribute('viewBox', `0 0 ${W} ${H}`);
+  $('plaanSvg').innerHTML = s;
+}
+
+function renderKoik() { renderAside(); renderTooala(); document.querySelectorAll('.vahekaardid button').forEach(b => b.setAttribute('aria-selected', b.dataset.vaade === UI.vaade)); }
+
+/* ============================================================
+   TEGEVUSED
+   ============================================================ */
+function paiguta(koht, h) {
+  if (!VALITUD) { teade('Vali enne toode', true); return; }
+  const t = toode(VALITUD.kood), vp = !!vpOsad(koht);
+  const k = kohti(t, VALITUD.koht);
+  const o = OCC.get(koht) || { a: [], b: [] };
   const teised = x => x.filter(s => s.kood !== t.kood);
-  const hoivatud = k === 2 ? (teised(o.a).length || teised(o.b).length) : teised(h ? o.b : o.a).length;
-  if (hoivatud) { teade(k === 2 ? 'Terve kast peab olema vaba' : 'See koht on hõivatud', true); return; }
-  const L = nahtavad(), idx = L.findIndex(x => x.kood === t.kood);
-  const vana = vpSeosed(t.kood);
-  const koht = vpKood(r, u, l, b);
-  muuda({ tegevus: 'muudaPaigutust',
-    eemalda: vana.filter(s => s.koht !== koht).map(s => ({ Kood: t.kood, Asukoht: s.koht })),
-    lisa: [{ Kood: t.kood, Asukoht: koht, Liik: 'püsiv', Pool: k === 2 ? 'terve' : (h ? 'parem' : 'vasak') }] });
-  teade((vana.length ? 'Teisaldatud: ' : 'Paigutatud: ') + koht);
-  if (UI.auto) {
-    const jargmine = L.slice(idx + 1).find(x => !VP_KOHT.has(x.kood)) || L.find(x => !VP_KOHT.has(x.kood));
-    if (jargmine) VALITUD = jargmine.kood;
+  if (k === 2 ? (teised(o.a).length || teised(o.b).length) : teised(h ? o.b : o.a).length) {
+    teade(k === 2 ? (vp ? 'Terve kast peab olema vaba' : 'Kogu alusekoht peab olema vaba') : 'See koht on hõivatud', true); return;
   }
-  renderVP();
+  const kl = KOHAD.get(koht);
+  const pool = k === 2 ? 'terve' : (h ? 'parem' : 'vasak');
+  // teisaldus: riiulist valitud koht -> uus koht. VP: toote varasem V-koht alati (üks koht tootel).
+  let eemalda = [];
+  if (VALITUD.koht && VALITUD.koht !== koht) eemalda.push({ Kood: t.kood, Asukoht: VALITUD.koht });
+  if (vp) eemalda = eemalda.concat(vpSeosed(t.kood).filter(s => s.koht !== koht && s.koht !== VALITUD.koht).map(s => ({ Kood: t.kood, Asukoht: s.koht })));
+  const L = nahtavad(), idx = L.findIndex(x => x.kood === t.kood);
+  muuda({ tegevus: 'muudaPaigutust', eemalda, lisa: [{ Kood: t.kood, Asukoht: koht, Liik: kl && kl.fluid ? 'fluid' : 'püsiv', Pool: pool }] });
+  teade((eemalda.length ? 'Teisaldatud: ' : 'Paigutatud: ') + koht);
+  VALITUD = { kood: t.kood, koht };
+  if (UI.auto && !eemalda.length) {
+    const onKoht = x => vp ? vpSeosed(x.kood).length : suurSeosed(x.kood).length;
+    const j = L.slice(idx + 1).find(x => !onKoht(x)) || L.find(x => !onKoht(x) && x.kood !== t.kood);
+    if (j) VALITUD = { kood: j.kood };
+  }
+  renderKoik();
 }
 
-function eemalda(kood) {
-  const vana = vpSeosed(kood);
-  if (!vana.length) return;
-  muuda({ tegevus: 'muudaPaigutust', eemalda: vana.map(s => ({ Kood: kood, Asukoht: s.koht })), lisa: [] });
-  teade('Eemaldatud riiulist: ' + kood);
+function eemaldaValitud() {
+  if (!VALITUD) return;
+  let kohad = VALITUD.koht ? [VALITUD.koht] : (onVPvaade() ? vpSeosed(VALITUD.kood).map(s => s.koht) : []);
+  if (!kohad.length) { teade('Vali riiulilt koht, kust eemaldada', true); return; }
+  muuda({ tegevus: 'muudaPaigutust', eemalda: kohad.map(k => ({ Kood: VALITUD.kood, Asukoht: k })), lisa: [] });
+  teade('Eemaldatud: ' + VALITUD.kood + ' ' + kohad.join(', '));
+  VALITUD = { kood: VALITUD.kood };
 }
 
 function maaraK(k) {
-  const t = VALITUD && T.get(VALITUD);
-  if (!t) return;
-  const s = VP_KOHT.get(t.kood);
-  if (!s) { K_VALIK.set(t.kood, k); renderVP(); return; }
-  if (kohti(t) === k) return;
-  const v = vpOsad(s.koht), o = VP_OCC.get(`${v.r},${v.u},${v.l},${v.b}`) || { a: [], b: [] };
-  if (k === 2 && [...o.a, ...o.b].some(x => x.kood !== t.kood)) { teade('Kasti teine pool on hõivatud', true); return; }
-  muuda({ tegevus: 'muudaPaigutust', eemalda: [], lisa: [{ Kood: t.kood, Asukoht: s.koht, Liik: 'püsiv', Pool: k === 2 ? 'terve' : 'vasak' }] });
+  if (!VALITUD) return;
+  const t = toode(VALITUD.kood);
+  const s = VALITUD.koht ? seosed(t.kood).find(x => x.koht === VALITUD.koht) : (onVPvaade() ? vpSeosed(t.kood)[0] : null);
+  if (!s) { K_VALIK.set(UI.vaade + '|' + t.kood, k); renderKoik(); return; }
+  if (kohti(t, s.koht) === k) return;
+  const o = OCC.get(s.koht) || { a: [], b: [] };
+  if (k === 2 && [...o.a, ...o.b].some(x => x.kood !== t.kood)) { teade('Teine pool on hõivatud', true); return; }
+  muuda({ tegevus: 'muudaPaigutust', eemalda: [], lisa: [{ Kood: t.kood, Asukoht: s.koht, Liik: s.liik || 'püsiv', Pool: k === 2 ? 'terve' : 'vasak' }] });
 }
 
 function maaraVarv(i) {
-  const t = VALITUD && T.get(VALITUD);
-  if (!t) return;
+  if (!VALITUD) return;
   const koigile = $('varvKoigile') && $('varvKoigile').checked;
-  const sihid = koigile ? nahtavad().map(x => x.kood) : [t.kood];
+  const sihid = koigile ? nahtavad().map(x => x.kood) : [VALITUD.kood];
   const uus = Object.assign({}, VARVID);
   sihid.forEach(k => { if (i < 0) delete uus[k]; else uus[k] = i; });
   muuda({ tegevus: 'salvestaSeade', seade: 'Väikepakendi värvid', vaartus: uus });
@@ -664,23 +849,74 @@ function teisaldaPystak() {
   if (!confirm(sihtOli ? `Vahetan püstakud V-${UI.r}-${UI.u} ja V-${r2}-${u2} omavahel?` : `Teisaldan püstaku V-${UI.r}-${UI.u} → V-${r2}-${u2}?`)) return;
   muuda({ tegevus: 'muudaPaigutust', eemalda, lisa });
   teade(sihtOli ? 'Püstakud vahetati' : 'Püstak teisaldati');
-  UI.r = r2; UI.u = u2; salvestaUI(); renderVP();
+  UI.r = r2; UI.u = u2; salvestaUI(); renderKoik();
 }
 
-function prindi(pystakud) {
-  $('prindiAla').innerHTML = pystakud.map(([r, u]) =>
-    `<section class="leht"><h2>Väikepakend V-${r}-${u} <span style="font-size:10pt;font-weight:400">(tala 1 = alumine · ⚠ = kiire toode redeli kõrgusel)</span></h2>${riiulHTML(r, u, true)}</section>`).join('');
+function peida(kood) {
+  const t = toode(kood), s = seosed(kood);
+  let eemaldaKohad = false;
+  if (s.length) {
+    eemaldaKohad = confirm(`${kood} on ${s.length} kohas (${s.map(x => x.koht).join(', ')}).\n\nOK = eemalda ka asukohad\nLoobu = jäta asukohad alles`);
+  } else if (!confirm(`Peidan ${kood} (${t.nimi})? Saad selle hiljem „Peidetud“ nimekirjast taastada.`)) return;
+  const kuup = new Date().toLocaleDateString('et-EE');
+  const paringud = [{ tegevus: 'salvestaTootekaart', read: [{ Kood: kood, Peidetud: `${kuup} ${SEADED.kes || 'arvuti'}` }] }];
+  if (eemaldaKohad) paringud.push({ tegevus: 'muudaPaigutust', eemalda: s.map(x => ({ Kood: kood, Asukoht: x.koht })), lisa: [] });
+  muuda(...paringud);
+  teade(`${kood} peidetud` + (eemaldaKohad ? ` ja ${s.length} asukohta eemaldatud` : ''));
+  if (VALITUD && VALITUD.kood === kood) VALITUD = null;
+  renderKoik(); if ($('peidAken').classList.contains('lahti')) renderPeidetud();
+}
+
+function taasta(kood) {
+  muuda({ tegevus: 'salvestaTootekaart', read: [{ Kood: kood, Peidetud: '' }] });
+  teade(kood + ' on taas valikus');
+  if ($('peidAken').classList.contains('lahti')) renderPeidetud();
+}
+
+/* ---------- peidetud / kandidaadid ---------- */
+let peidVaade = 'peidetud';
+function renderPeidetud() {
+  $('pvPeidetud').setAttribute('aria-pressed', peidVaade === 'peidetud');
+  $('pvKand').setAttribute('aria-pressed', peidVaade === 'kand');
+  const q = $('peidOts').value.trim().toLowerCase();
+  const sobib = t => !q || (t.kood + ' ' + t.nimi).toLowerCase().includes(q);
+  let read;
+  if (peidVaade === 'peidetud') {
+    $('peidSelgitus').textContent = 'Valikust väljas tooted. Taastamine käib iga toote kaupa.';
+    read = [...PEIDETUD.keys()].map(k => toode(k)).filter(sobib).sort((a, b) => CN.compare(a.kood, b.kood));
+    $('peidSisu').innerHTML = read.length ? `<table class="tabel"><tr><th>Kood</th><th>Nimetus</th><th>Peidetud</th><th>Asukohad</th><th></th></tr>` +
+      read.map(t => `<tr><td><b>${esc(t.kood)}</b></td><td>${esc(t.nimi)}</td><td class="hall">${esc(PEIDETUD.get(t.kood))}</td>
+        <td>${seosed(t.kood).map(s => esc(s.koht)).join(', ') || '<span class="hall">–</span>'}</td>
+        <td><button class="nupp" data-taasta="${esc(t.kood)}">Taasta</button></td></tr>`).join('') + '</table>'
+      : '<p class="hall">Peidetud tooteid pole.</p>';
+  } else {
+    $('peidSelgitus').textContent = 'Tooted, mille nimes on „@“ või mis algavad „x.“-iga, Maardu laoseis on 0 või alla selle ja millel on veel asukoht. Vaata üle ja peida vajadusel.';
+    read = [...T.values()].filter(t => !PEIDETUD.has(t.kood) && seosed(t.kood).length && nr(t.maardu) <= 0 &&
+                                        (t.nimi.includes('@') || /^x\./i.test(t.nimi.trim()))).filter(sobib).sort((a, b) => CN.compare(a.kood, b.kood));
+    $('peidSisu').innerHTML = read.length ? `<table class="tabel"><tr><th>Kood</th><th>Nimetus</th><th>Maardu</th><th>Asukohad</th><th></th></tr>` +
+      read.map(t => `<tr><td><b>${esc(t.kood)}</b></td><td>${esc(t.nimi)}</td><td>${fmt(nr(t.maardu))}</td>
+        <td>${seosed(t.kood).map(s => esc(s.koht)).join(', ')}</td>
+        <td><button class="nupp" data-peida="${esc(t.kood)}">Peida</button></td></tr>`).join('') + '</table>'
+      : '<p class="hall">Kandidaate pole.</p>';
+  }
+  const kand = [...T.values()].filter(t => !PEIDETUD.has(t.kood) && seosed(t.kood).length && nr(t.maardu) <= 0 && (t.nimi.includes('@') || /^x\./i.test(t.nimi.trim()))).length;
+  $('pvPeidetud').textContent = `Peidetud (${PEIDETUD.size})`;
+  $('pvKand').textContent = `Kandidaadid (${kand})`;
+}
+
+/* ---------- print ---------- */
+function prindi(lehed) {
+  $('prindiAla').innerHTML = lehed.map(x => `<section class="leht"><h2>${esc(x.pealkiri)} <span style="font-size:10pt;font-weight:400">${esc(x.markus || '')}</span></h2>${x.html}</section>`).join('');
   window.print();
 }
 window.addEventListener('afterprint', () => { $('prindiAla').innerHTML = ''; });
 
-/* ---- gruppide järjekord ---- */
+/* ---------- gruppide järjekord ---------- */
 let jrkMustand = [];
 function avaJrk() {
-  const olemas = [...new Set(vpTooted().map(t => t.grupp))];
+  const olemas = [...new Set([...T.values()].filter(onVP).map(t => t.grupp))];
   jrkMustand = GJRK.filter(g => olemas.includes(g)).concat(olemas.filter(g => !GJRK.includes(g)).sort(CN.compare));
-  renderJrk();
-  $('jrkAken').classList.add('lahti');
+  renderJrk(); $('jrkAken').classList.add('lahti');
 }
 function renderJrk() {
   $('jrkNimekiri').innerHTML = jrkMustand.map((g, i) => `<div class="jrk-rida"><span>${i + 1}. ${esc(g)}</span>
@@ -689,129 +925,56 @@ function renderJrk() {
 }
 
 /* ============================================================
-   LAOPLAAN (ülevaade; täis 2.5D tuleb järgmisena)
-   ============================================================ */
-function reaInfo() {
-  // rida -> {pystakuid, talasid}
-  const R = new Map();
-  KOHAD.forEach(k => {
-    const m = /^(\d+)-(\d+)-(\d+)-(\d+)$/.exec(k.koht);
-    if (!m) return;
-    const r = +m[1], x = R.get(r) || { p: 0, t: 0, a: 0 };
-    x.p = Math.max(x.p, +m[2]); x.t = Math.max(x.t, +m[3]); x.a = Math.max(x.a, +m[4]);
-    R.set(r, x);
-  });
-  return R;
-}
-
-function renderPlaan() {
-  const R = reaInfo();
-  const W = 1100, x0 = 150, maxLai = 800;
-  // md §5, alt üles: 0 (alaseinas uste vahel), 1 (pikem), 2, paarid 3+4 … 9+10 seljad koos,
-  // 11 ülaseinas vasakul. Vahed 0|1 ja 2|3 laiemad.
-  const Y = { 0: 446, 1: 388, 2: 340, 3: 282, 4: 264, 5: 216, 6: 198, 7: 150, 8: 132, 9: 84, 10: 66, 11: 18 };
-  const maxP = Math.max(10, ...[...R.values()].map(x => x.p));
-  let s = `<rect class="ala" x="6" y="6" width="${W - 12}" height="468" rx="10"/>`;
-  s += `<rect class="ala" x="16" y="48" width="104" height="420" rx="6"/>
-    <text x="68" y="250" text-anchor="middle" class="markus">estakaad /</text>
-    <text x="68" y="265" text-anchor="middle" class="markus">laadimisala</text>`;
-  s += `<text x="20" y="478" class="markus">▲ Uks 1</text><text x="${W - 200}" y="478" class="markus">▲ Uks 2</text>`;
-  Object.keys(Y).map(Number).forEach(r => {
-    const info = R.get(r);
-    const x = r === 11 ? 16 : x0;
-    let lai = info ? maxLai * info.p / maxP : maxLai * 0.85;
-    if (r === 1 && !info) lai = maxLai;
-    if (r === 11) lai = Math.min(lai, (W / 2) - 16);
-    lai = Math.min(lai, W - x - 110);
-    s += `<g class="riul${info ? '' : ' maaramata'}${UI.rida === r ? ' akt' : ''}" data-rida="${r}">
-      <rect x="${x}" y="${Y[r]}" width="${lai}" height="18" rx="3"/>
-      <text x="${x + 8}" y="${Y[r] + 14}">Rida ${r}${info ? ` · ${info.p} püstakut` : ''}</text></g>`;
-  });
-  // väikepakendi riiul paremal seina ääres, umbes Rida 3 joonest üles
-  s += `<g class="riul vp" data-vp="1"><rect x="${W - 70}" y="20" width="44" height="280" rx="4"/>
-    <text x="${W - 48}" y="160" text-anchor="middle" transform="rotate(-90 ${W - 48} 160)">Väikepakend (2 külge)</text></g>`;
-  $('plaanSvg').innerHTML = s;
-  renderRida();
-}
-
-function renderRida() {
-  const el = $('reaVaade');
-  const r = UI.rida;
-  if (r == null) { el.innerHTML = '<p class="hall">Klõpsa plaanil real, et näha selle kohti. Väikepakendi riiul (paremal) avab väikepakendi vaate.</p>'; return; }
-  const info = reaInfo().get(r);
-  if (!info) { el.innerHTML = `<h3>Rida ${r}</h3><p class="hall">Sellel real pole veel asukohti (tuleb uue laoplaaniga).</p>`; return; }
-  const kohas = new Map();
-  SEOSED.forEach(s => { if (/^\d+-/.test(s.koht)) (kohas.get(s.koht) || kohas.set(s.koht, []).get(s.koht)).push(s); });
-  let h = `<h3 style="margin:8px 0 0">Rida ${r} <span class="hall vaike">· püstak 1 vasakul · tala 1 = põrand · kollane = fluid</span></h3>`;
-  h += `<div class="reaTabel" style="grid-template-columns: 54px repeat(${info.p}, minmax(150px, 1fr))">`;
-  h += '<div></div>' + Array.from({ length: info.p }, (_, i) => `<div class="p">Püstak ${i + 1}</div>`).join('');
-  for (let t = info.t; t >= 1; t--) {
-    h += `<div class="t">Tala ${t}</div>`;
-    for (let p = 1; p <= info.p; p++) {
-      h += '<div class="tala">';
-      for (let a = 1; a <= 3; a++) {
-        const koht = `${r}-${p}-${t}-${a}`;
-        const k = KOHAD.get(koht);
-        if (!k) continue;
-        const sis = kohas.get(koht) || [];
-        h += `<div class="alus${sis.length ? '' : ' tyhi'}${k.fluid ? ' fluid' : ''}" data-alus="${koht}" title="${esc(koht + (sis.length ? ': ' + sis.map(x => x.kood + ' ' + ((T.get(x.kood) || {}).nimi || '')).join(' | ') : ''))}">
-          <span class="hall">${a}</span>${sis.map(x => `<b>${esc(x.kood)}</b>`).join('')}</div>`;
-      }
-      h += '</div>';
-    }
-  }
-  el.innerHTML = h + '</div>';
-}
-
-/* ============================================================
    ÜLDINE OTSING
    ============================================================ */
 let otsList = [], otsAkt = 0;
 function otsi() {
-  const q = $('ots').value.trim();
-  const el = $('otsTulemus');
+  const q = $('ots').value.trim(), el = $('otsTulemus');
   if (q.length < 2) { el.classList.remove('lahti'); otsList = []; return; }
-  const Q = normKood(q), sonad = Q.split(/\s+/);
+  const sonad = normKood(q).split(/\s+/);
   otsList = [];
   if (KOHAD.has(normKoht(q))) otsList.push({ koht: normKoht(q) });
   const tapne = leiaToode(q);
   if (tapne) otsList.push({ t: tapne });
+  const muud = [];
   for (const t of T.values()) {
-    if (otsList.length > 25) break;
+    if (muud.length > 60) break;
     if (t === tapne) continue;
     const hay = (t.kood + ' ' + t.nimi + ' ' + t.ean).toUpperCase();
-    if (sonad.every(s => hay.includes(s))) otsList.push({ t });
+    if (sonad.every(s => hay.includes(s))) muud.push({ t });
   }
+  muud.sort((a, b) => (PEIDETUD.has(a.t.kood) - PEIDETUD.has(b.t.kood)) || CN.compare(a.t.kood, b.t.kood));
+  otsList = otsList.concat(muud.slice(0, 30));
   otsAkt = 0;
   el.innerHTML = otsList.length ? otsList.map((x, i) => {
     if (x.koht) return `<div class="ots-rida${i === otsAkt ? ' akt' : ''}" data-i="${i}">Asukoht <b>${esc(x.koht)}</b></div>`;
-    const kohad = SEOSED.filter(s => s.kood === x.t.kood).map(s => s.koht);
-    return `<div class="ots-rida${i === otsAkt ? ' akt' : ''}" data-i="${i}"><b>${esc(x.t.kood)}</b> ${esc(x.t.nimi)}
+    const kohad = seosed(x.t.kood).map(s => s.koht);
+    return `<div class="ots-rida${i === otsAkt ? ' akt' : ''}" data-i="${i}"><b>${esc(x.t.kood)}</b>${PEIDETUD.has(x.t.kood) ? '<span class="silt">valikust väljas</span>' : ''} ${esc(x.t.nimi)}
       <div class="kohad">${kohad.length ? kohad.map(esc).join(' · ') : '<span class="hall">asukoht puudub</span>'}</div></div>`;
   }).join('') : '<div class="ots-rida hall">Ei leitud</div>';
   el.classList.add('lahti');
 }
 
+function avaKoht(koht, kood) {
+  const v = vpOsad(koht), s = suurOsad(koht);
+  if (v) { UI.vaade = 'vp'; UI.r = v.r; UI.u = v.u; }
+  else if (s) { UI.vaade = 'plaan'; UI.rida = s.r; if (UI.rp && UI.rp !== s.p) UI.rp = s.p; }
+  if (kood) VALITUD = { kood, koht };
+  salvestaUI(); renderKoik();
+  valgusta(`.pool[data-koht="${CSS.escape(koht)}"]${kood ? `[data-kood="${CSS.escape(kood)}"]` : ''}, .pool[data-tyhi^="${CSS.escape(koht)}|"]`);
+}
+
 function avaTulemus(x) {
   $('otsTulemus').classList.remove('lahti');
   if (!x) return;
-  const koht = x.koht || (SEOSED.find(s => s.kood === x.t.kood) || {}).koht;
-  if (x.t) VALITUD = x.t.kood;
-  if (koht && vpOsad(koht)) {
-    const v = vpOsad(koht);
-    UI.r = v.r; UI.u = v.u; UI.grupp = 'ALL';
-    mine('vp');
-    valgusta(`.pool[data-kood="${CSS.escape(x.t ? x.t.kood : '')}"]`);
-  } else if (koht) {
-    UI.rida = +koht.split('-')[0];
-    mine('plaan');
-    valgusta(`.alus[data-alus="${CSS.escape(koht)}"]`);
-  } else if (x.t) {
-    UI.grupp = 'ALL';
-    mine('vp');
-    teade(x.t.kood + ' on paigutamata – klõpsa riiulil tühja kohta, et see paigutada');
-  }
-  salvestaUI();
+  if (x.koht) { avaKoht(x.koht); return; }
+  const s = seosed(x.t.kood);
+  if (s.length) { avaKoht(s[0].koht, x.t.kood); return; }
+  UI.vaade = onVP(x.t) ? 'vp' : 'plaan';
+  if (onVPvaade()) UI.gruppVP = 'ALL'; else { UI.gruppL = 'ALL'; UI.meta = 'ALL'; }
+  VALITUD = { kood: x.t.kood };
+  salvestaUI(); renderKoik();
+  teade(x.t.kood + ' on paigutamata – klõpsa riiulil tühja kohta, et see paigutada');
 }
 
 function valgusta(selektor) {
@@ -824,76 +987,66 @@ function valgusta(selektor) {
 }
 
 /* ============================================================
-   VAATED JA SÜNDMUSED
+   SÜNDMUSED
    ============================================================ */
-function mine(v) {
-  UI.vaade = v; salvestaUI();
-  document.querySelectorAll('.vaade').forEach(el => el.classList.toggle('aktiivne', el.id === 'v-' + v));
-  document.querySelectorAll('.vahekaardid button').forEach(b => b.setAttribute('aria-selected', b.dataset.vaade === v));
-  renderAktiivne();
-}
-function renderAktiivne() {
-  if (UI.vaade === 'plaan') renderPlaan(); else renderVP();
-}
-
 document.addEventListener('click', e => {
-  const el = e.target.closest('[data-vaade],[data-kood],[data-tyhi],[data-k],[data-tegevus],[data-varv],[data-kylg],[data-pystak],[data-rida],[data-vp],[data-alus],[data-i],[data-jrk]');
+  const el = e.target.closest('[data-vaade],[data-kood],[data-tyhi],[data-k],[data-tegevus],[data-varv],[data-kylg],[data-pystak],[data-rida],[data-rp],[data-vp],[data-i],[data-jrk],[data-peida],[data-taasta],[data-peidvaade]');
   if (!el) { if (!e.target.closest('.otsing-kast')) $('otsTulemus').classList.remove('lahti'); return; }
   const d = el.dataset;
-  if (d.vaade) { mine(d.vaade); return; }
+  if (d.vaade) { UI.vaade = d.vaade; VALITUD = null; salvestaUI(); renderKoik(); return; }
   if (d.i !== undefined) { avaTulemus(otsList[+d.i]); return; }
-  if (d.tyhi) { const [r, u, l, b, h] = d.tyhi.split(',').map(Number); paiguta(r, u, l, b, h); return; }
-  if (d.kood) { VALITUD = d.kood; renderVP(); return; }
+  if (d.peida) { peida(d.peida); return; }
+  if (d.taasta) { taasta(d.taasta); return; }
+  if (d.peidvaade) { peidVaade = d.peidvaade; renderPeidetud(); return; }
+  if (d.tyhi) { const [koht, h] = d.tyhi.split('|'); paiguta(koht, +h); return; }
+  if (d.kood) { VALITUD = { kood: d.kood, koht: d.koht || null }; renderAside(); renderTooala(); return; }
   if (d.k) { maaraK(+d.k); return; }
-  if (d.tegevus === 'eemalda') { eemalda(VALITUD); return; }
+  if (d.tegevus === 'eemalda') { eemaldaValitud(); return; }
+  if (d.tegevus === 'teisalda') { teisaldaPystak(); return; }
+  if (d.tegevus === 'prindiPystak') { prindi([{ pealkiri: `Väikepakend V-${UI.r}-${UI.u}`, markus: '(tala 1 = alumine · ⚠ = kiire toode redeli kõrgusel)', html: vpRuudustik(UI.r, UI.u, true) }]); return; }
+  if (d.tegevus === 'prindiKylg') {
+    const p = [1, 2, 3, 4, 5, 6, 7, 8].filter(u => SEOSED.some(s => { const v = vpOsad(s.koht); return v && v.r === UI.r && v.u === u; }));
+    if (!p.length) { teade('Sellel küljel pole tooteid', true); return; }
+    prindi(p.map(u => ({ pealkiri: `Väikepakend V-${UI.r}-${u}`, markus: '(tala 1 = alumine)', html: vpRuudustik(UI.r, u, true) }))); return;
+  }
+  if (d.tegevus === 'prindiRida') { prindi([{ pealkiri: `Rida ${UI.rida}${UI.rp ? ', püstak ' + UI.rp : ''}`, markus: '(tala 1 = põrand · punktiir = fluid)', html: reaRuudustik(UI.rida, UI.rp, true) }]); return; }
   if (d.varv !== undefined) { maaraVarv(+d.varv); return; }
-  if (d.kylg) { UI.r = +d.kylg; salvestaUI(); renderRiiul(); return; }
-  if (d.pystak) { UI.u = +d.pystak; salvestaUI(); renderRiiul(); return; }
-  if (d.vp) { mine('vp'); return; }
-  if (d.rida !== undefined) { UI.rida = +d.rida; salvestaUI(); renderPlaan(); return; }
-  if (d.alus) {
-    const s = SEOSED.filter(x => x.koht === d.alus);
-    teade(d.alus + (s.length ? ': ' + s.map(x => x.kood + ' ' + ((T.get(x.kood) || {}).nimi || '')).join(' | ') : ' – tühi'));
-    return;
-  }
-  if (d.jrk !== undefined) {
-    const i = +d.jrk, j = i + +d.suund;
-    [jrkMustand[i], jrkMustand[j]] = [jrkMustand[j], jrkMustand[i]];
-    renderJrk(); return;
-  }
+  if (d.kylg) { UI.r = +d.kylg; salvestaUI(); renderTooala(); return; }
+  if (d.pystak) { UI.u = +d.pystak; salvestaUI(); renderTooala(); return; }
+  if (d.vp) { UI.vaade = 'vp'; VALITUD = null; salvestaUI(); renderKoik(); return; }
+  if (d.rida !== undefined) { UI.rida = +d.rida; UI.rp = 0; salvestaUI(); renderTooala(); return; }
+  if (d.rp !== undefined) { UI.rp = +d.rp; salvestaUI(); renderTooala(); return; }
+  if (d.jrk !== undefined) { const i = +d.jrk, j = i + +d.suund; [jrkMustand[i], jrkMustand[j]] = [jrkMustand[j], jrkMustand[i]]; renderJrk(); return; }
 });
 
-$('grupp').addEventListener('change', e => { UI.grupp = e.target.value; salvestaUI(); VALITUD = null; renderVP(); });
-$('nimOts').addEventListener('input', () => renderVP());
-$('peida').addEventListener('change', e => { UI.peida = e.target.checked; salvestaUI(); renderVP(); });
+$('grupp').addEventListener('change', e => { UI[onVPvaade() ? 'gruppVP' : 'gruppL'] = e.target.value; salvestaUI(); VALITUD = null; renderKoik(); });
+$('meta').addEventListener('change', e => { UI.meta = e.target.value; UI.gruppL = 'ALL'; salvestaUI(); VALITUD = null; renderKoik(); });
+$('nimOts').addEventListener('input', () => renderAside());
+$('peida').addEventListener('change', e => { UI.peida = e.target.checked; salvestaUI(); renderAside(); });
 $('auto').addEventListener('change', e => { UI.auto = e.target.checked; salvestaUI(); });
-$('koik').addEventListener('change', e => { UI.koik = e.target.checked; salvestaUI(); renderVP(); });
-$('teisalda').addEventListener('click', teisaldaPystak);
-$('prindiPystak').addEventListener('click', () => prindi([[UI.r, UI.u]]));
-$('prindiKylg').addEventListener('click', () => {
-  const p = [1, 2, 3, 4, 5, 6, 7, 8].filter(u => [...VP_KOHT.values()].some(s => { const v = vpOsad(s.koht); return v && v.r === UI.r && v.u === u; }));
-  if (!p.length) { teade('Sellel küljel pole tooteid', true); return; }
-  prindi(p.map(u => [UI.r, u]));
-});
+$('koik').addEventListener('change', e => { UI[onVPvaade() ? 'koikVP' : 'koikL'] = e.target.checked; salvestaUI(); renderAside(); });
 $('jrkNupp').addEventListener('click', avaJrk);
 $('jrkLoobu').addEventListener('click', () => $('jrkAken').classList.remove('lahti'));
 $('jrkSalvesta').addEventListener('click', () => {
-  const vanadMuud = GJRK.filter(g => !jrkMustand.includes(g));
-  muuda({ tegevus: 'salvestaSeade', seade: 'Väikepakendi grupijärjekord', vaartus: jrkMustand.concat(vanadMuud) });
+  muuda({ tegevus: 'salvestaSeade', seade: 'Väikepakendi grupijärjekord', vaartus: jrkMustand.concat(GJRK.filter(g => !jrkMustand.includes(g))) });
   $('jrkAken').classList.remove('lahti'); teade('Järjekord salvestatud');
 });
+$('peidetudNupp').addEventListener('click', () => { peidVaade = 'peidetud'; renderPeidetud(); $('peidAken').classList.add('lahti'); });
+$('peidSulge').addEventListener('click', () => $('peidAken').classList.remove('lahti'));
+$('peidOts').addEventListener('input', renderPeidetud);
 $('ots').addEventListener('input', otsi);
 $('ots').addEventListener('keydown', e => {
   if (e.key === 'Enter') { avaTulemus(otsList[otsAkt]); $('ots').blur(); }
   else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     e.preventDefault(); otsAkt = Math.max(0, Math.min(otsList.length - 1, otsAkt + (e.key === 'ArrowDown' ? 1 : -1)));
     document.querySelectorAll('.ots-rida').forEach((r, i) => r.classList.toggle('akt', i === otsAkt));
-  } else if (e.key === 'Escape') { $('otsTulemus').classList.remove('lahti'); }
+  } else if (e.key === 'Escape') $('otsTulemus').classList.remove('lahti');
 });
 document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('ots').focus(); $('ots').select(); return; }
+  if (e.key === 'Escape') document.querySelectorAll('.katte.lahti').forEach(k => { if (k.id !== 'seadistus' || SEADED) k.classList.remove('lahti'); });
   const kirjutab = /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
-  if (!kirjutab && UI.vaade === 'vp' && (e.key === 'Delete' || e.key === 'Backspace') && VALITUD) { e.preventDefault(); eemalda(VALITUD); }
+  if (!kirjutab && (e.key === 'Delete' || e.key === 'Backspace') && VALITUD && !document.querySelector('.katte.lahti')) { e.preventDefault(); eemaldaValitud(); }
 });
 $('uuenda').addEventListener('click', () => { saada(); laeAndmed(true); });
 $('seadedNupp').addEventListener('click', () => {
@@ -911,22 +1064,28 @@ $('sSalvesta').addEventListener('click', async () => {
     if (!j.ok) throw new Error(j.viga);
     if (j.roll !== 'admin') throw new Error('See on telefoni võti – arvuti vajab ADMIN võtit');
   } catch (e) { SEADED = vana; teade(e.message, true); return; }
-  if (!vana || vana.url !== url) { ANDMED = null; kirjuta(V.andmed, null); }
+  if (!vana || vana.url !== url) { ANDMED = null; salvestaAndmed(); }
   kirjuta(V.seaded, SEADED);
   $('seadistus').classList.remove('lahti');
   laeAndmed(true);
 });
 window.addEventListener('beforeunload', e => { if (VALJAS.length) { e.preventDefault(); e.returnValue = ''; } });
-setInterval(() => { saada(); }, 15000);
+setInterval(saada, 15000);
 setInterval(() => { if (!VALJAS.length) laeAndmed(false); }, 5 * 60000);
 
 /* käivitus */
-$('peida').checked = UI.peida; $('auto').checked = UI.auto; $('koik').checked = UI.koik;
-ehitaKoik();
-mine(UI.vaade || 'vp');
-olek();
-if (!SEADED) $('seadistus').classList.add('lahti');
-else { laeAndmed(false); saada(); }
+(async function kaivita() {
+  $('peida').checked = UI.peida; $('auto').checked = UI.auto;
+  try {
+    ANDMED = (await IDB.loe('andmed')) || null;
+    const vana = loe(V.andmed, null);                  // eelmine versioon hoidis localStorage'is
+    if (vana) { if (!ANDMED) { ANDMED = vana; salvestaAndmed(); } localStorage.removeItem(V.andmed); }
+  } catch (e) { ANDMED = loe(V.andmed, null); }
+  ehitaKoik();
+  olek();
+  if (!SEADED) $('seadistus').classList.add('lahti');
+  else { laeAndmed(false); saada(); }
+})();
 </script>
 </body>
 </html>
