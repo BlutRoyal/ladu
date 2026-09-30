@@ -240,6 +240,7 @@ function salvestaAndmed() {
   IDB.kirjuta('andmed', ANDMED).catch(() => kirjuta(V.andmed, ANDMED));   // varuks localStorage
 }
 // Seos serveri kujul (lühike massiiv või vana objekt) -> ühtne objekt
+const onAjutineLiik = v => /^(ajutine|fluid)$/i.test(String(v || '').trim());
 function seosObj(x) {
   return Array.isArray(x)
     ? { kood: normKood(x[0]), koht: normKoht(x[1]), liik: x[2], pool: x[3] }
@@ -391,8 +392,8 @@ async function saadaValjas() {
           const P = ANDMED.paigutus = ANDMED.paigutus || [];
           const sama = x => { const o = seosObj(x); return o.kood === esimene.kood && o.koht === esimene.asukoht; };
           if (esimene.tegevus === 'lisaSeos' && !P.some(sama)) {
-            P.push(ANDMED.lyhike ? [esimene.kood, esimene.asukoht, j.liik || 'fluid', '']
-                                 : { Kood: esimene.kood, Asukoht: esimene.asukoht, Liik: j.liik || 'fluid', Pool: '' });
+            P.push(ANDMED.lyhike ? [esimene.kood, esimene.asukoht, j.liik || 'ajutine', '']
+                                 : { Kood: esimene.kood, Asukoht: esimene.asukoht, Liik: j.liik || 'ajutine', Pool: '' });
           }
           if (esimene.tegevus === 'eemaldaSeos') ANDMED.paigutus = P.filter(x => !sama(x));
           salvestaAndmed();
@@ -433,7 +434,7 @@ function ehitaIndeks() {
   (ANDMED.asukohad || []).forEach(a => {
     if (Array.isArray(a)) { const k = normKoht(a[0]); if (k) kohad.set(k, { koht: k, fluid: !!a[1] }); return; }
     const k = normKoht(a.Asukoht);
-    if (k) kohad.set(k, { koht: k, fluid: a.Fluid === true || String(a.Fluid).toLowerCase() === 'jah', tyyp: a['Tüüp'], ala: a.Ala });
+    if (k) kohad.set(k, { koht: k, fluid: [a.Ajutine, a.Fluid].some(f => f === true || String(f).toLowerCase() === 'jah'), tyyp: a['Tüüp'], ala: a.Ala });
   });
   const peidetud = new Set((ANDMED.peidetud || []).map(normKood));
   IX = { tooted, ean, otsi, kohad, peidetud };
@@ -446,7 +447,7 @@ function ehitaSeosed() {
   let s = (ANDMED.paigutus || []).map(seosObj);
   VALJAS.forEach(op => {
     if (op.tegevus === 'lisaSeos' && !s.some(x => x.kood === op.kood && x.koht === op.asukoht)) {
-      s.push({ kood: op.kood, koht: op.asukoht, liik: 'fluid', pool: '', ootel: true });
+      s.push({ kood: op.kood, koht: op.asukoht, liik: 'ajutine', pool: '', ootel: true });
     } else if (op.tegevus === 'eemaldaSeos') {
       s = s.filter(x => !(x.kood === op.kood && x.koht === op.asukoht));
     }
@@ -565,7 +566,7 @@ function tooteKaart(t) {
     const k = IX.kohad.get(x.koht);
     const fl = k && k.fluid;
     return `<button class="koht${fl ? ' fluid' : ''}" data-koht="${esc(x.koht)}">
-      <div class="kk">${esc(x.koht)}${fl ? '<span class="silt">fluid</span>' : ''}${x.ootel ? '<span class="silt">saatmata</span>' : ''}</div>
+      <div class="kk">${esc(x.koht)}${fl ? '<span class="silt">ajutine</span>' : ''}${x.ootel ? '<span class="silt">saatmata</span>' : ''}</div>
       <div class="juhis">${esc(juhis(x.koht, x.pool))}</div>
     </button>`;
   }).join('');
@@ -576,7 +577,7 @@ function tooteKaart(t) {
     ${laoseis(t)}
     ${kohad || '<div class="tuhi" style="padding:14px 0 4px">Asukoht puudub</div>'}
     <div class="nupud">
-      <button class="nupp vaike" data-lisafluid="${esc(t.kood)}">＋ Lisa fluid-kohta</button>
+      <button class="nupp vaike" data-lisafluid="${esc(t.kood)}">＋ Lisa ajutisse kohta</button>
       ${otsingValitud ? '<button class="nupp vaike" data-sulge>Sulge</button>' : ''}
     </div>
   </div>`;
@@ -615,7 +616,7 @@ function renderKoht() {
   const s = IX.seosKoht.get(k) || [];
   const read = s.map(x => {
     const t = IX.tooted.get(x.kood);
-    const saabEemaldada = info.fluid || x.liik === 'fluid';
+    const saabEemaldada = info.fluid || onAjutineLiik(x.liik);
     return `<div class="rida-tulemus" style="cursor:default">
       <button class="nupp vaike" style="float:right;margin-left:8px" data-toode="${esc(x.kood)}">Ava</button>
       <span class="toode-kood" style="font-size:16px">${esc(x.kood)}</span>${x.pool && x.pool !== 'terve' ? `<span class="silt">${esc(x.pool)}</span>` : ''}${x.ootel ? '<span class="silt">saatmata</span>' : ''}
@@ -624,12 +625,12 @@ function renderKoht() {
     </div>`;
   }).join('');
   el.innerHTML = `<div class="kaart">
-      <div style="font-size:30px;font-weight:800;letter-spacing:1px">${esc(k)}${info.fluid ? '<span class="silt">fluid</span>' : ''}</div>
+      <div style="font-size:30px;font-weight:800;letter-spacing:1px">${esc(k)}${info.fluid ? '<span class="silt">ajutine</span>' : ''}</div>
       <div class="juhis">${esc(juhis(k, ''))}</div>
     </div>
     ${read || '<div class="tuhi">Siin pole ühtegi toodet</div>'}
     ${info.fluid ? `<div class="kaart">
-      <label for="kLisa" style="margin-top:0">Lisa toode siia (fluid)</label>
+      <label for="kLisa" style="margin-top:0">Lisa toode siia (ajutine koht)</label>
       <div class="otsirida">
         <input id="kLisa" type="search" placeholder="Kood, EAN või nimi" autocomplete="off" autocapitalize="characters" spellcheck="false">
         <button class="skann-nupp" data-skannikohta aria-label="Skänni toode">⌗</button>
@@ -649,7 +650,7 @@ function lisaSeos(kood, koht) {
   kood = normKood(kood); koht = normKoht(koht);
   const info = IX && IX.kohad.get(koht);
   if (!info) { naita('Asukohta ' + koht + ' pole', true); return false; }
-  if (!info.fluid) { naita(koht + ' ei ole fluid-koht. Püsikohti muudetakse arvutist.', true); return false; }
+  if (!info.fluid) { naita(koht + ' ei ole ajutine koht. Püsikohti muudetakse arvutist.', true); return false; }
   if ((IX.seosKood.get(kood) || []).some(x => x.koht === koht)) { naita('Toode on juba seal'); return true; }
   lisaValjas({ tegevus: 'lisaSeos', kood, asukoht: koht });
   ehitaSeosed(); naita(kood + ' lisatud kohta ' + koht);
@@ -1095,7 +1096,7 @@ document.addEventListener('click', e => {
   }
   if ('sulge' in d) { otsingValitud = null; renderOtsing(); return; }
   if (d.lisafluid) {
-    const k = prompt('Mis fluid-kohta? (nt 3-2-5-1)');
+    const k = prompt('Mis ajutisse kohta? (nt 3-2-5-1)');
     if (k) lisaSeos(d.lisafluid, k);
     return;
   }

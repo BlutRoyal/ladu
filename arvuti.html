@@ -449,7 +449,7 @@ function ehitaKoik() {
     (ANDMED.asukohad || []).forEach(a => {
       const k = normKoht(a.Asukoht);
       if (!k) return;
-      KOHAD.set(k, { koht: k, fluid: a.Fluid === true || String(a.Fluid).toLowerCase() === 'jah' });
+      KOHAD.set(k, { koht: k, fluid: [a.Ajutine, a.Fluid].some(f => f === true || String(f).toLowerCase() === 'jah') });
       const m = /^(\d+)-(\d+)-(\d+)-(\d+)$/.exec(k);
       if (m) {
         const r = +m[1], x = READ.get(r) || { p: 0, t: 0, kohad: new Map() };
@@ -487,6 +487,7 @@ function ehitaSeosed() {
   A.tootekaart.forEach(k => { const v = String(k.Peidetud || '').trim(); if (v && k.Kood) PEIDETUD.set(normKood(k.Kood), v); });
 }
 
+const onAjutineLiik = v => /^(ajutine|fluid)$/i.test(String(v || '').trim());
 const vpOsad = koht => { const m = /^V-(\d+)-(\d+)-(\d+)-(\d+)$/.exec(koht); return m ? { r: +m[1], u: +m[2], l: +m[3], b: +m[4] } : null; };
 const suurOsad = koht => { const m = /^(\d+)-(\d+)-(\d+)-(\d+)$/.exec(koht); return m ? { r: +m[1], p: +m[2], t: +m[3], a: +m[4] } : null; };
 const vpKood = (r, u, l, b) => `V-${r}-${u}-${l}-${b}`;
@@ -619,7 +620,7 @@ function renderValitud() {
   const koik = seosed(t.kood);
   const k = kohti(t, VALITUD.koht);
   const peid = PEIDETUD.get(t.kood);
-  const kohaTekst = s => `${esc(s.koht)}${s.pool === 'vasak' ? ' (vasak)' : s.pool === 'parem' ? ' (parem)' : ''}${s.liik === 'fluid' ? ' <span class="silt">fluid</span>' : ''}`;
+  const kohaTekst = s => `${esc(s.koht)}${s.pool === 'vasak' ? ' (vasak)' : s.pool === 'parem' ? ' (parem)' : ''}${onAjutineLiik(s.liik) ? ' <span class="silt">ajutine</span>' : ''}`;
   const vpS = vpSeosed(t.kood)[0], v = vpS && vpOsad(vpS.koht);
   const redel = v && v.l >= 6 && t.ak > 300;
   const c = VARVID[t.kood];
@@ -721,7 +722,7 @@ function reaRuudustik(rida, pystak, print) {
     const lahtrid = [];
     pystakud.forEach(p => { const n = maxA(p); for (let a = 1; a <= n; a++) { const k = `${rida}-${p}-${t}-${a}`; lahtrid.push(KOHAD.has(k) ? k : null); } });
     const fl = lahtrid.some(k => k && KOHAD.get(k).fluid);
-    read.push({ silt: `Tala ${t}`, alam: t === 1 ? 'põrand' : fl ? 'fluid' : '', klass: fl ? 'fluid' : '', lahtrid });
+    read.push({ silt: `Tala ${t}`, alam: t === 1 ? 'põrand' : fl ? 'ajutine' : '', klass: fl ? 'fluid' : '', lahtrid });
   }
   return ruudustik(veerud, read, print, !pystak && !print);
 }
@@ -759,7 +760,7 @@ function renderTooala() {
         ${info ? Array.from({ length: info.p }, (_, i) => i + 1).map(p => `<button class="nupp" data-rp="${p}" aria-pressed="${UI.rp === p}">${p}${arv[p] ? `<i>${arv[p]}</i>` : ''}</button>`).join('') : ''}
       </div>
       <span style="flex:1"></span>
-      <span class="hall vaike">püstak 1 vasakul · tala 1 = põrand · kollane = fluid</span>
+      <span class="hall vaike">püstak 1 vasakul · tala 1 = põrand · kollane = ajutine koht</span>
       <button class="nupp" data-tegevus="prindiRida">Prindi ${UI.rp ? 'püstak' : 'rida'}</button>`;
     $('lava').innerHTML = reaRuudustik(UI.rida, UI.rp, false);
   }
@@ -817,7 +818,7 @@ function paiguta(koht, h) {
   if (VALITUD.koht && VALITUD.koht !== koht) eemalda.push({ Kood: t.kood, Asukoht: VALITUD.koht });
   if (vp) eemalda = eemalda.concat(vpSeosed(t.kood).filter(s => s.koht !== koht && s.koht !== VALITUD.koht).map(s => ({ Kood: t.kood, Asukoht: s.koht })));
   const L = nahtavad(), idx = L.findIndex(x => x.kood === t.kood);
-  muuda({ tegevus: 'muudaPaigutust', eemalda, lisa: [{ Kood: t.kood, Asukoht: koht, Liik: kl && kl.fluid ? 'fluid' : 'püsiv', Pool: pool }] });
+  muuda({ tegevus: 'muudaPaigutust', eemalda, lisa: [{ Kood: t.kood, Asukoht: koht, Liik: kl && kl.fluid ? 'ajutine' : 'püsiv', Pool: pool }] });
   teade((eemalda.length ? 'Teisaldatud: ' : 'Paigutatud: ') + koht);
   VALITUD = { kood: t.kood, koht };
   if (UI.auto && !eemalda.length) {
@@ -1035,7 +1036,7 @@ document.addEventListener('click', e => {
     if (!p.length) { teade('Sellel küljel pole tooteid', true); return; }
     prindi(p.map(u => ({ pealkiri: `Väikepakend V-${UI.r}-${u}`, markus: '(tala 1 = alumine)', html: vpRuudustik(UI.r, u, true) }))); return;
   }
-  if (d.tegevus === 'prindiRida') { prindi([{ pealkiri: `Rida ${UI.rida}${UI.rp ? ', püstak ' + UI.rp : ''}`, markus: '(tala 1 = põrand · punktiir = fluid)', html: reaRuudustik(UI.rida, UI.rp, true) }]); return; }
+  if (d.tegevus === 'prindiRida') { prindi([{ pealkiri: `Rida ${UI.rida}${UI.rp ? ', püstak ' + UI.rp : ''}`, markus: '(tala 1 = põrand · punktiir = ajutine koht)', html: reaRuudustik(UI.rida, UI.rp, true) }]); return; }
   if (d.varv !== undefined) { maaraVarv(+d.varv); return; }
   if (d.kylg) { UI.r = +d.kylg; salvestaUI(); renderTooala(); return; }
   if (d.pystak) { UI.u = +d.pystak; salvestaUI(); renderTooala(); return; }
