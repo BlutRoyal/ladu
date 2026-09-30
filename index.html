@@ -170,6 +170,7 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
       <div><b>Kasutaja:</b> <span id="aKes"></span></div>
       <div class="hall" id="aAndmed"></div>
       <div class="hall" id="aOotel"></div>
+      <div class="hall" id="aKaamera"></div>
       <div class="nupud">
         <button class="nupp vaike" id="aMuudaNimi">Muuda nime</button>
         <button class="nupp vaike" id="aSeadista">Seadista uuesti</button>
@@ -212,7 +213,38 @@ function loe(k, vaikimisi) { try { const s = localStorage.getItem(k); return s ?
 function kirjuta(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { naita('Telefoni mälu on täis: ' + e.message, true); return false; } }
 
 let SEADED = loe(V.seaded, null);          // {url, voti, kes}
-let ANDMED = loe(V.andmed, null);          // serveri vastus 'andmed'
+let ANDMED = null;                          // serveri vastus 'andmed' (IndexedDB-s, laaditakse käivitusel)
+
+// Suured andmed IndexedDB-s (localStorage ~5 MB ei mahuta 20 000 toodet kindlalt)
+const IDB = {
+  db: null,
+  ava() {
+    if (this.db) return Promise.resolve(this.db);
+    return new Promise((ok, viga) => {
+      const r = indexedDB.open('ladu', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('kv');
+      r.onsuccess = () => { this.db = r.result; ok(this.db); };
+      r.onerror = () => viga(r.error);
+    });
+  },
+  async loe(k) {
+    const db = await this.ava();
+    return new Promise((ok, viga) => { const q = db.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => ok(q.result); q.onerror = () => viga(q.error); });
+  },
+  async kirjuta(k, v) {
+    const db = await this.ava();
+    return new Promise((ok, viga) => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(v, k); tx.oncomplete = () => ok(); tx.onerror = () => viga(tx.error); });
+  }
+};
+function salvestaAndmed() {
+  IDB.kirjuta('andmed', ANDMED).catch(() => kirjuta(V.andmed, ANDMED));   // varuks localStorage
+}
+// Seos serveri kujul (lühike massiiv või vana objekt) -> ühtne objekt
+function seosObj(x) {
+  return Array.isArray(x)
+    ? { kood: normKood(x[0]), koht: normKoht(x[1]), liik: x[2], pool: x[3] }
+    : { kood: normKood(x.Kood), koht: normKoht(x.Asukoht), liik: x.Liik, pool: x.Pool };
+}
 let VALJAS = loe(V.valjas, []);            // saatmata muudatused
 let INV = loe(V.inv, []);                  // selle telefoni loendused
 let IX = null;                             // otsinguindeksid
@@ -292,9 +324,9 @@ async function laeAndmed(vaikne) {
   try {
     await saadaValjas();
     let j, katse = 0;
-    const versioon = ANDMED && ANDMED.tooted ? ANDMED.versioon : undefined;
+    const versioon = ANDMED && ANDMED.tooted && ANDMED.lyhike ? ANDMED.versioon : undefined;
     while (true) {
-      try { j = await api({ tegevus: 'andmed', osad: 'tooted,asukohad,paigutus', versioon }, 60000); break; }
+      try { j = await api({ tegevus: 'andmed', osad: 'tooted,asukohad,paigutus', lyhike: true, versioon }, 60000); break; }
       catch (e) { if (++katse >= 2) throw e; await new Promise(r => setTimeout(r, 1500)); }  // võrguviga: proovi korra uuesti
     }
     if (!j.ok) throw new Error(j.viga);
@@ -305,7 +337,7 @@ async function laeAndmed(vaikne) {
       ANDMED = j; ANDMED.kontrollitud = new Date().toISOString();
       ehitaIndeks();
     }
-    kirjuta(V.andmed, ANDMED);
+    salvestaAndmed();
     VIIMANE_VIGA = '';
     VIIMANE_AEG = ((Date.now() - t0) / 1000).toFixed(1) + ' s';
     if (!vaikne) naita('Andmed uuendatud (' + VIIMANE_AEG + ')');
@@ -346,10 +378,13 @@ async function saadaValjas() {
         if (!j.ok) naita(`${esimene.kood} @ ${esimene.asukoht}: ${j.viga}`, true);
         else if (ANDMED) {  // kanna muudatus telefoni andmetesse, kuni järgmise täisuuenduseni
           const P = ANDMED.paigutus = ANDMED.paigutus || [];
-          const sama = x => normKood(x.Kood) === esimene.kood && normKoht(x.Asukoht) === esimene.asukoht;
-          if (esimene.tegevus === 'lisaSeos' && !P.some(sama)) P.push({ Kood: esimene.kood, Asukoht: esimene.asukoht, Liik: j.liik || 'fluid', Pool: '' });
+          const sama = x => { const o = seosObj(x); return o.kood === esimene.kood && o.koht === esimene.asukoht; };
+          if (esimene.tegevus === 'lisaSeos' && !P.some(sama)) {
+            P.push(ANDMED.lyhike ? [esimene.kood, esimene.asukoht, j.liik || 'fluid', '']
+                                 : { Kood: esimene.kood, Asukoht: esimene.asukoht, Liik: j.liik || 'fluid', Pool: '' });
+          }
           if (esimene.tegevus === 'eemaldaSeos') ANDMED.paigutus = P.filter(x => !sama(x));
-          kirjuta(V.andmed, ANDMED);
+          salvestaAndmed();
         }
         VALJAS.shift();
       }
@@ -371,8 +406,11 @@ function lisaValjas(op) {
 function ehitaIndeks() {
   if (!ANDMED || !ANDMED.tooted) { IX = null; return; }
   const tooted = new Map(), ean = new Map(), otsi = [];
+  const L = !!ANDMED.lyhike, G = ANDMED.grupid || [], U = ANDMED.uhikud || [];
   ANDMED.tooted.read.forEach(r => {
-    const t = { kood: normKood(r[0]), nimi: r[1], ean: String(r[2] || '').trim(), k3: r[4], maardu: r[5], uhik: r[6], grupp: r[7] };
+    const t = L
+      ? { kood: normKood(r[0]), nimi: r[1], ean: String(r[2] || '').trim(), k3: r[3], maardu: r[4], uhik: U[r[5]], grupp: G[r[6]] }
+      : { kood: normKood(r[0]), nimi: r[1], ean: String(r[2] || '').trim(), k3: r[4], maardu: r[5], uhik: r[6], grupp: r[7] };
     tooted.set(t.kood, t);
     if (t.ean && t.ean !== t.kood) {
       ean.set(t.ean.toUpperCase(), t.kood);
@@ -382,17 +420,19 @@ function ehitaIndeks() {
   });
   const kohad = new Map();
   (ANDMED.asukohad || []).forEach(a => {
+    if (Array.isArray(a)) { const k = normKoht(a[0]); if (k) kohad.set(k, { koht: k, fluid: !!a[1] }); return; }
     const k = normKoht(a.Asukoht);
     if (k) kohad.set(k, { koht: k, fluid: a.Fluid === true || String(a.Fluid).toLowerCase() === 'jah', tyyp: a['Tüüp'], ala: a.Ala });
   });
-  IX = { tooted, ean, otsi, kohad };
+  const peidetud = new Set((ANDMED.peidetud || []).map(normKood));
+  IX = { tooted, ean, otsi, kohad, peidetud };
   ehitaSeosed();
 }
 
 // Serveri seosed + ootel muudatused (et telefon näeks kohe oma muudatust)
 function ehitaSeosed() {
   if (!IX) return;
-  let s = (ANDMED.paigutus || []).map(x => ({ kood: normKood(x.Kood), koht: normKoht(x.Asukoht), liik: x.Liik, pool: x.Pool }));
+  let s = (ANDMED.paigutus || []).map(seosObj);
   VALJAS.forEach(op => {
     if (op.tegevus === 'lisaSeos' && !s.some(x => x.kood === op.kood && x.koht === op.asukoht)) {
       s.push({ kood: op.kood, koht: op.asukoht, liik: 'fluid', pool: '', ootel: true });
@@ -431,7 +471,8 @@ function otsiTooteid(q, max = 30) {
     if (sonad.every(s => o.h.includes(s))) { tulem.push(o.t); if (tulem.length > 400) break; }
   }
   const onKoht = t => IX.seosKood.has(t.kood) ? 1 : 0;
-  tulem.sort((a, b) => (b.kood.startsWith(q) - a.kood.startsWith(q)) || (onKoht(b) - onKoht(a)) || a.kood.localeCompare(b.kood));
+  const peid = t => IX.peidetud.has(t.kood) ? 1 : 0;   // valikust väljas tooted lõppu
+  tulem.sort((a, b) => (peid(a) - peid(b)) || (b.kood.startsWith(q) - a.kood.startsWith(q)) || (onKoht(b) - onKoht(a)) || a.kood.localeCompare(b.kood));
   return tulem.slice(0, max);
 }
 
@@ -500,7 +541,7 @@ function renderOtsing() {
   html += tulem.map(t => {
     const s = IX.seosKood.get(t.kood) || [];
     return `<button class="rida-tulemus" data-toode="${esc(t.kood)}">
-      <span class="toode-kood" style="font-size:16px">${esc(t.kood)}</span> <span>${esc(t.nimi)}</span>
+      <span class="toode-kood" style="font-size:16px">${esc(t.kood)}</span>${IX.peidetud.has(t.kood) ? '<span class="silt">valikust väljas</span>' : ''} <span>${esc(t.nimi)}</span>
       <div class="kohad">${s.length ? s.map(x => esc(x.koht)).join(' · ') : '<span class="hall">Asukoht puudub</span>'}</div>
     </button>`;
   }).join('');
@@ -518,7 +559,7 @@ function tooteKaart(t) {
     </button>`;
   }).join('');
   return `<div class="kaart">
-    <div class="toode-kood">${esc(t.kood)}</div>
+    <div class="toode-kood">${esc(t.kood)}${IX.peidetud.has(t.kood) ? '<span class="silt">valikust väljas</span>' : ''}</div>
     <div>${esc(t.nimi)}</div>
     <div class="hall">${t.ean && t.ean !== t.kood ? 'EAN ' + esc(t.ean) + ' · ' : ''}${esc(t.grupp || '')}</div>
     ${laoseis(t)}
@@ -545,7 +586,7 @@ function laoseis(t) {
   } else seisuga = 'teadmata ajal';
   return `<div class="laoseis">
     <div><span class="hall">Maardu</span> <b>${fmtNr(nr(t.maardu))}</b> ${u} &nbsp; <span class="hall">Kauplus 3</span> <b>${fmtNr(nr(t.k3))}</b> ${u}</div>
-    <div class="laoseis-markus${vana ? ' vana' : ''}">Buumi seis ${esc(seisuga)}. Võib olla vananenud; pakkimata/konverteerimata kaup ei kajastu.</div>
+    <div class="laoseis-markus${vana ? ' vana' : ''}">Buumi seis ${esc(seisuga)}. Võib olla vananenud; pakkimata/konverteerimata kaup ja tegemata vahekanded ei kajastu.</div>
   </div>`;
 }
 
@@ -768,6 +809,11 @@ function renderSeaded() {
   $('aAndmed').textContent = (IX ? `${IX.tooted.size} toodet, ${IX.kohad.size} asukohta telefonis` : 'Andmed puuduvad') +
     (VIIMANE_AEG ? ` · viimane laadimine ${VIIMANE_AEG}` : '') + (VIIMANE_VIGA ? ` · viimane viga: ${VIIMANE_VIGA}` : '');
   $('aOotel').textContent = VALJAS.length ? VALJAS.length + ' muudatust ootab saatmist' : 'Kõik muudatused on saadetud';
+  const otse = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  $('aKaamera').textContent = 'Skänner: ' + (otse ? 'otsekaamera' : 'fotorežiim (brauser ei luba otsekaamerat)') +
+    ' · ' + ('BarcodeDetector' in window ? 'sisseehitatud lugeja' : 'ZXing') +
+    ' · ' + (window.isSecureContext ? 'https ok' : 'EI OLE turvaline ühendus') +
+    (window.navigator.standalone ? ' · avakuva äpp' : '');
 }
 
 function seadistusLink() {
@@ -794,7 +840,7 @@ async function salvestaSeadistus() {
   if (!voti) { naita('Sisesta võti', true); return; }
   if (!kes) { naita('Sisesta oma nimi', true); return; }
   // Uus URL/võti -> vanad andmed kustu (võivad olla teisest tabelist)
-  if (SEADED && (SEADED.url !== url || SEADED.voti !== voti)) { ANDMED = null; IX = null; kirjuta(V.andmed, null); }
+  if (SEADED && (SEADED.url !== url || SEADED.voti !== voti)) { ANDMED = null; IX = null; salvestaAndmed(); }
   SEADED = { url, voti, kes };
   kirjuta(V.seaded, SEADED);
   aktiivne = ''; mine('otsing');
@@ -1092,8 +1138,13 @@ setInterval(saadaValjas, 30000);
 /* ============================================================
    KÄIVITUS
    ============================================================ */
-(function kaivita() {
+(async function kaivita() {
   $('iSeanss').value = loe(V.seanss, '') || '';
+  try {
+    ANDMED = (await IDB.loe('andmed')) || null;
+    const vana = loe(V.andmed, null);                  // varasem versioon hoidis andmeid localStorage'is
+    if (vana) { if (!ANDMED) { ANDMED = vana; salvestaAndmed(); } localStorage.removeItem(V.andmed); }
+  } catch (e) { ANDMED = loe(V.andmed, null); }
   const lingist = loeSeadistusLingist();
   // Link jääb aadressiribale: iPhone'i avakuva ikoon võib hoida andmeid Safarist eraldi
   // ja vajab linki esimesel avamisel. Seadistatud telefon ei küsi seetõttu midagi uuesti.
@@ -1102,7 +1153,7 @@ setInterval(saadaValjas, 30000);
     if (SEADED && SEADED.kes) {
       // telefon on juba seadistatud: võta lingist ainult URL ja võti, nimi jääb
       if (SEADED.url !== lingist.u || SEADED.voti !== lingist.k) {
-        ANDMED = null; IX = null; kirjuta(V.andmed, null);
+        ANDMED = null; IX = null; salvestaAndmed();
         SEADED = { url: lingist.u, voti: lingist.k || '', kes: SEADED.kes };
         kirjuta(V.seaded, SEADED);
       }
