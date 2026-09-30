@@ -794,7 +794,8 @@ setInterval(saadaValjas, 30000);
 (function kaivita() {
   $('iSeanss').value = loe(V.seanss, '') || '';
   const lingist = loeSeadistusLingist();
-  if (location.hash) history.replaceState(null, '', location.pathname + location.search);  // link aadressiribalt ära
+  // Link jääb aadressiribale: iPhone'i avakuva ikoon võib hoida andmeid Safarist eraldi
+  // ja vajab linki esimesel avamisel. Seadistatud telefon ei küsi seetõttu midagi uuesti.
   ehitaIndeks();
   if (lingist && lingist.u) {
     if (SEADED && SEADED.kes) {
