@@ -254,14 +254,20 @@ async function laeAndmed(vaikne) {
   try {
     await saadaValjas();
     let j, katse = 0;
+    const versioon = ANDMED && ANDMED.tooted ? ANDMED.versioon : undefined;
     while (true) {
-      try { j = await api({ tegevus: 'andmed', osad: 'tooted,asukohad,paigutus' }, 90000); break; }
-      catch (e) { if (++katse >= 3) throw e; await new Promise(r => setTimeout(r, 1500 * katse)); }  // võrguviga: proovi uuesti
+      try { j = await api({ tegevus: 'andmed', osad: 'tooted,asukohad,paigutus', versioon }, 60000); break; }
+      catch (e) { if (++katse >= 2) throw e; await new Promise(r => setTimeout(r, 1500)); }  // võrguviga: proovi korra uuesti
     }
     if (!j.ok) throw new Error(j.viga);
     delete j._server;
-    ANDMED = j; kirjuta(V.andmed, ANDMED);
-    ehitaIndeks();
+    if (j.muutmata) {
+      ANDMED.kontrollitud = new Date().toISOString();   // telefonis on juba uusim
+    } else {
+      ANDMED = j; ANDMED.kontrollitud = new Date().toISOString();
+      ehitaIndeks();
+    }
+    kirjuta(V.andmed, ANDMED);
     VIIMANE_VIGA = '';
     VIIMANE_AEG = ((Date.now() - t0) / 1000).toFixed(1) + ' s';
     if (!vaikne) naita('Andmed uuendatud (' + VIIMANE_AEG + ')');
@@ -413,9 +419,9 @@ function olek(tekst) {
   $('olekTapp').classList.toggle('valjas', !on);
   if (tekst) { $('olekTekst').textContent = tekst; return; }
   const osad = [on ? 'Võrgus' : 'Võrguta'];
-  if (ANDMED && ANDMED.aeg) {
-    const d = new Date(ANDMED.aeg);
-    osad.push('andmed ' + d.toLocaleDateString('et-EE', { day: 'numeric', month: 'numeric' }) + ' ' + d.toLocaleTimeString('et-EE', { hour: '2-digit', minute: '2-digit' }));
+  if (ANDMED && (ANDMED.kontrollitud || ANDMED.aeg)) {
+    const d = new Date(ANDMED.kontrollitud || ANDMED.aeg);
+    osad.push('värske ' + d.toLocaleDateString('et-EE', { day: 'numeric', month: 'numeric' }) + ' ' + d.toLocaleTimeString('et-EE', { hour: '2-digit', minute: '2-digit' }));
   }
   if (VALJAS.length) osad.push(VALJAS.length + ' saatmata');
   $('olekTekst').textContent = osad.join(' · ');
@@ -712,20 +718,12 @@ async function salvestaSeadistus() {
   if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(url)) { naita('URL peab algama https://script.google.com/', true); return; }
   if (!voti) { naita('Sisesta võti', true); return; }
   if (!kes) { naita('Sisesta oma nimi', true); return; }
+  // Uus URL/võti -> vanad andmed kustu (võivad olla teisest tabelist)
+  if (SEADED && (SEADED.url !== url || SEADED.voti !== voti)) { ANDMED = null; IX = null; kirjuta(V.andmed, null); }
   SEADED = { url, voti, kes };
-  $('sSalvesta').disabled = true;
-  try {
-    const j = await api({ tegevus: 'ping' });
-    if (!j.ok) throw new Error(j.viga);
-    kirjuta(V.seaded, SEADED);
-    history.replaceState(null, '', location.pathname + location.search);
-    naita('Ühendus OK (' + j.roll + ')');
-    mine('otsing');
-    laeAndmed(true);
-  } catch (e) {
-    SEADED = loe(V.seaded, null);
-    naita('Ei saanud ühendust: ' + e.message, true);
-  } finally { $('sSalvesta').disabled = false; }
+  kirjuta(V.seaded, SEADED);
+  aktiivne = ''; mine('otsing');
+  laeAndmed(false);          // ühenduse viga näidatakse otsinguvaates, seadistus jääb alles
 }
 
 /* ============================================================
@@ -796,14 +794,24 @@ setInterval(saadaValjas, 30000);
 (function kaivita() {
   $('iSeanss').value = loe(V.seanss, '') || '';
   const lingist = loeSeadistusLingist();
-  if (lingist && lingist.u) {
-    $('sUrl').value = lingist.u; $('sVoti').value = lingist.k || '';
-    $('sKes').value = SEADED ? SEADED.kes : '';
-    aktiivne = ''; mine('seadistus');
-    olek();
-    return;
-  }
+  if (location.hash) history.replaceState(null, '', location.pathname + location.search);  // link aadressiribalt ära
   ehitaIndeks();
+  if (lingist && lingist.u) {
+    if (SEADED && SEADED.kes) {
+      // telefon on juba seadistatud: võta lingist ainult URL ja võti, nimi jääb
+      if (SEADED.url !== lingist.u || SEADED.voti !== lingist.k) {
+        ANDMED = null; IX = null; kirjuta(V.andmed, null);
+        SEADED = { url: lingist.u, voti: lingist.k || '', kes: SEADED.kes };
+        kirjuta(V.seaded, SEADED);
+      }
+    } else {
+      // esimene kord: küsi ainult nime
+      $('sUrl').value = lingist.u; $('sVoti').value = lingist.k || ''; $('sKes').value = '';
+      aktiivne = ''; mine('seadistus'); olek();
+      setTimeout(() => $('sKes').focus(), 100);
+      return;
+    }
+  }
   olek();
   const p = new URLSearchParams(location.search);
   if (SEADED && p.get('asukoht')) avaKoht(p.get('asukoht'));
