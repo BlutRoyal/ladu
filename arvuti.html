@@ -226,7 +226,8 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
   <div class="modaal">
     <h2>Arvuti seadistus</h2>
     <p id="sPohjus" class="hoiatus vaike" style="display:none;font-weight:400;background:var(--pun-hele);padding:8px 10px;border-radius:8px"></p>
-    <p class="hall">Arvutivaade kasutab <b>ADMIN võtit</b> (Apps Script → Project Settings → Script Properties). See jääb ainult selle arvuti brauserisse.</p>
+    <p class="hall">Sisesta oma <b>isiklik admin-võti</b> või hädavõti. Võtmed leiad: Sheet → peidetud leht <b>Kasutajad</b> (Vaade → Peidetud lehed),
+      või Apps Script → käivita <code>adminLigipaas</code> (näitab URL-i ja võtmed ning vabastab admin-seadmed). Hädavõti: Project Settings → Script Properties → ADMIN_VOTI.</p>
     <label for="sUrl">Veebirakenduse URL (lõpeb /exec)</label>
     <input id="sUrl" type="url" autocomplete="off">
     <label for="sVoti">ADMIN võti</label>
@@ -330,13 +331,16 @@ function seadmeId() {
   return id;
 }
 function kustutaKohalik(pohjus) {
-  // seadme tunnus jääb alles (pole salajane) – muidu ei tunneks server seda arvutit enam ära
-  try { Object.keys(localStorage).filter(k => k.indexOf('ladu_arvuti_') === 0 && k !== 'ladu_arvuti_seade').forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  const vanaUrl = SEADED ? SEADED.url : '', vanaNimi = SEADED ? SEADED.kes : '';
+  // viimane keeldumine jääb meelde (diagnostika), seadme tunnus jääb alles (pole salajane)
+  try { localStorage.setItem('ladu_arvuti_viimane_keeld', new Date().toLocaleString('et-EE') + ' – ' + (pohjus || '')); } catch (e) {}
+  setTimeout(() => { $('sUrl').value = vanaUrl; $('sKes').value = vanaNimi || 'arvuti'; $('sVoti').value = ''; $('sVoti').focus(); }, 0);
+  try { Object.keys(localStorage).filter(k => k.indexOf('ladu_arvuti_') === 0 && k !== 'ladu_arvuti_seade' && k !== 'ladu_arvuti_viimane_keeld').forEach(k => localStorage.removeItem(k)); } catch (e) {}
   ANDMED = null; SEADED = null; VALJAS = [];
   IDB.kirjuta('andmed', null).catch(() => {});
   setTimeout(() => {
     ehitaKoik();
-    $('sPohjus').innerHTML = `<b>Server keeldus:</b> ${esc(pohjus || 'ligipääs puudub')}.<br>Kui see on sinu admin-võti: logi sisse ühise ADMIN võtmega, ava Kasutajad → oma rida → „Vabasta seadmed“ → „Kasuta selles arvutis“.`;
+    $('sPohjus').innerHTML = `<b>Server keeldus:</b> ${esc(String(pohjus || 'ligipääs puudub').replace(/\.+$/, ''))}.<br>Kui see on sinu admin-võti: logi sisse ühise ADMIN võtmega, ava Kasutajad → oma rida → „Vabasta seadmed“ → „Kasuta selles arvutis“.`;
     $('sPohjus').style.display = '';
     $('seadistus').classList.add('lahti');
   }, 0);
@@ -410,6 +414,7 @@ async function laeAndmed(teavita) {
     if (!j.ok) throw new Error(j.viga);
     if (!j.muutmata) { ANDMED = j; salvestaAndmed(); }
     VIGA = '';
+    if (!PING_TEHTUD) { PING_TEHTUD = true; api({ tegevus: 'ping' }, 20000).then(p => { HADAVOTI = !!(p && p.hadavoti); olek(); }).catch(() => { PING_TEHTUD = false; }); }
     ehitaKoik();
     if (teavita) teade(j.muutmata ? 'Andmed on värsked' : 'Andmed uuendatud');
   } catch (e) {
@@ -471,8 +476,10 @@ function muuda(...paringud) {
   saada();
 }
 
+let HADAVOTI = false, PING_TEHTUD = false;
 function olek() {
   const osad = [];
+  if (HADAVOTI) osad.push('<span class="viga" title="Kasutajad → oma rida → Kasuta selles arvutis">⚠ hädavõti</span>');
   if (laeb) osad.push('Laen…');
   if (VALJAS.length) osad.push(`<b>${VALJAS.length}</b> salvestamata`);
   else if (ANDMED) osad.push('Salvestatud');
@@ -1029,10 +1036,13 @@ function renderKasutajad() {
       </td></tr>`).join('') + '</table>'
     : '<p class="hall">Kasutajaid pole veel. Lisa esmalt iseennast (roll admin), siis teised.</p>';
   $('kasVanad').innerHTML = VANAD_KEELATUD
-    ? '<b>Ühised võtmed on keelatud.</b> <span class="hall">Töötavad ainult isiklikud võtmed.</span> <button class="nupp" data-vanad="0">Luba uuesti</button>'
-    : `<b>Ühised võtmed (ADMIN_VOTI, TELEFON_VOTI) töötavad veel.</b>
-       <div class="hall vaike">Kui kõik on saanud isikliku lingi ja see arvuti kasutab sinu isiklikku admin-võtit, keela ühised võtmed – siis lakkavad kõik vanad lingid töötamast.</div>
-       <div style="margin-top:6px"><button class="nupp ohtlik" data-vanad="1">Keela ühised võtmed</button></div>`;
+    ? '<b>Ühine telefonivõti on keelatud.</b> <span class="hall">Telefonid töötavad ainult isiklike linkidega.</span> <button class="nupp" data-vanad="0">Luba uuesti</button>'
+    : `<b>Ühine telefonivõti (TELEFON_VOTI) töötab veel.</b>
+       <div class="hall vaike">Kui kõik on saanud isikliku lingi, keela see – siis lakkavad vanad ühised telefonilingid töötamast.</div>
+       <div style="margin-top:6px"><button class="nupp ohtlik" data-vanad="1">Keela ühine telefonivõti</button></div>`;
+  $('kasVanad').innerHTML += `<div class="hall vaike" style="margin-top:10px;border-top:1px solid var(--joon2);padding-top:8px">
+    <b>Hädavõti (ADMIN_VOTI)</b> jääb alati kehtima – see on ainult Apps Scripti seadetes ega liigu linkides. Kasuta seda ainult siis,
+    kui isiklik admin-võti on kadunud. Hädaabi: Apps Script → käivita <code>adminLigipaas</code> (vabastab admin-seadmed, logis on URL ja võtmed).</div>`;
 }
 
 // Server tagastab uuendatud nimekirja kohe kaasa – teist päringut pole vaja
@@ -1197,7 +1207,7 @@ function kasKlikk(d) {
   if (d.kaskasuta) {
     const k = leia(d.kaskasuta);
     if (!confirm(`Kasutan selles arvutis ${k.Nimi} isiklikku admin-võtit?`)) return;
-    SEADED = { url: SEADED.url, voti: k['Võti'], kes: k.Nimi }; kirjuta(V.seaded, SEADED);
+    SEADED = { url: SEADED.url, voti: k['Võti'], kes: k.Nimi }; kirjuta(V.seaded, SEADED); HADAVOTI = false; olek();
     teade('See arvuti kasutab nüüd ' + k.Nimi + ' võtit'); renderKasutajad(); return;
   }
   if (d.kasvoti) {
@@ -1230,9 +1240,7 @@ function kasKlikk(d) {
   if (d.vanad !== undefined) {
     const keela = d.vanad === '1';
     if (keela) {
-      const minu = KASUTAJAD.find(k => k['Võti'] === SEADED.voti && String(k.Aktiivne).toLowerCase() === 'jah' && k.Roll === 'admin');
-      if (!minu) { teade('See arvuti kasutab veel ühist võtit. Vali enne oma kasutaja juures „Kasuta selles arvutis“.', true); return; }
-      if (!confirm('Keelan ühised võtmed? Kõik vanad ühise võtmega lingid ja telefonid lakkavad töötamast.')) return;
+      if (!confirm('Keelan ühise telefonivõtme? Kõik vanad ühise lingiga telefonid lakkavad töötamast (hädavõti ADMIN_VOTI jääb kehtima).')) return;
     }
     kasTegevus({ tegevus: 'vanadVotmed', keela }, keela ? 'Ühised võtmed keelatud' : 'Ühised võtmed lubatud');
   }
