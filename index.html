@@ -1216,6 +1216,8 @@ setInterval(saadaValjas, 30000);
         SEADED = { url: lingist.u, voti: lingist.k || '', kes: lingist.n, isiklik: true };
         kirjuta(V.seaded, SEADED);
       }
+    } else if (SEADED && SEADED.isiklik) {
+      // isikliku võtmega telefon: vana ühine link (nt vana avakuva ikoon) ei tohi seda üle kirjutada
     } else if (SEADED && SEADED.kes) {
       // telefon on juba seadistatud: võta lingist ainult URL ja võti, nimi jääb
       if (SEADED.url !== lingist.u || SEADED.voti !== lingist.k) {
