@@ -225,6 +225,7 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
 <div class="katte" id="seadistus">
   <div class="modaal">
     <h2>Arvuti seadistus</h2>
+    <p id="sPohjus" class="hoiatus vaike" style="display:none;font-weight:400;background:var(--pun-hele);padding:8px 10px;border-radius:8px"></p>
     <p class="hall">Arvutivaade kasutab <b>ADMIN võtit</b> (Apps Script → Project Settings → Script Properties). See jääb ainult selle arvuti brauserisse.</p>
     <label for="sUrl">Veebirakenduse URL (lõpeb /exec)</label>
     <input id="sUrl" type="url" autocomplete="off">
@@ -328,11 +329,17 @@ function seadmeId() {
   if (!id) { id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)); kirjuta('ladu_arvuti_seade', id); }
   return id;
 }
-function kustutaKohalik() {
-  try { Object.keys(localStorage).filter(k => k.indexOf('ladu_arvuti_') === 0).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+function kustutaKohalik(pohjus) {
+  // seadme tunnus jääb alles (pole salajane) – muidu ei tunneks server seda arvutit enam ära
+  try { Object.keys(localStorage).filter(k => k.indexOf('ladu_arvuti_') === 0 && k !== 'ladu_arvuti_seade').forEach(k => localStorage.removeItem(k)); } catch (e) {}
   ANDMED = null; SEADED = null; VALJAS = [];
   IDB.kirjuta('andmed', null).catch(() => {});
-  setTimeout(() => { ehitaKoik(); $('seadistus').classList.add('lahti'); }, 0);
+  setTimeout(() => {
+    ehitaKoik();
+    $('sPohjus').innerHTML = `<b>Server keeldus:</b> ${esc(pohjus || 'ligipääs puudub')}.<br>Kui see on sinu admin-võti: logi sisse ühise ADMIN võtmega, ava Kasutajad → oma rida → „Vabasta seadmed“ → „Kasuta selles arvutis“.`;
+    $('sPohjus').style.display = '';
+    $('seadistus').classList.add('lahti');
+  }, 0);
 }
 // Seadistuslink: …/arvuti.html#s=base64url({u, k, n})
 function lingiKood(o) {
@@ -381,7 +388,7 @@ async function api(p, ms = 60000) {
       let j = null;
       try { j = JSON.parse(tekst); } catch (e) { j = null; }
       if (j) {
-        if (j.ligipaasPuudub) { kustutaKohalik(); const x = new Error('Ligipääs puudub või on eemaldatud'); x.lopp = true; throw x; }
+        if (j.ligipaasPuudub) { kustutaKohalik(j.viga); const x = new Error('Ligipääs puudub või on eemaldatud'); x.lopp = true; throw x; }
         return j;
       }
       { viga = new Error(`Google vastas HTTP ${r.status}: ${(tekst.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1] || tekst.slice(0, 100)}`); }
@@ -1290,6 +1297,7 @@ $('sSalvesta').addEventListener('click', async () => {
   } catch (e) { SEADED = vana; teade(e.message, true); return; }
   if (!vana || vana.url !== url) { ANDMED = null; salvestaAndmed(); }
   kirjuta(V.seaded, SEADED);
+  $('sPohjus').style.display = 'none';
   $('seadistus').classList.remove('lahti');
   laeAndmed(true);
 });

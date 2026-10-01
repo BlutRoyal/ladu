@@ -257,15 +257,15 @@ function rakendaRoll() {
   if (!voibMuuta() && typeof aktiivne !== 'undefined' && aktiivne === 'inventuur') mine('otsing');
 }
 
-function kustutaKoik() {
+function kustutaKoik(pohjus) {
   // ainult telefonilehe võtmed – arvutilehe omad (ladu_arvuti_*) on samal aadressil ja jäävad puutumata
-  try { Object.keys(localStorage).filter(k => k.indexOf('ladu_') === 0 && k.indexOf('ladu_arvuti_') !== 0).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  try { Object.keys(localStorage).filter(k => k.indexOf('ladu_') === 0 && k.indexOf('ladu_arvuti_') !== 0 && k !== 'ladu_seade').forEach(k => localStorage.removeItem(k)); } catch (e) {}
   ANDMED = null; IX = null; SEADED = null; VALJAS = []; INV = [];
   IDB.kirjuta('andmed', null).catch(() => {});
   try { $('sUrl').value = ''; $('sVoti').value = ''; $('sKes').value = ''; } catch (e) {}
   aktiivne = ''; mine('seadistus');
   const el = $('v-seadistus').querySelector('p');
-  if (el) el.innerHTML = '<b style="color:var(--punane)">Ligipääs on eemaldatud.</b> Telefonist kustutati kõik laoandmed. Kui see on viga, küsi uus link.';
+  if (el) el.innerHTML = `<b style="color:var(--punane)">${esc(pohjus || 'Ligipääs on eemaldatud.')}</b> Telefonist kustutati kõik laoandmed. Kui see on viga, küsi uus link.`;
 }
 
 function salvestaAndmed() {
@@ -339,7 +339,7 @@ async function api(p, ms = 25000) {
       if (j) {
         j._server = true;           // vastus tuli serverist (ka siis, kui ok:false)
         if (j.minuRoll) uuendaRoll(j.minuRoll);
-        if (j.ligipaasPuudub) { kustutaKoik(); const x = new Error('Ligipääs on eemaldatud'); x.lopp = true; throw x; }
+        if (j.ligipaasPuudub) { kustutaKoik(j.viga); const x = new Error(j.viga || 'Ligipääs on eemaldatud'); x.lopp = true; throw x; }
         return j;
       }
       {
