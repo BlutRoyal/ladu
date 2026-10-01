@@ -1017,7 +1017,8 @@ function renderKasutajad() {
           ${String(k.Seadmed || '').trim() ? `<button class="nupp" data-kasvabasta="${esc(k.ID)}" title="Uus telefon: vabasta ja ava sama link uues seadmes">Vabasta seadmed</button>` : ''}
           <button class="nupp" data-kasvoti="${esc(k.ID)}" title="Vana link lakkab töötamast">Uus võti</button>
           <button class="nupp ohtlik" data-kaseemalda="${esc(k.ID)}">Eemalda</button>`
-        : `<button class="nupp" data-kastaasta="${esc(k.ID)}">Taasta</button>`}
+        : `<button class="nupp" data-kastaasta="${esc(k.ID)}">Taasta</button>
+           <button class="nupp ohtlik" data-kaskustuta="${esc(k.ID)}" title="Kustutab rea registrist">Kustuta jäädavalt</button>`}
       </td></tr>`).join('') + '</table>'
     : '<p class="hall">Kasutajaid pole veel. Lisa esmalt iseennast (roll admin), siis teised.</p>';
   $('kasVanad').innerHTML = VANAD_KEELATUD
@@ -1027,14 +1028,26 @@ function renderKasutajad() {
        <div style="margin-top:6px"><button class="nupp ohtlik" data-vanad="1">Keela ühised võtmed</button></div>`;
 }
 
+// Server tagastab uuendatud nimekirja kohe kaasa – teist päringut pole vaja
+let kasTootab = false;
 async function kasTegevus(p, teadeOk) {
+  if (kasTootab) return null;                       // topeltvajutus
+  kasTootab = true;
+  document.querySelectorAll('#kasAken button, #kasAken select').forEach(b => b.disabled = true);
   try {
     const j = await api(p);
+    if (j.read) { KASUTAJAD = j.read; }
     if (!j.ok) throw new Error(j.viga);
+    if (j.vanadKeelatud !== undefined) VANAD_KEELATUD = !!j.vanadKeelatud;
     if (teadeOk) teade(teadeOk);
-    await avaKasutajad();
     return j;
   } catch (e) { teade(e.message, true); return null; }
+  finally {
+    kasTootab = false;
+    renderKasutajad();
+    document.querySelectorAll('#kasAken button, #kasAken input, #kasAken select').forEach(b => b.disabled = false);
+    $('kasLisa').textContent = 'Lisa kasutaja';
+  }
 }
 
 async function kopeeri(tekst, mis) {
@@ -1128,7 +1141,7 @@ function valgusta(selektor) {
    SÜNDMUSED
    ============================================================ */
 document.addEventListener('click', e => {
-  const el = e.target.closest('[data-vaade],[data-kood],[data-tyhi],[data-k],[data-tegevus],[data-varv],[data-kylg],[data-pystak],[data-rida],[data-rp],[data-vp],[data-i],[data-jrk],[data-peida],[data-taasta],[data-peidvaade],[data-kaslink],[data-kasarvuti],[data-kaskasuta],[data-kasvoti],[data-kaseemalda],[data-kastaasta],[data-vanad],[data-kasvabasta]');
+  const el = e.target.closest('[data-vaade],[data-kood],[data-tyhi],[data-k],[data-tegevus],[data-varv],[data-kylg],[data-pystak],[data-rida],[data-rp],[data-vp],[data-i],[data-jrk],[data-peida],[data-taasta],[data-peidvaade],[data-kaslink],[data-kasarvuti],[data-kaskasuta],[data-kasvoti],[data-kaseemalda],[data-kastaasta],[data-vanad],[data-kasvabasta],[data-kaskustuta]');
   if (!el) { if (!e.target.closest('.otsing-kast')) $('otsTulemus').classList.remove('lahti'); return; }
   const d = el.dataset;
   if (d.vaade) { UI.vaade = d.vaade; VALITUD = null; salvestaUI(); renderKoik(); return; }
@@ -1136,7 +1149,7 @@ document.addEventListener('click', e => {
   if (d.peida) { peida(d.peida); return; }
   if (d.taasta) { taasta(d.taasta); return; }
   if (d.peidvaade) { peidVaade = d.peidvaade; renderPeidetud(); return; }
-  if (d.kaslink || d.kasarvuti || d.kaskasuta || d.kasvoti || d.kaseemalda || d.kastaasta || d.vanad || d.kasvabasta) { kasKlikk(d); return; }
+  if (d.kaslink || d.kasarvuti || d.kaskasuta || d.kasvoti || d.kaseemalda || d.kastaasta || d.vanad || d.kasvabasta || d.kaskustuta) { kasKlikk(d); return; }
   if (d.tyhi) { const [koht, h] = d.tyhi.split('|'); paiguta(koht, +h); return; }
   if (d.kood) { VALITUD = { kood: d.kood, koht: d.koht || null }; renderAside(); renderTooala(); return; }
   if (d.k) { maaraK(+d.k); return; }
@@ -1197,6 +1210,11 @@ function kasKlikk(d) {
     return;
   }
   if (d.kastaasta) { kasTegevus({ tegevus: 'muudaKasutajat', id: d.kastaasta, aktiivne: true }, 'Taastatud'); return; }
+  if (d.kaskustuta) {
+    const k = leia(d.kaskustuta);
+    if (!confirm(`Kustutan ${k.Nimi} jäädavalt registrist?`)) return;
+    kasTegevus({ tegevus: 'kustutaKasutaja', id: k.ID }, k.Nimi + ' kustutatud'); return;
+  }
   if (d.kasvabasta) {
     const k = leia(d.kasvabasta);
     if (!confirm(`Vabastan ${k.Nimi} seadmed? Järgmine seade, mis tema lingi avab, seotakse uuesti.`)) return;
@@ -1221,12 +1239,22 @@ document.addEventListener('change', e => {
   kasTegevus({ tegevus: 'muudaKasutajat', id, roll: e.target.value }, 'Roll muudetud');
 });
 $('kasSulge').addEventListener('click', () => $('kasAken').classList.remove('lahti'));
-$('kasLisa').addEventListener('click', async () => {
+async function lisaKasutaja() {
   const nimi = $('kasNimi').value.trim();
-  if (!nimi) { teade('Sisesta nimi', true); return; }
-  const j = await kasTegevus({ tegevus: 'lisaKasutaja', nimi, roll: $('kasRoll').value }, nimi + ' lisatud – kopeeri tema link');
-  if (j) $('kasNimi').value = '';
-});
+  if (!nimi || kasTootab) { if (!nimi) teade('Sisesta nimi', true); return; }
+  if (KASUTAJAD.some(k => String(k.Nimi).trim().toLowerCase() === nimi.toLowerCase() && String(k.Aktiivne).toLowerCase() === 'jah')) {
+    teade(`Kasutaja „${nimi}“ on juba olemas`, true); return;
+  }
+  $('kasLisa').textContent = 'Lisan…';
+  const j = await kasTegevus({ tegevus: 'lisaKasutaja', nimi, roll: $('kasRoll').value });
+  if (!j) return;
+  $('kasNimi').value = '';
+  const k = KASUTAJAD.find(x => x.ID === j.id);
+  try { await navigator.clipboard.writeText(telefoniLink(k)); teade(nimi + ' lisatud – 📱 link on kopeeritud'); }
+  catch (e) { teade(nimi + ' lisatud – vajuta tema real „📱 Link“'); }
+}
+$('kasLisa').addEventListener('click', lisaKasutaja);
+$('kasNimi').addEventListener('keydown', e => { if (e.key === 'Enter') lisaKasutaja(); });
 $('peidetudNupp').addEventListener('click', () => { peidVaade = 'peidetud'; renderPeidetud(); $('peidAken').classList.add('lahti'); });
 $('peidSulge').addEventListener('click', () => $('peidAken').classList.remove('lahti'));
 $('peidOts').addEventListener('input', renderPeidetud);
