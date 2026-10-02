@@ -219,6 +219,8 @@ function kirjuta(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); retur
 
 let SEADED = loe(V.seaded, null);          // {url, voti, kes}
 let ANDMED = null;                          // serveri vastus 'andmed' (IndexedDB-s, laaditakse käivitusel)
+let EPOOD = null;                           // e-poe QR -> tootekood {versioon, seosed:[[slug, kood]]} (IndexedDB)
+let EPOOD_MAP = new Map();
 
 // Suured andmed IndexedDB-s (localStorage ~5 MB ei mahuta 20 000 toodet kindlalt)
 const IDB = {
@@ -267,6 +269,7 @@ function kustutaKoik(pohjus) {
   try { Object.keys(localStorage).filter(k => k.indexOf('ladu_') === 0 && k.indexOf('ladu_arvuti_') !== 0 && k !== 'ladu_seade').forEach(k => localStorage.removeItem(k)); } catch (e) {}
   ANDMED = null; IX = null; SEADED = null; VALJAS = []; INV = [];
   IDB.kirjuta('andmed', null).catch(() => {});
+  EPOOD = null; EPOOD_MAP = new Map(); IDB.kirjuta('epood', null).catch(() => {});
   try { $('sUrl').value = ''; $('sVoti').value = ''; $('sKes').value = ''; } catch (e) {}
   aktiivne = ''; mine('seadistus');
   const el = $('v-seadistus').querySelector('p');
@@ -392,6 +395,7 @@ async function laeAndmed(vaikne) {
       ehitaIndeks();
     }
     salvestaAndmed();
+    if (j.epoodVersioon && (!EPOOD || EPOOD.versioon !== j.epoodVersioon)) laeEpood();   // taustal, ei oota
     VIIMANE_VIGA = '';
     VIIMANE_AEG = ((Date.now() - t0) / 1000).toFixed(1) + ' s';
     if (!vaikne) naita('Andmed uuendatud (' + VIIMANE_AEG + ')');
@@ -403,6 +407,43 @@ async function laeAndmed(vaikne) {
     clearInterval(taimer);
     nupp.disabled = false; nupp.textContent = 'Uuenda';
     laeb = false; olek(); renderAktiivne();
+  }
+}
+
+// E-poe QR seosed (pakkide QR viib e-poe tootelehele). Laaditakse ainult siis, kui serveris muutus.
+function ehitaEpood() {
+  EPOOD_MAP = new Map();
+  ((EPOOD && EPOOD.seosed) || []).forEach(x => EPOOD_MAP.set(x[0], normKood(x[1])));
+}
+let laebEpood = false;
+async function laeEpood() {
+  if (laebEpood) return;
+  laebEpood = true;
+  try {
+    const j = await api({ tegevus: 'epood', versioon: EPOOD ? EPOOD.versioon : undefined }, 60000);
+    if (!j.ok || j.muutmata) return;
+    EPOOD = { versioon: j.versioon, seosed: j.seosed || [], kokku: j.kokku || 0, aeg: new Date().toISOString() };
+    ehitaEpood();
+    IDB.kirjuta('epood', EPOOD).catch(() => {});
+  } catch (e) { /* järgmine kord uuesti */ }
+  finally { laebEpood = false; }
+}
+// QR -> toode: telefonist kohe; kui seda veel pole (uus toode), küsib serverilt (1–4 s)
+async function epoodKood(slug) {
+  const k = EPOOD_MAP.get(slug);
+  if (k && leiaToode(k)) return { kood: k };
+  if (!navigator.onLine) return { viga: 'Seda e-poe QR-i telefon veel ei tunne ja võrku pole – skänni ribakood' };
+  naita('Otsin e-poe QR järgi…');
+  try {
+    const j = await api({ tegevus: 'epoodLeia', slug }, 20000);
+    if (!j.ok) return { viga: j.viga || 'E-poe QR-i ei õnnestunud lugeda' };
+    const t = [j.kood, j.sku, j.ribakood].map(x => x && leiaToode(x)).find(Boolean);
+    if (!t) return { viga: 'E-poe toodet ' + (j.sku || j.nimi || '') + ' meie andmetes pole', kood: j.sku || '' };
+    EPOOD_MAP.set(slug, t.kood);
+    if (EPOOD) { EPOOD.seosed.push([slug, t.kood]); IDB.kirjuta('epood', EPOOD).catch(() => {}); }
+    return { kood: t.kood };
+  } catch (e) {
+    return { viga: 'E-poe QR otsing ebaõnnestus (' + (e.name === 'AbortError' ? 'server ei vastanud' : e.message) + ') – skänni ribakood' };
   }
 }
 
@@ -871,6 +912,7 @@ function renderSeaded() {
   $('aJagaKaart').style.display = SEADED && SEADED.isiklik ? 'none' : '';
   $('aMuudaNimi').style.display = SEADED && SEADED.isiklik ? 'none' : '';
   $('aAndmed').textContent = (IX ? `${IX.tooted.size} toodet, ${IX.kohad.size} asukohta telefonis` : 'Andmed puuduvad') +
+    (EPOOD_MAP.size ? ` · e-poe QR: ${EPOOD_MAP.size} toodet` : '') +
     (VIIMANE_AEG ? ` · viimane laadimine ${VIIMANE_AEG}` : '') + (VIIMANE_VIGA ? ` · viimane viga: ${VIIMANE_VIGA}` : '');
   $('aOotel').textContent = VALJAS.length ? VALJAS.length + ' muudatust ootab saatmist' : 'Kõik muudatused on saadetud';
   const otse = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
@@ -921,7 +963,7 @@ const ZXING_URLID = [
   'https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js',
   'https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js'
 ];
-const SK = { tagasi: null, voog: null, taimer: 0, zx: null, tootab: false, detektor: null, foto: false };
+const SK = { tagasi: null, voog: null, taimer: 0, zx: null, tootab: false, detektor: null, foto: false, qrAeg: 0 };
 
 function laeSkript(url) {
   return new Promise((ok, viga) => {
@@ -959,7 +1001,7 @@ async function avaSkanner(tagasi, vihje) {
     const inp = $('skannFoto'); inp.value = ''; inp.click();
     return;
   }
-  SK.foto = false;
+  SK.foto = false; SK.qrAeg = 0;
   SK.tagasi = tagasi; SK.tootab = true;
   $('skannTekst').textContent = vihje || 'Suuna kaamera ribakoodile või QR-ile';
   $('skannValgus').style.display = 'none';
@@ -980,8 +1022,8 @@ async function avaSkanner(tagasi, vihje) {
         try {
           if (video.readyState >= 2) {
             const valik = valiKood(await SK.detektor.detect(video));
-            if (valik && valik.v) { skannLeitud(valik.v); return; }
-            if (valik && valik.epood) epoodVihje();
+            if (valik && valik.v && (!valik.qr || epoodQrOota())) { skannLeitud(valik.v); return; }
+            if (valik && valik.muu) tundmatuQrVihje();
           }
         } catch (e) { /* üksik kaader ebaõnnestus */ }
         SK.taimer = setTimeout(tsukkel, 120);
@@ -1007,7 +1049,8 @@ async function avaSkanner(tagasi, vihje) {
         (tulemus) => {
           if (!tulemus || !SK.tootab) return;
           const t = tulemus.getText();
-          if (onLink(t) && !onAsukohaQR(t)) { epoodVihje(); return; }   // e-poe QR: otsi edasi ribakoodi
+          if (epoodSlug(t)) { if (epoodQrOota()) skannLeitud(t); return; }   // e-poe QR: anna ribakoodile 1 s aega
+          if (onLink(t) && !onAsukohaQR(t)) { tundmatuQrVihje(); return; }
           skannLeitud(t);
         }
       );
@@ -1044,8 +1087,8 @@ async function loeFotolt(fail) {
     const det = await sobivDetektor();
     if (det) {
       const valik = valiKood(await det.detect(cv));
-      if (valik && valik.v) return valik.v;
-      if (valik && valik.epood) throw new Error('Pildil on ainult e-poe QR – pildista ribakoodi');
+      if (valik && valik.v) return valik.v;            // ribakood > asukoha-QR > e-poe QR
+      if (valik && valik.muu) throw new Error('Pildil on ainult tundmatu QR – pildista ribakoodi');
     }
     const ZX = await laeZxing();
     const F = ZX.BarcodeFormat, url = cv.toDataURL('image/jpeg', 0.92);
@@ -1058,7 +1101,7 @@ async function loeFotolt(fail) {
     try { return await loeFormaatidega([F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39]); }   // 1) ribakood
     catch (e) {
       const t = await loeFormaatidega([F.QR_CODE]);                                                     // 2) QR
-      if (onLink(t) && !onAsukohaQR(t)) throw new Error('Pildil on ainult e-poe QR – pildista ribakoodi');
+      if (onLink(t) && !onAsukohaQR(t) && !epoodSlug(t)) throw new Error('Pildil on ainult tundmatu QR – pildista ribakoodi');
       return t;
     }
   } finally { URL.revokeObjectURL(url); }
@@ -1153,11 +1196,16 @@ function sulgeSkanner() {
   $('skannSuum').style.display = 'none';
 }
 
-// QR-link (…?asukoht=3-2-3-1) -> {koht}; muu -> {kood}
-// Ribakood on alati tähtsam kui QR. QR võetakse ainult siis, kui see on meie asukohasilt
-// (…?asukoht=…). Pakendi e-poe QR (nt espak.ee/epood/…) jäetakse praegu vahele.
+// Ribakood on alati tähtsam kui QR. Järjekord: 1) ribakood, 2) meie asukoha-QR (…?asukoht=…),
+// 3) pakendi e-poe QR (espak.ee/epood/toode/…) -> toode e-poe seoste kaudu. Muud lingid jäetakse vahele.
 const onAsukohaQR = v => /^https?:\/\//i.test(v) && /[?&]asukoht=/i.test(v);
 const onLink = v => /^https?:\/\//i.test(String(v || '').trim());
+// URL -> slug (sama loogika on serveris epoodSlug)
+function epoodSlug(v) {
+  const m = String(v || '').trim().match(/^https?:\/\/(?:www\.)?espak\.ee\/(?:[^?#]*\/)?toode\/([^\/?#]+)/i);
+  const s = m ? m[1].toLowerCase() : '';
+  return /^[a-z0-9%._-]{1,200}$/.test(s) ? s : '';
+}
 function valiKood(tulemused) {
   // tulemused: [{rawValue, format}]
   const list = (tulemused || []).filter(x => x && x.rawValue);
@@ -1165,33 +1213,51 @@ function valiKood(tulemused) {
   if (riba) return { v: riba.rawValue };
   const koht = list.find(x => onAsukohaQR(x.rawValue));
   if (koht) return { v: koht.rawValue };
-  if (list.some(x => onLink(x.rawValue))) return { epood: true };
+  const pood = list.find(x => epoodSlug(x.rawValue));
+  if (pood) return { v: pood.rawValue, qr: true };
+  if (list.some(x => onLink(x.rawValue))) return { muu: true };
   return list.length ? { v: list[0].rawValue } : null;
 }
-let EPOOD_VIHJE_T = 0;
-function epoodVihje() {
-  if (Date.now() - EPOOD_VIHJE_T < 1500) return;
-  EPOOD_VIHJE_T = Date.now();
+// Otsekaameras: e-poe QR võetakse alles siis, kui ribakoodi pole 1 s jooksul leitud
+function epoodQrOota() {
+  const nyyd = Date.now();
+  if (!SK.qrAeg || nyyd - SK.qrAeg > 3000) { SK.qrAeg = nyyd; $('skannTekst').textContent = 'Leitud e-poe QR – otsin ribakoodi…'; return false; }
+  return nyyd - SK.qrAeg >= 1000;
+}
+let QR_VIHJE_T = 0;
+function tundmatuQrVihje() {
+  if (Date.now() - QR_VIHJE_T < 1500) return;
+  QR_VIHJE_T = Date.now();
   const el = $('skannTekst'), vana = el.textContent;
-  el.textContent = 'Leitud e-poe QR – suuna kaamera ribakoodile';
-  setTimeout(() => { if (el.textContent.indexOf('e-poe QR') >= 0) el.textContent = vana; }, 1500);
+  el.textContent = 'Tundmatu QR – suuna kaamera ribakoodile';
+  setTimeout(() => { if (el.textContent.indexOf('Tundmatu QR') >= 0) el.textContent = vana; }, 1500);
 }
 
 function tolgenda(v) {
   v = String(v || '').trim();
   if (/^https?:\/\//i.test(v)) {
     try { const k = new URL(v).searchParams.get('asukoht'); if (k) return { koht: normKoht(k) }; } catch (e) {}
-    return { vale: v };
+    const slug = epoodSlug(v);
+    if (slug) return { epood: slug };
+    return { vale: 'Tundmatu QR: ' + v };
   }
   if (IX && IX.kohad.has(normKoht(v))) return { koht: normKoht(v) };
   return { kood: v };
 }
+// Nagu tolgenda, aga e-poe QR muudetakse tootekoodiks
+async function tolgendaTaielik(v) {
+  const t = tolgenda(v);
+  if (!t.epood) return t;
+  const r = await epoodKood(t.epood);
+  return r.kood && !r.viga ? { kood: r.kood, epoodist: true } : { vale: r.viga, kood: r.kood || '' };
+}
 
 function skanniOtsing() {
-  avaSkanner(v => {
-    const t = tolgenda(v);
+  avaSkanner(async v => {
+    const t = await tolgendaTaielik(v);
     if (t.koht) { avaKoht(t.koht); return; }
-    if (t.vale) { naita('Tundmatu QR: ' + t.vale, true); return; }
+    if (t.vale) { naita(t.vale, true); return; }
+    if (t.epoodist) naita('Toode leitud e-poe QR järgi');
     otsingValitud = null;
     $('otsing').value = t.kood;
     renderOtsing();
@@ -1200,15 +1266,15 @@ function skanniOtsing() {
 }
 
 function skanniInventuur() {
-  avaSkanner(v => {
-    const t = tolgenda(v);
+  avaSkanner(async v => {
+    const t = await tolgendaTaielik(v);
     if (t.koht) {
       $('iKoht').value = t.koht;
       naita('Asukoht ' + t.koht + ' – nüüd skänni toode');
       if (!SK.foto) setTimeout(skanniInventuur, 600);     // järgmiseks toode (fotorežiimis vajab uut vajutust)
       return;
     }
-    if (t.vale) { naita('Tundmatu QR: ' + t.vale, true); return; }
+    if (t.vale) { naita(t.vale, true); return; }
     const toode = leiaToode(t.kood);
     if (!toode) { $('iToode').value = t.kood; invOtsi(); naita('Toodet ei leitud: ' + t.kood, true); return; }
     valiInvToode(toode);
@@ -1217,8 +1283,9 @@ function skanniInventuur() {
 
 function skanniKohta() {
   const koht = kohtVaates;
-  avaSkanner(v => {
-    const t = tolgenda(v);
+  avaSkanner(async v => {
+    const t = await tolgendaTaielik(v);
+    if (t.vale) { naita(t.vale, true); return; }
     const toode = t.kood && leiaToode(t.kood);
     if (!toode) { naita('Toodet ei leitud: ' + (t.kood || v), true); return; }
     if (confirm(`Lisan ${toode.kood} (${toode.nimi}) kohta ${koht}?`)) lisaSeos(toode.kood, koht);
@@ -1308,6 +1375,7 @@ setInterval(saadaValjas, 30000);
     const vana = loe(V.andmed, null);                  // varasem versioon hoidis andmeid localStorage'is
     if (vana) { if (!ANDMED) { ANDMED = vana; salvestaAndmed(); } localStorage.removeItem(V.andmed); }
   } catch (e) { ANDMED = loe(V.andmed, null); }
+  try { EPOOD = (await IDB.loe('epood')) || null; ehitaEpood(); } catch (e) { EPOOD = null; }
   const lingist = loeSeadistusLingist();
   // Link jääb aadressiribale: iPhone'i avakuva ikoon võib hoida andmeid Safarist eraldi
   // ja vajab linki esimesel avamisel. Seadistatud telefon ei küsi seetõttu midagi uuesti.
