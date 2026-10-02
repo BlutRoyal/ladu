@@ -1091,12 +1091,12 @@ async function loeFotolt(fail) {
       if (valik && valik.muu) throw new Error('Pildil on ainult tundmatu QR – pildista ribakoodi');
     }
     const ZX = await laeZxing();
-    const F = ZX.BarcodeFormat, url = cv.toDataURL('image/jpeg', 0.92);
+    const F = ZX.BarcodeFormat, pilt = cv.toDataURL('image/jpeg', 0.92);
     const loeFormaatidega = async formaadid => {
       const vihjed = new Map();
       vihjed.set(ZX.DecodeHintType.POSSIBLE_FORMATS, formaadid);
       vihjed.set(ZX.DecodeHintType.TRY_HARDER, true);
-      return (await new ZX.BrowserMultiFormatReader(vihjed).decodeFromImageUrl(url)).getText();
+      return (await new ZX.BrowserMultiFormatReader(vihjed).decodeFromImageUrl(pilt)).getText();
     };
     try { return await loeFormaatidega([F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39]); }   // 1) ribakood
     catch (e) {
