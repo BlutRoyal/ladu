@@ -979,8 +979,9 @@ async function avaSkanner(tagasi, vihje) {
         if (!SK.tootab) return;
         try {
           if (video.readyState >= 2) {
-            const leitud = await SK.detektor.detect(video);
-            if (leitud.length && leitud[0].rawValue) { skannLeitud(leitud[0].rawValue); return; }
+            const valik = valiKood(await SK.detektor.detect(video));
+            if (valik && valik.v) { skannLeitud(valik.v); return; }
+            if (valik && valik.epood) epoodVihje();
           }
         } catch (e) { /* üksik kaader ebaõnnestus */ }
         SK.taimer = setTimeout(tsukkel, 120);
@@ -1003,7 +1004,12 @@ async function avaSkanner(tagasi, vihje) {
         { video: Object.assign(id ? { deviceId: { exact: id } } : { facingMode: { ideal: 'environment' } },
                                { width: { ideal: 1920 }, height: { ideal: 1080 } }), audio: false },
         video,
-        (tulemus) => { if (tulemus && SK.tootab) skannLeitud(tulemus.getText()); }
+        (tulemus) => {
+          if (!tulemus || !SK.tootab) return;
+          const t = tulemus.getText();
+          if (onLink(t) && !onAsukohaQR(t)) { epoodVihje(); return; }   // e-poe QR: otsi edasi ribakoodi
+          skannLeitud(t);
+        }
       );
       try { await kaivita(kaamera); }
       catch (e) {
@@ -1037,16 +1043,24 @@ async function loeFotolt(fail) {
     cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
     const det = await sobivDetektor();
     if (det) {
-      const r = await det.detect(cv);
-      if (r.length && r[0].rawValue) return r[0].rawValue;
+      const valik = valiKood(await det.detect(cv));
+      if (valik && valik.v) return valik.v;
+      if (valik && valik.epood) throw new Error('Pildil on ainult e-poe QR – pildista ribakoodi');
     }
     const ZX = await laeZxing();
-    const vihjed = new Map(), F = ZX.BarcodeFormat;
-    vihjed.set(ZX.DecodeHintType.POSSIBLE_FORMATS, [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.QR_CODE]);
-    vihjed.set(ZX.DecodeHintType.TRY_HARDER, true);
-    const lugeja = new ZX.BrowserMultiFormatReader(vihjed);
-    const tulemus = await lugeja.decodeFromImageUrl(cv.toDataURL('image/jpeg', 0.92));
-    return tulemus.getText();
+    const F = ZX.BarcodeFormat, url = cv.toDataURL('image/jpeg', 0.92);
+    const loeFormaatidega = async formaadid => {
+      const vihjed = new Map();
+      vihjed.set(ZX.DecodeHintType.POSSIBLE_FORMATS, formaadid);
+      vihjed.set(ZX.DecodeHintType.TRY_HARDER, true);
+      return (await new ZX.BrowserMultiFormatReader(vihjed).decodeFromImageUrl(url)).getText();
+    };
+    try { return await loeFormaatidega([F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39]); }   // 1) ribakood
+    catch (e) {
+      const t = await loeFormaatidega([F.QR_CODE]);                                                     // 2) QR
+      if (onLink(t) && !onAsukohaQR(t)) throw new Error('Pildil on ainult e-poe QR – pildista ribakoodi');
+      return t;
+    }
   } finally { URL.revokeObjectURL(url); }
 }
 
@@ -1061,7 +1075,7 @@ $('skannFoto').addEventListener('change', async e => {
     tagasi(String(v).trim());
   } catch (err) {
     naita(/NotFound|No MultiFormat/i.test((err && (err.name + err.message)) || '')
-      ? 'Koodi ei leitud. Pildista lähemalt ja ilma läiketa.' : 'Lugemine ebaõnnestus: ' + (err.message || err), true);
+      ? 'Koodi ei leitud. Pildista lähemalt ja ilma läiketa.' : /^Pildil/.test(err && err.message) ? err.message : 'Lugemine ebaõnnestus: ' + (err.message || err), true);
   }
 });
 
@@ -1140,6 +1154,29 @@ function sulgeSkanner() {
 }
 
 // QR-link (…?asukoht=3-2-3-1) -> {koht}; muu -> {kood}
+// Ribakood on alati tähtsam kui QR. QR võetakse ainult siis, kui see on meie asukohasilt
+// (…?asukoht=…). Pakendi e-poe QR (nt espak.ee/epood/…) jäetakse praegu vahele.
+const onAsukohaQR = v => /^https?:\/\//i.test(v) && /[?&]asukoht=/i.test(v);
+const onLink = v => /^https?:\/\//i.test(String(v || '').trim());
+function valiKood(tulemused) {
+  // tulemused: [{rawValue, format}]
+  const list = (tulemused || []).filter(x => x && x.rawValue);
+  const riba = list.find(x => x.format !== 'qr_code' && !onLink(x.rawValue));
+  if (riba) return { v: riba.rawValue };
+  const koht = list.find(x => onAsukohaQR(x.rawValue));
+  if (koht) return { v: koht.rawValue };
+  if (list.some(x => onLink(x.rawValue))) return { epood: true };
+  return list.length ? { v: list[0].rawValue } : null;
+}
+let EPOOD_VIHJE_T = 0;
+function epoodVihje() {
+  if (Date.now() - EPOOD_VIHJE_T < 1500) return;
+  EPOOD_VIHJE_T = Date.now();
+  const el = $('skannTekst'), vana = el.textContent;
+  el.textContent = 'Leitud e-poe QR – suuna kaamera ribakoodile';
+  setTimeout(() => { if (el.textContent.indexOf('e-poe QR') >= 0) el.textContent = vana; }, 1500);
+}
+
 function tolgenda(v) {
   v = String(v || '').trim();
   if (/^https?:\/\//i.test(v)) {
