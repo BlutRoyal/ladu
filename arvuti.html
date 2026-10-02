@@ -330,17 +330,20 @@ function seadmeId() {
   if (!id) { id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)); kirjuta('ladu_arvuti_seade', id); }
   return id;
 }
+// Server keeldus. Arvuti on admini oma – andmeid EI kustutata; seaded jäävad alles ja saab uuesti proovida
+// või sisestada teise võtme (nt hädavõtme). Põhjus näidatakse ja jäetakse meelde.
+let KEELD_AVATUD = false;
 function kustutaKohalik(pohjus) {
-  const vanaUrl = SEADED ? SEADED.url : '', vanaNimi = SEADED ? SEADED.kes : '';
-  // viimane keeldumine jääb meelde (diagnostika), seadme tunnus jääb alles (pole salajane)
   try { localStorage.setItem('ladu_arvuti_viimane_keeld', new Date().toLocaleString('et-EE') + ' – ' + (pohjus || '')); } catch (e) {}
-  setTimeout(() => { $('sUrl').value = vanaUrl; $('sKes').value = vanaNimi || 'arvuti'; $('sVoti').value = ''; $('sVoti').focus(); }, 0);
-  try { Object.keys(localStorage).filter(k => k.indexOf('ladu_arvuti_') === 0 && k !== 'ladu_arvuti_seade' && k !== 'ladu_arvuti_viimane_keeld').forEach(k => localStorage.removeItem(k)); } catch (e) {}
-  ANDMED = null; SEADED = null; VALJAS = [];
-  IDB.kirjuta('andmed', null).catch(() => {});
+  if (KEELD_AVATUD) return;
+  KEELD_AVATUD = true;
   setTimeout(() => {
-    ehitaKoik();
-    $('sPohjus').innerHTML = `<b>Server keeldus:</b> ${esc(String(pohjus || 'ligipääs puudub').replace(/\.+$/, ''))}.<br>Kui see on sinu admin-võti: logi sisse ühise ADMIN võtmega, ava Kasutajad → oma rida → „Vabasta seadmed“ → „Kasuta selles arvutis“.`;
+    $('sUrl').value = SEADED ? SEADED.url : (loe('ladu_arvuti_url', '') || '');
+    $('sKes').value = SEADED ? SEADED.kes : (loe('ladu_arvuti_nimi', '') || 'arvuti');
+    $('sVoti').value = SEADED ? SEADED.voti : '';
+    $('sPohjus').innerHTML = `<b>Server keeldus:</b> ${esc(String(pohjus || 'ligipääs puudub').replace(/\.+$/, ''))}.<br>
+      Proovi „Salvesta“ uuesti. Kui ei aita: sisesta hädavõti (Apps Script → käivita <code>adminLigipaas</code> – näitab ka sinu isiklikku võtit
+      ja vabastab admin-seadmed) ja ava Kasutajad → oma rida → „Kasuta selles arvutis“. Põhjus on ka Sheeti lehel Logi („keeldutud“).`;
     $('sPohjus').style.display = '';
     $('seadistus').classList.add('lahti');
   }, 0);
@@ -1207,7 +1210,7 @@ function kasKlikk(d) {
   if (d.kaskasuta) {
     const k = leia(d.kaskasuta);
     if (!confirm(`Kasutan selles arvutis ${k.Nimi} isiklikku admin-võtit?`)) return;
-    SEADED = { url: SEADED.url, voti: k['Võti'], kes: k.Nimi }; kirjuta(V.seaded, SEADED); HADAVOTI = false; olek();
+    SEADED = { url: SEADED.url, voti: k['Võti'], kes: k.Nimi }; kirjuta(V.seaded, SEADED); kirjuta('ladu_arvuti_nimi', k.Nimi); HADAVOTI = false; olek();
     teade('See arvuti kasutab nüüd ' + k.Nimi + ' võtit'); renderKasutajad(); return;
   }
   if (d.kasvoti) {
@@ -1305,9 +1308,11 @@ $('sSalvesta').addEventListener('click', async () => {
   } catch (e) { SEADED = vana; teade(e.message, true); return; }
   if (!vana || vana.url !== url) { ANDMED = null; salvestaAndmed(); }
   kirjuta(V.seaded, SEADED);
+  kirjuta('ladu_arvuti_url', url); kirjuta('ladu_arvuti_nimi', kes);
+  KEELD_AVATUD = false;
   $('sPohjus').style.display = 'none';
   $('seadistus').classList.remove('lahti');
-  laeAndmed(true);
+  saada(); laeAndmed(true);
 });
 window.addEventListener('beforeunload', e => { if (VALJAS.length) { e.preventDefault(); e.returnValue = ''; } });
 setInterval(saada, 15000);
@@ -1331,8 +1336,13 @@ setInterval(() => { if (!VALJAS.length) laeAndmed(false); }, 5 * 60000);
   }
   ehitaKoik();
   olek();
-  if (!SEADED) $('seadistus').classList.add('lahti');
-  else { laeAndmed(false); saada(); }
+  if (!SEADED) {
+    $('sUrl').value = loe('ladu_arvuti_url', '') || ''; $('sKes').value = loe('ladu_arvuti_nimi', '') || 'arvuti';
+    $('seadistus').classList.add('lahti');
+  } else {
+    if (!loe('ladu_arvuti_url', null)) { kirjuta('ladu_arvuti_url', SEADED.url); kirjuta('ladu_arvuti_nimi', SEADED.kes); }
+    laeAndmed(false); saada();
+  }
 })();
 </script>
 </body>
