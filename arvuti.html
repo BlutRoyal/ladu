@@ -139,7 +139,7 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
 .katte { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 50; display: none; align-items: center; justify-content: center; }
 .katte.lahti { display: flex; }
 .modaal { background: var(--paneel); border-radius: 14px; padding: 20px; width: min(560px, calc(100% - 32px)); max-height: 85vh; overflow: auto; }
-.modaal.lai { width: min(820px, calc(100% - 32px)); }
+.modaal.lai { width: min(1000px, calc(100% - 32px)); }
 .modaal h2 { margin: 0 0 10px; font-size: 18px; }
 .modaal label { display: block; font-size: 12px; color: var(--hall); margin: 10px 0 3px; }
 .modaal input[type=text], .modaal input[type=url] { width: 100%; }
@@ -1027,7 +1027,7 @@ function renderKasutajad() {
       <td>${aktiivne(k) ? 'aktiivne' : '<span class="hoiatus">eemaldatud</span>'}</td>
       <td>${String(k.Seadmed || '').split(',').filter(String).length || '–'}</td>
       <td class="hall">${aeg(k['Viimati nähtud'])}</td>
-      <td style="white-space:nowrap">
+      <td><div class="rida" style="gap:4px">
         ${aktiivne(k) ? `<button class="nupp" data-kaslink="${esc(k.ID)}" title="Telefoni seadistuslink">📱 Link</button>
           ${k.Roll === 'admin' ? `<button class="nupp" data-kasarvuti="${esc(k.ID)}" title="Arvutivaate link">💻 Link</button>
           ${SEADED && SEADED.voti !== k['Võti'] ? `<button class="nupp" data-kaskasuta="${esc(k.ID)}">Kasuta selles arvutis</button>` : ''}` : ''}
@@ -1036,7 +1036,7 @@ function renderKasutajad() {
           <button class="nupp ohtlik" data-kaseemalda="${esc(k.ID)}">Eemalda</button>`
         : `<button class="nupp" data-kastaasta="${esc(k.ID)}">Taasta</button>
            <button class="nupp ohtlik" data-kaskustuta="${esc(k.ID)}" title="Kustutab rea registrist">Kustuta jäädavalt</button>`}
-      </td></tr>`).join('') + '</table>'
+      </div></td></tr>`).join('') + '</table>'
     : '<p class="hall">Kasutajaid pole veel. Lisa esmalt iseennast (roll admin), siis teised.</p>';
   $('kasVanad').innerHTML = VANAD_KEELATUD
     ? '<b>Ühine telefonivõti on keelatud.</b> <span class="hall">Telefonid töötavad ainult isiklike linkidega.</span> <button class="nupp" data-vanad="0">Luba uuesti</button>'

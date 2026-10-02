@@ -83,7 +83,7 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
 #skanner .raam { position: absolute; left: 12%; right: 12%; top: 30%; height: 26%; border: 3px solid rgba(255,255,255,.85); border-radius: 16px; box-shadow: 0 0 0 9999px rgba(0,0,0,.35); pointer-events: none; }
 #skanner .ulal { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; padding: calc(12px + env(safe-area-inset-top)) 16px 12px; color: #fff; }
 #skanner .ulal button { background: rgba(0,0,0,.5); color: #fff; border: 1px solid rgba(255,255,255,.4); border-radius: 12px; min-height: 44px; padding: 0 14px; font-size: 16px; }
-#skanner .all { position: absolute; bottom: 0; left: 0; right: 0; padding: 16px 16px calc(20px + env(safe-area-inset-bottom)); color: #fff; text-align: center; font-size: 16px; background: linear-gradient(transparent, rgba(0,0,0,.7)); }
+#skanner .all { position: absolute; bottom: 0; left: 0; right: 0; padding: 16px 16px calc(20px + env(safe-area-inset-bottom)); color: #fff; text-align: center; font-size: 16px; background: linear-gradient(transparent, rgba(0,0,0,.75)); }
 </style>
 </head>
 <body>
@@ -197,9 +197,14 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
   <div class="raam"></div>
   <div class="ulal">
     <button id="skannSulge">✕ Sulge</button>
-    <button id="skannValgus" style="display:none">Taskulamp</button>
+    <span style="display:flex;gap:6px">
+      <button id="skannSuum" style="display:none">2×</button>
+      <button id="skannValgus" style="display:none">Taskulamp</button>
+    </span>
   </div>
-  <div class="all" id="skannTekst">Suuna kaamera ribakoodile või QR-ile</div>
+  <div class="all"><div id="skannTekst">Suuna kaamera ribakoodile või QR-ile</div>
+    <button id="skannPildista" style="margin-top:10px;background:rgba(0,0,0,.5);color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:12px;min-height:44px;padding:0 16px;font-size:16px">📷 Ei loe? Pildista</button>
+  </div>
 </div>
 <input type="file" id="skannFoto" accept="image/*" capture="environment" style="display:none">
 
@@ -958,6 +963,7 @@ async function avaSkanner(tagasi, vihje) {
   SK.tagasi = tagasi; SK.tootab = true;
   $('skannTekst').textContent = vihje || 'Suuna kaamera ribakoodile või QR-ile';
   $('skannValgus').style.display = 'none';
+  $('skannSuum').style.display = 'none';
   $('skanner').classList.add('lahti');
   const video = $('skannVideo');
   try {
@@ -968,7 +974,7 @@ async function avaSkanner(tagasi, vihje) {
       });
       video.srcObject = SK.voog;
       await video.play();
-      naitaTaskulamp();
+      naitaTaskulamp(); naitaSuum();
       const tsukkel = async () => {
         if (!SK.tootab) return;
         try {
@@ -984,17 +990,31 @@ async function avaSkanner(tagasi, vihje) {
       $('skannTekst').textContent = 'Laen skännerit…';
       const ZX = await laeZxing();
       if (!SK.tootab) return;
-      $('skannTekst').textContent = vihje || 'Suuna kaamera ribakoodile või QR-ile';
+      const iOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      $('skannTekst').textContent = (vihje || 'Suuna kaamera ribakoodile või QR-ile') + (iOS ? ' · hoia 15–25 cm kaugusel' : '');
+      const kaamera = await valiKaamera();
+      if (!SK.tootab) return;
       const vihjed = new Map();
       const F = ZX.BarcodeFormat;
       vihjed.set(ZX.DecodeHintType.POSSIBLE_FORMATS, [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.QR_CODE]);
       vihjed.set(ZX.DecodeHintType.TRY_HARDER, true);
       SK.zx = new ZX.BrowserMultiFormatReader(vihjed, 150);
-      await SK.zx.decodeFromConstraints(
-        { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+      const kaivita = id => SK.zx.decodeFromConstraints(
+        { video: Object.assign(id ? { deviceId: { exact: id } } : { facingMode: { ideal: 'environment' } },
+                               { width: { ideal: 1920 }, height: { ideal: 1080 } }), audio: false },
         video,
         (tulemus) => { if (tulemus && SK.tootab) skannLeitud(tulemus.getText()); }
       );
+      try { await kaivita(kaamera); }
+      catch (e) {
+        if (!kaamera || e.name === 'NotAllowedError') throw e;
+        try { localStorage.removeItem('ladu_kaamera'); } catch (x) {}   // valitud kaamera ei sobinud -> tavaline tagakaamera
+        try { SK.zx.reset(); } catch (x) {}
+        SK.zx = new ZX.BrowserMultiFormatReader(vihjed, 150);
+        await kaivita(null);
+      }
+      SK.voog = video.srcObject || null;
+      naitaTaskulamp(); naitaSuum();
     }
   } catch (e) {
     const nimi = e && e.name;
@@ -1045,6 +1065,46 @@ $('skannFoto').addEventListener('change', async e => {
   }
 });
 
+// iPhone Pro jt: tavaline tagakaamera ei teravusta lähedalt. Liitkaamera (kolmik / kahekordne lainurk)
+// lülitab ise makrole. Valime selle, kui see on olemas; valik jääb meelde.
+async function valiKaamera() {
+  try {
+    const meeles = loe('ladu_kaamera', null);
+    let seadmed = await navigator.mediaDevices.enumerateDevices();
+    let kaamerad = seadmed.filter(d => d.kind === 'videoinput');
+    if (meeles && kaamerad.some(d => d.deviceId === meeles)) return meeles;
+    if (!kaamerad.some(d => d.label)) {
+      // nimed tulevad alles pärast luba: küsi korraks luba ja loe uuesti
+      const v = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+      v.getTracks().forEach(t => t.stop());
+      kaamerad = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+    }
+    const eel = [/triple|kolmik/i, /dual wide|lainurk.*kahe|kahe.*lainurk/i, /dual|kahe/i];
+    const taga = kaamerad.filter(d => /back|rear|taga|environment/i.test(d.label));
+    for (const re of eel) {
+      const k = taga.find(d => re.test(d.label));
+      if (k) { kirjuta('ladu_kaamera', k.deviceId); return k.deviceId; }
+    }
+    return null;
+  } catch (e) { return null; }
+}
+
+function naitaSuum() {
+  try {
+    const rada = SK.voog && SK.voog.getVideoTracks && SK.voog.getVideoTracks()[0];
+    const v = rada && rada.getCapabilities ? rada.getCapabilities() : {};
+    if (!v.zoom || !(v.zoom.max > 1)) return;
+    const b = $('skannSuum'); let suur = false;
+    const sihtSuum = Math.min(2, v.zoom.max);
+    b.style.display = ''; b.textContent = sihtSuum.toFixed(0) + '×';
+    b.onclick = () => {
+      suur = !suur;
+      rada.applyConstraints({ advanced: [{ zoom: suur ? sihtSuum : Math.max(1, v.zoom.min || 1) }] }).catch(() => {});
+      b.textContent = suur ? '1×' : sihtSuum.toFixed(0) + '×';
+    };
+  } catch (e) { /* suumi pole */ }
+}
+
 function naitaTaskulamp() {
   try {
     const rada = SK.voog && SK.voog.getVideoTracks()[0];
@@ -1076,6 +1136,7 @@ function sulgeSkanner() {
   video.srcObject = null;
   $('skanner').classList.remove('lahti');
   $('skannValgus').textContent = 'Taskulamp';
+  $('skannSuum').style.display = 'none';
 }
 
 // QR-link (…?asukoht=3-2-3-1) -> {koht}; muu -> {kood}
@@ -1159,6 +1220,12 @@ $('otsing').addEventListener('input', () => { otsingValitud = null; renderOtsing
 $('skannOtsing').addEventListener('click', skanniOtsing);
 $('skannInv').addEventListener('click', skanniInventuur);
 $('skannSulge').addEventListener('click', sulgeSkanner);
+$('skannPildista').addEventListener('click', () => {
+  const tagasi = SK.tagasi;
+  sulgeSkanner();
+  SK.tagasi = tagasi; SK.foto = true;
+  const inp = $('skannFoto'); inp.value = ''; inp.click();
+});
 document.addEventListener('visibilitychange', () => { if (document.hidden && SK.tootab) sulgeSkanner(); });
 $('otsing').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
 $('uuendaNupp').addEventListener('click', () => laeAndmed(false));
