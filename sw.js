@@ -1,12 +1,13 @@
 // Laoäpi teenustöötaja: hoiab lehe ja skänneri teegi telefonis, et need avaneksid ka ilma võrguta.
 // Oma lehe failid: võrgus alati uusim, võrguta salvestatud koopia.
 // Skänneri teek (CDN): esimesel korral laaditakse, edaspidi võetakse telefonist.
-const VAHEMALU = 'ladu-v2';
+const VAHEMALU = 'ladu-v3';
 const FAILID = ['./', './index.html'];
+const LISAFAILID = ['./manifest.json', './ikoon-192.png'];   // puudumine ei takista paigaldust
 const CDN = ['cdn.jsdelivr.net', 'unpkg.com'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(VAHEMALU).then(c => c.addAll(FAILID)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(VAHEMALU).then(c => c.addAll(FAILID).then(() => c.addAll(LISAFAILID).catch(() => {}))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {

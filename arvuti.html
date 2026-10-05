@@ -28,7 +28,7 @@ button:disabled { opacity: .45; cursor: default; }
 .nupp[aria-pressed="true"] { background: var(--roheline); border-color: var(--roheline); color: #fff; }
 @media (prefers-color-scheme: dark) { .nupp.pea, .nupp[aria-pressed="true"] { color: #10200f; } }
 .nupp.ohtlik { color: var(--punane); }
-input[type=search], input[type=text], input[type=url], select {
+input[type=search], input[type=text], input[type=url], input[type=password], select {
   border: 1px solid var(--joon); background: var(--paneel); border-radius: 8px; padding: 5px 9px; min-height: 30px;
 }
 input:focus, select:focus { outline: 2px solid var(--valik); outline-offset: -1px; }
@@ -142,7 +142,7 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
 .modaal.lai { width: min(1000px, calc(100% - 32px)); }
 .modaal h2 { margin: 0 0 10px; font-size: 18px; }
 .modaal label { display: block; font-size: 12px; color: var(--hall); margin: 10px 0 3px; }
-.modaal input[type=text], .modaal input[type=url] { width: 100%; }
+.modaal input[type=text], .modaal input[type=url], .modaal input[type=password] { width: 100%; }
 .jrk-rida { display: flex; align-items: center; gap: 6px; padding: 3px 0; border-bottom: 1px solid var(--joon2); }
 .jrk-rida span { flex: 1; }
 .jrk-rida button { width: 28px; height: 26px; padding: 0; border: 1px solid var(--joon); border-radius: 6px; background: var(--paneel); }
@@ -226,17 +226,26 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
   <div class="modaal">
     <h2>Arvuti seadistus</h2>
     <p id="sPohjus" class="hoiatus vaike" style="display:none;font-weight:400;background:var(--pun-hele);padding:8px 10px;border-radius:8px"></p>
-    <p class="hall">Sisesta oma <b>isiklik admin-võti</b> või hädavõti. Võtmed leiad: Sheet → peidetud leht <b>Kasutajad</b> (Vaade → Peidetud lehed),
-      või Apps Script → käivita <code>adminLigipaas</code> (näitab URL-i ja võtmed ning vabastab admin-seadmed). Hädavõti: Project Settings → Script Properties → ADMIN_VOTI.</p>
     <label for="sUrl">Veebirakenduse URL (lõpeb /exec)</label>
     <input id="sUrl" type="url" autocomplete="off">
+    <form id="lVorm" autocomplete="on" onsubmit="return false">
+      <div class="rida" style="gap:8px;align-items:flex-end">
+        <div style="flex:1"><label for="lNimi">Kasutajanimi</label><input id="lNimi" name="username" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" style="width:100%"></div>
+        <div style="flex:1"><label for="lParool">Parool</label><input id="lParool" name="password" type="password" autocomplete="current-password" style="width:100%"></div>
+        <button class="nupp pea" id="lLogi" type="submit">Logi sisse</button>
+      </div>
+    </form>
+    <details style="margin-top:14px"><summary class="hall">Admin-võti või hädavõti (vana viis)</summary>
+    <p class="hall">Sisesta oma <b>isiklik admin-võti</b> või hädavõti. Võtmed leiad: Sheet → peidetud leht <b>Kasutajad</b> (Vaade → Peidetud lehed),
+      või Apps Script → käivita <code>adminLigipaas</code> (näitab URL-i ja võtmed ning vabastab admin-seadmed). Hädavõti: Project Settings → Script Properties → ADMIN_VOTI.</p>
     <label for="sVoti">ADMIN võti</label>
     <input id="sVoti" type="text" autocomplete="off" spellcheck="false">
     <label for="sKes">Nimi (Logis)</label>
     <input id="sKes" type="text" value="arvuti" autocomplete="off">
+    <div class="rida" style="margin-top:14px;justify-content:flex-end"><button class="nupp pea" id="sSalvesta">Salvesta võti</button></div>
+    </details>
     <div class="rida" style="margin-top:14px;justify-content:flex-end">
       <button class="nupp" id="sLoobu">Loobu</button>
-      <button class="nupp pea" id="sSalvesta">Salvesta</button>
     </div>
   </div>
 </div>
@@ -278,8 +287,9 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
       <h2 style="margin:0">Kasutajad</h2>
       <button class="nupp" id="kasSulge">Sulge</button>
     </div>
-    <p class="hall vaike">Igal inimesel on oma võti. Link töötab ainult esimeses seadmes, kus see avatakse (iPhone'il 30 min jooksul ka avakuva ikoon).
-      Uus telefon → „Vabasta seadmed“. Eemaldatud kasutaja telefon kustutab järgmisel ühendusel kõik laoandmed.</p>
+    <p class="hall vaike">Anna igaühele kasutajanimi ja parool (🔑). Ta logib telefonis sisse; iga seade on tema real näha ja selle saab „✕“ nupuga välja logida.
+      Kui telefoni mälu kaob, logib ta lihtsalt uuesti sisse. Eemaldatud kasutaja telefon kustutab järgmisel ühendusel kõik laoandmed.
+      Vanad lingid (📱) töötavad edasi ainult esimeses seadmes.</p>
     <div class="rida" style="margin:10px 0">
       <input id="kasNimi" type="text" placeholder="Nimi" style="flex:1;min-width:160px">
       <select id="kasRoll"><option value="ladu">ladu – otsing, ajutised kohad, inventuur</option><option value="pood">pood – ainult vaatamine</option><option value="admin">admin – kõik õigused</option></select>
@@ -298,6 +308,7 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
 /* ============================================================
    SALVESTUS JA ABI
    ============================================================ */
+const VAIKIMISI_URL = 'https://script.google.com/macros/s/AKfycbz1Dix5_TgtrDUXRHn3n4pFym-oG6XWlFgz-IDXGikdXYE4mykGQT8aZREsTFqZ_Cdi/exec';
 const V = { seaded: 'ladu_arvuti_seaded', andmed: 'ladu_arvuti_andmed', valjas: 'ladu_arvuti_valjas', ui: 'ladu_arvuti_ui' };
 const loe = (k, v) => { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : v; } catch (e) { return v; } };
 const kirjuta = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* täis */ } };
@@ -338,11 +349,12 @@ function kustutaKohalik(pohjus) {
   if (KEELD_AVATUD) return;
   KEELD_AVATUD = true;
   setTimeout(() => {
-    $('sUrl').value = SEADED ? SEADED.url : (loe('ladu_arvuti_url', '') || '');
+    $('sUrl').value = SEADED ? SEADED.url : (loe('ladu_arvuti_url', '') || VAIKIMISI_URL);
     $('sKes').value = SEADED ? SEADED.kes : (loe('ladu_arvuti_nimi', '') || 'arvuti');
-    $('sVoti').value = SEADED ? SEADED.voti : '';
+    $('sVoti').value = SEADED && !SEADED.sisselogitud ? SEADED.voti : '';
+    $('lNimi').value = SEADED && SEADED.kasutaja ? SEADED.kasutaja : '';
     $('sPohjus').innerHTML = `<b>Server keeldus:</b> ${esc(String(pohjus || 'ligipääs puudub').replace(/\.+$/, ''))}.<br>
-      Proovi „Salvesta“ uuesti. Kui ei aita: sisesta hädavõti (Apps Script → käivita <code>adminLigipaas</code> – näitab ka sinu isiklikku võtit
+      Logi uuesti sisse või proovi võtmega uuesti. Kui ei aita: sisesta hädavõti (Apps Script → käivita <code>adminLigipaas</code> – näitab ka sinu isiklikku võtit
       ja vabastab admin-seadmed) ja ava Kasutajad → oma rida → „Kasuta selles arvutis“. Põhjus on ka Sheeti lehel Logi („keeldutud“).`;
     $('sPohjus').style.display = '';
     $('seadistus').classList.add('lahti');
@@ -999,7 +1011,9 @@ function renderPeidetud() {
 }
 
 /* ---------- kasutajad ---------- */
-let KASUTAJAD = [], VANAD_KEELATUD = false;
+let KASUTAJAD = [], SEANSID = [], VANAD_KEELATUD = false;
+// kas see arvuti kasutab selle kasutaja võtit või on tema nimega sisse logitud
+const minuKasutaja = k => !!SEADED && (SEADED.voti === k['Võti'] || (!!SEADED.kasutaja && SEADED.kasutaja === String(k.Kasutajanimi || '').toLowerCase()));
 const baasUrl = () => location.origin + location.pathname.replace(/[^/]*$/, '');
 const telefoniLink = k => baasUrl() + '#s=' + lingiKood({ u: SEADED.url, k: k['Võti'], n: k.Nimi });
 const arvutiLink = k => baasUrl() + 'arvuti.html#s=' + lingiKood({ u: SEADED.url, k: k['Võti'], n: k.Nimi });
@@ -1010,7 +1024,7 @@ async function avaKasutajad() {
   try {
     const j = await api({ tegevus: 'kasutajad' });
     if (!j.ok) throw new Error(j.viga);
-    KASUTAJAD = j.read || []; VANAD_KEELATUD = !!j.vanadKeelatud;
+    KASUTAJAD = j.read || []; SEANSID = j.seansid || []; VANAD_KEELATUD = !!j.vanadKeelatud;
     renderKasutajad();
   } catch (e) { $('kasSisu').innerHTML = `<p class="hoiatus">${esc(e.message)}</p>`; }
 }
@@ -1019,18 +1033,27 @@ function renderKasutajad() {
   const aeg = v => v ? new Date(v).toLocaleString('et-EE', { day: 'numeric', month: 'numeric', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '–';
   const aktiivne = k => String(k.Aktiivne).toLowerCase() === 'jah';
   const read = KASUTAJAD.slice().sort((a, b) => (aktiivne(b) - aktiivne(a)) || CN.compare(a.Nimi, b.Nimi));
-  $('kasSisu').innerHTML = read.length ? `<table class="tabel"><tr><th>Nimi</th><th>Roll</th><th>Olek</th><th>Seadmeid</th><th>Viimati nähtud</th><th></th></tr>` +
+  const seadmed = k => SEANSID.filter(s => s['Kasutaja ID'] === k.ID)
+    .sort((a, b) => String(b['Viimati nähtud']).localeCompare(String(a['Viimati nähtud'])));
+  const seadmeRead = k => seadmed(k).map(s => `<div class="vaike" style="display:flex;gap:6px;align-items:flex-start;margin:3px 0">
+      <button class="nupp" style="padding:0 7px;min-height:22px;flex:none" data-kasseanss="${esc(s.ID)}" title="Logi see seade välja">✕</button>
+      <span><b style="font-weight:600">${esc(s.Seade || 'seade')}</b><br><span class="hall">viimati ${aeg(s['Viimati nähtud'])} · sisse ${aeg(s.Loodud)}</span></span></div>`).join('');
+  $('kasSisu').innerHTML = read.length ? `<table class="tabel"><tr><th>Nimi</th><th>Kasutajanimi</th><th>Roll</th><th>Olek</th><th>Seadmed</th><th>Viimati nähtud</th><th></th></tr>` +
     read.map(k => `<tr${aktiivne(k) ? '' : ' style="opacity:.55"'}>
-      <td><b>${esc(k.Nimi)}</b>${SEADED && SEADED.voti === k['Võti'] ? ' <span class="silt">see arvuti</span>' : ''}</td>
-      <td><select data-kasroll="${esc(k.ID)}" ${SEADED && SEADED.voti === k['Võti'] ? 'disabled title="Oma rolli ei saa siit muuta"' : ''}>
+      <td><b>${esc(k.Nimi)}</b>${minuKasutaja(k) ? ' <span class="silt">see arvuti</span>' : ''}</td>
+      <td>${k.Kasutajanimi ? esc(k.Kasutajanimi) + (k.ParoolOlemas ? '' : ' <span class="hoiatus vaike">parool puudub</span>') : '<span class="hall">–</span>'}
+        ${k.LoginLukus ? `<div class="hoiatus vaike">🔒 lukus (valed paroolid) <button class="nupp" style="min-height:22px;padding:0 6px" data-kaslukk="${esc(k.ID)}">Ava lukk</button></div>` : ''}</td>
+      <td><select data-kasroll="${esc(k.ID)}" ${minuKasutaja(k) ? 'disabled title="Oma rolli ei saa siit muuta"' : ''}>
         ${['ladu', 'pood', 'admin'].map(r => `<option value="${r}"${(k.Roll === r || (r === 'ladu' && k.Roll === 'telefon')) ? ' selected' : ''}>${r}</option>`).join('')}</select></td>
       <td>${aktiivne(k) ? 'aktiivne' : '<span class="hoiatus">eemaldatud</span>'}</td>
-      <td>${String(k.Seadmed || '').split(',').filter(String).length || '–'}</td>
+      <td>${seadmeRead(k) || ''}${String(k.Seadmed || '').split(',').filter(String).length ? `<div class="hall vaike">vana link: ${String(k.Seadmed).split(',').filter(String).length} seadet</div>` : ''}${!seadmeRead(k) && !String(k.Seadmed || '').trim() ? '–' : ''}</td>
       <td class="hall">${aeg(k['Viimati nähtud'])}</td>
       <td><div class="rida" style="gap:4px">
-        ${aktiivne(k) ? `<button class="nupp" data-kaslink="${esc(k.ID)}" title="Telefoni seadistuslink">📱 Link</button>
+        ${aktiivne(k) ? `<button class="nupp" data-kasparool="${esc(k.ID)}" title="Määra kasutajanimi ja parool">🔑 ${k.ParoolOlemas ? 'Parool' : 'Määra parool'}</button>
+          ${seadmed(k).length > 1 ? `<button class="nupp" data-kasvaljakoik="${esc(k.ID)}" title="Logi kõik tema seadmed välja">Logi kõik välja</button>` : ''}
+          <button class="nupp" data-kaslink="${esc(k.ID)}" title="Telefoni seadistuslink (vana viis)">📱 Link</button>
           ${k.Roll === 'admin' ? `<button class="nupp" data-kasarvuti="${esc(k.ID)}" title="Arvutivaate link">💻 Link</button>
-          ${SEADED && SEADED.voti !== k['Võti'] ? `<button class="nupp" data-kaskasuta="${esc(k.ID)}">Kasuta selles arvutis</button>` : ''}` : ''}
+          ${!minuKasutaja(k) ? `<button class="nupp" data-kaskasuta="${esc(k.ID)}">Kasuta selles arvutis</button>` : ''}` : ''}
           ${String(k.Seadmed || '').trim() ? `<button class="nupp" data-kasvabasta="${esc(k.ID)}" title="Uus telefon: vabasta ja ava sama link uues seadmes">Vabasta seadmed</button>` : ''}
           <button class="nupp" data-kasvoti="${esc(k.ID)}" title="Vana link lakkab töötamast">Uus võti</button>
           <button class="nupp ohtlik" data-kaseemalda="${esc(k.ID)}">Eemalda</button>`
@@ -1057,6 +1080,7 @@ async function kasTegevus(p, teadeOk) {
   try {
     const j = await api(p);
     if (j.read) { KASUTAJAD = j.read; }
+    if (j.seansid) { SEANSID = j.seansid; }
     if (!j.ok) throw new Error(j.viga);
     if (j.vanadKeelatud !== undefined) VANAD_KEELATUD = !!j.vanadKeelatud;
     if (teadeOk) teade(teadeOk);
@@ -1161,7 +1185,7 @@ function valgusta(selektor) {
    SÜNDMUSED
    ============================================================ */
 document.addEventListener('click', e => {
-  const el = e.target.closest('[data-vaade],[data-kood],[data-tyhi],[data-k],[data-tegevus],[data-varv],[data-kylg],[data-pystak],[data-rida],[data-rp],[data-vp],[data-i],[data-jrk],[data-peida],[data-taasta],[data-peidvaade],[data-kaslink],[data-kasarvuti],[data-kaskasuta],[data-kasvoti],[data-kaseemalda],[data-kastaasta],[data-vanad],[data-kasvabasta],[data-kaskustuta]');
+  const el = e.target.closest('[data-vaade],[data-kood],[data-tyhi],[data-k],[data-tegevus],[data-varv],[data-kylg],[data-pystak],[data-rida],[data-rp],[data-vp],[data-i],[data-jrk],[data-peida],[data-taasta],[data-peidvaade],[data-kaslink],[data-kasarvuti],[data-kaskasuta],[data-kasvoti],[data-kaseemalda],[data-kastaasta],[data-vanad],[data-kasvabasta],[data-kaskustuta],[data-kasparool],[data-kasseanss],[data-kasvaljakoik],[data-kaslukk]');
   if (!el) { if (!e.target.closest('.otsing-kast')) $('otsTulemus').classList.remove('lahti'); return; }
   const d = el.dataset;
   if (d.vaade) { UI.vaade = d.vaade; VALITUD = null; salvestaUI(); renderKoik(); return; }
@@ -1169,7 +1193,7 @@ document.addEventListener('click', e => {
   if (d.peida) { peida(d.peida); return; }
   if (d.taasta) { taasta(d.taasta); return; }
   if (d.peidvaade) { peidVaade = d.peidvaade; renderPeidetud(); return; }
-  if (d.kaslink || d.kasarvuti || d.kaskasuta || d.kasvoti || d.kaseemalda || d.kastaasta || d.vanad || d.kasvabasta || d.kaskustuta) { kasKlikk(d); return; }
+  if (d.kaslink || d.kasarvuti || d.kaskasuta || d.kasvoti || d.kaseemalda || d.kastaasta || d.vanad || d.kasvabasta || d.kaskustuta || d.kasparool || d.kasseanss || d.kasvaljakoik || d.kaslukk) { kasKlikk(d); return; }
   if (d.tyhi) { const [koht, h] = d.tyhi.split('|'); paiguta(koht, +h); return; }
   if (d.kood) { VALITUD = { kood: d.kood, koht: d.koht || null }; renderAside(); renderTooala(); return; }
   if (d.k) { maaraK(+d.k); return; }
@@ -1222,9 +1246,36 @@ function kasKlikk(d) {
     });
     return;
   }
+  if (d.kasparool) {
+    const k = leia(d.kasparool);
+    const soovitus = String(k.Kasutajanimi || k.Nimi.split(/\s+/)[0] || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9._-]/g, '');
+    const nimi = prompt(`${k.Nimi}: kasutajanimi (väiketähed, ilma täpitähtedeta)`, soovitus);
+    if (nimi === null) return;
+    const parool = prompt(`${k.Nimi} (${nimi.trim().toLowerCase()}): uus parool, vähemalt 6 märki.\nÜtle see talle ise; seda ei näe hiljem keegi, ka mitte sina.`, '');
+    if (parool === null) return;
+    kasTegevus({ tegevus: 'muudaKasutajat', id: k.ID, kasutajanimi: nimi, parool }, `${k.Nimi}: kasutajanimi ${nimi.trim().toLowerCase()}, parool määratud`);
+    return;
+  }
+  if (d.kaslukk) {
+    const k = leia(d.kaslukk);
+    kasTegevus({ tegevus: 'avaLukk', kasutajanimi: k.Kasutajanimi }, k.Nimi + ': lukk avatud');
+    return;
+  }
+  if (d.kasseanss) {
+    const s = SEANSID.find(x => x.ID === d.kasseanss), k = s && leia(s['Kasutaja ID']);
+    if (!confirm(`Login ${k ? k.Nimi + ' ' : ''}seadme „${s ? s.Seade : ''}“ välja? Seal tuleb uuesti sisse logida.`)) return;
+    kasTegevus({ tegevus: 'eemaldaSeanss', id: d.kasseanss }, 'Seade välja logitud');
+    return;
+  }
+  if (d.kasvaljakoik) {
+    const k = leia(d.kasvaljakoik);
+    if (!confirm(`Login ${k.Nimi} kõik seadmed välja?`)) return;
+    kasTegevus({ tegevus: 'eemaldaSeanss', kasutajaId: k.ID }, k.Nimi + ': kõik seadmed välja logitud');
+    return;
+  }
   if (d.kaseemalda) {
     const k = leia(d.kaseemalda);
-    if (SEADED.voti === k['Võti']) { teade('Ei saa eemaldada võtit, mida see arvuti kasutab', true); return; }
+    if (minuKasutaja(k)) { teade('Ei saa eemaldada kasutajat, kellena see arvuti töötab', true); return; }
     if (!confirm(`Eemaldan ${k.Nimi} ligipääsu? Tema võti lakkab kohe töötamast.`)) return;
     kasTegevus({ tegevus: 'muudaKasutajat', id: k.ID, aktiivne: false }, k.Nimi + ' eemaldatud');
     return;
@@ -1292,7 +1343,7 @@ document.addEventListener('keydown', e => {
 });
 $('uuenda').addEventListener('click', () => { saada(); laeAndmed(true); });
 $('seadedNupp').addEventListener('click', () => {
-  $('sUrl').value = SEADED ? SEADED.url : ''; $('sVoti').value = SEADED ? SEADED.voti : ''; $('sKes').value = SEADED ? SEADED.kes : 'arvuti';
+  $('sUrl').value = SEADED ? SEADED.url : VAIKIMISI_URL; $('sVoti').value = SEADED ? SEADED.voti : ''; $('sKes').value = SEADED ? SEADED.kes : 'arvuti';
   $('seadistus').classList.add('lahti');
 });
 $('sLoobu').addEventListener('click', () => { if (SEADED) $('seadistus').classList.remove('lahti'); });
@@ -1314,12 +1365,46 @@ $('sSalvesta').addEventListener('click', async () => {
   $('seadistus').classList.remove('lahti');
   saada(); laeAndmed(true);
 });
+// Sisselogimine kasutajanime ja parooliga (arvuti vajab admin-rolli)
+$('lVorm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const url = $('sUrl').value.trim(), nimi = $('lNimi').value.trim().toLowerCase(), parool = $('lParool').value;
+  if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(url)) { teade('Sisesta veebirakenduse URL', true); return; }
+  if (!nimi || !parool) { teade('Sisesta kasutajanimi ja parool', true); return; }
+  $('lLogi').disabled = true;
+  try {
+    const r = await fetch(url, { method: 'POST', credentials: 'omit', cache: 'no-store', redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ tegevus: 'login', kasutaja: nimi, parool, seade: 'Arvuti · ' + (/Windows/.test(navigator.userAgent) ? 'Windows' : /Mac/.test(navigator.userAgent) ? 'Mac' : 'muu') }) });
+    let j = null;
+    try { j = JSON.parse(await r.text()); } catch (x) { throw new Error('Google vastas HTTP ' + r.status + ', mitte andmetega. Kontrolli URL-i.'); }
+    if (!j.ok) throw new Error(j.viga || 'Sisselogimine ebaõnnestus');
+    if (j.roll !== 'admin') {
+      // arvutivaade on ainult adminile: seda seanssi pole vaja
+      fetch(url, { method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ voti: j.voti, tegevus: 'logiValja' }) }).catch(() => {});
+      throw new Error('Arvutivaade on ainult adminile – ' + j.nimi + ' roll on ' + j.roll);
+    }
+    const vana = SEADED;
+    SEADED = { url, voti: j.voti, kes: j.nimi, sisselogitud: true, kasutaja: nimi };
+    if (!vana || vana.url !== url) { ANDMED = null; salvestaAndmed(); }
+    kirjuta(V.seaded, SEADED); kirjuta('ladu_arvuti_url', url); kirjuta('ladu_arvuti_nimi', j.nimi);
+    HADAVOTI = false; KEELD_AVATUD = false; olek();
+    $('lParool').value = '';
+    $('sPohjus').style.display = 'none';
+    $('seadistus').classList.remove('lahti');
+    teade('Sisse logitud: ' + j.nimi);
+    saada(); laeAndmed(true);
+  } catch (x) { teade(x.message, true); }
+  finally { $('lLogi').disabled = false; }
+});
 window.addEventListener('beforeunload', e => { if (VALJAS.length) { e.preventDefault(); e.returnValue = ''; } });
 setInterval(saada, 15000);
 setInterval(() => { if (!VALJAS.length) laeAndmed(false); }, 5 * 60000);
 
 /* käivitus */
 (async function kaivita() {
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) {}
   $('peida').checked = UI.peida; $('auto').checked = UI.auto;
   try {
     ANDMED = (await IDB.loe('andmed')) || null;
@@ -1337,7 +1422,7 @@ setInterval(() => { if (!VALJAS.length) laeAndmed(false); }, 5 * 60000);
   ehitaKoik();
   olek();
   if (!SEADED) {
-    $('sUrl').value = loe('ladu_arvuti_url', '') || ''; $('sKes').value = loe('ladu_arvuti_nimi', '') || 'arvuti';
+    $('sUrl').value = loe('ladu_arvuti_url', '') || VAIKIMISI_URL; $('sKes').value = loe('ladu_arvuti_nimi', '') || 'arvuti';
     $('seadistus').classList.add('lahti');
   } else {
     if (!loe('ladu_arvuti_url', null)) { kirjuta('ladu_arvuti_url', SEADED.url); kirjuta('ladu_arvuti_nimi', SEADED.kes); }

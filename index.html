@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#2e6b3a">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="ikoon-192.png">
+<link rel="apple-touch-icon" href="ikoon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ladu">
 <title>Ladu</title>
 <style>
 :root {
@@ -29,7 +35,7 @@ header { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 1
 .olek .uuenda { margin-left: auto; background: none; border: 1px solid var(--joon); border-radius: 8px; padding: 3px 10px; font-size: 13px; }
 main { padding: 12px 16px; max-width: 640px; margin: 0 auto; }
 .vaade { display: none; } .vaade.aktiivne { display: block; }
-input[type=search], input[type=text], input[type=number], input[type=url] {
+input[type=search], input[type=text], input[type=number], input[type=url], input[type=password] {
   width: 100%; padding: 12px 14px; border: 1px solid var(--joon); border-radius: 12px; background: var(--kaart); font-size: 18px;
 }
 input:focus { outline: 2px solid var(--roheline); outline-offset: 0; border-color: transparent; }
@@ -53,6 +59,20 @@ label { display: block; font-size: 13px; color: var(--hall); margin: 12px 0 4px;
 .tuhi { text-align: center; color: var(--hall); padding: 28px 8px; }
 .teade { position: fixed; left: 16px; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 20; padding: 12px 14px; border-radius: 12px; background: var(--tekst); color: var(--bg); box-shadow: 0 4px 16px rgba(0,0,0,.2); display: none; }
 .teade.viga { background: var(--punane); color: #fff; }
+.logiriba { display: none; margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: var(--kollane); border: 1px solid var(--kol-joon); font-size: 14px; align-items: center; gap: 8px; }
+.logiriba.lahti { display: flex; }
+.logiriba span { flex: 1; }
+.parool-rida { position: relative; }
+.parool-rida input { padding-right: 52px; }
+.parool-rida button { position: absolute; right: 4px; top: 4px; bottom: 4px; width: 44px; border: 0; background: none; font-size: 20px; cursor: pointer; }
+#laadimine { position: fixed; inset: 0; z-index: 40; background: var(--bg); display: none; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; }
+#laadimine.lahti { display: flex; }
+#laadimine .ratas { width: 44px; height: 44px; border-radius: 50%; border: 4px solid var(--roh-joon); border-top-color: var(--roheline); animation: keera 0.9s linear infinite; }
+@keyframes keera { to { transform: rotate(360deg); } }
+#laadimine ol { list-style: none; padding: 0; margin: 18px 0 0; text-align: left; font-size: 15px; }
+#laadimine li { color: var(--hall); margin: 6px 0; }
+#laadimine li.tehtud { color: var(--roheline); }
+#laadimine li.kaib { color: var(--tekst); font-weight: 600; }
 nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; background: var(--kaart); border-top: 1px solid var(--joon); padding-bottom: env(safe-area-inset-bottom); }
 nav button { flex: 1; min-height: 60px; background: none; border: 0; font-size: 14px; color: var(--hall); cursor: pointer; }
 nav button.aktiivne { color: var(--roheline); font-weight: 700; }
@@ -94,20 +114,49 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
     <span id="olekTekst">…</span>
     <button class="uuenda" id="uuendaNupp">Uuenda</button>
   </div>
+  <div class="logiriba" id="logiriba"><span id="logiribaTekst">Logi uuesti sisse.</span><button class="nupp vaike pea" id="logiribaNupp">Logi sisse</button></div>
 </header>
+<div id="laadimine" role="status" aria-live="polite">
+  <div class="ratas"></div>
+  <h2 id="laadPealkiri" style="margin:16px 0 0">Laen andmeid…</h2>
+  <div class="hall" id="laadAeg">0 s</div>
+  <ol id="laadSammud"></ol>
+  <div id="laadViga" style="display:none;margin-top:16px">
+    <p style="color:var(--punane)" id="laadVigaTekst"></p>
+    <div class="nupud" style="justify-content:center"><button class="nupp pea" id="laadProovi">Proovi uuesti</button><button class="nupp" id="laadSulge">Sulge</button></div>
+  </div>
+</div>
 
 <main>
   <!-- SEADISTUS (esimene avamine) -->
   <section class="vaade" id="v-seadistus">
-    <h2>Seadista telefon</h2>
-    <p class="hall">Ava telefonis seadistuslink või sisesta andmed käsitsi. Neid küsitakse ainult üks kord.</p>
-    <label for="sUrl">Veebirakenduse URL</label>
-    <input id="sUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off">
-    <label for="sVoti">Ligipääsuvõti</label>
-    <input id="sVoti" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
-    <label for="sKes">Sinu nimi või seadme nimi</label>
-    <input id="sKes" type="text" placeholder="nt Mart" autocomplete="off">
-    <div class="nupud"><button class="nupp pea" id="sSalvesta">Salvesta ja lae andmed</button></div>
+    <button class="nupp vaike" id="lTagasi" style="display:none;margin-bottom:6px">← Tagasi andmete juurde</button>
+    <h2>Logi sisse</h2>
+    <p class="hall" id="sTeade">Kasutajanime ja parooli annab admin.</p>
+    <form id="lVorm" autocomplete="on" onsubmit="return false">
+      <div id="lUrlRida">
+        <label for="lUrl">Veebirakenduse URL</label>
+        <input id="lUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off">
+      </div>
+      <label for="lNimi">Kasutajanimi</label>
+      <input id="lNimi" name="username" type="text" autocomplete="username" autocapitalize="off" spellcheck="false">
+      <label for="lParool">Parool</label>
+      <div class="parool-rida">
+        <input id="lParool" name="password" type="password" autocomplete="current-password">
+        <button type="button" id="lNaita" aria-label="Näita parooli" title="Näita parooli">👁</button>
+      </div>
+      <div class="nupud"><button class="nupp pea" id="lLogi" type="submit">Logi sisse</button></div>
+    </form>
+    <details style="margin-top:24px">
+      <summary class="hall">Seadistuslink või ligipääsuvõti (vana viis)</summary>
+      <label for="sUrl">Veebirakenduse URL</label>
+      <input id="sUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off">
+      <label for="sVoti">Ligipääsuvõti</label>
+      <input id="sVoti" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <label for="sKes">Sinu nimi või seadme nimi</label>
+      <input id="sKes" type="text" placeholder="nt Mart" autocomplete="off">
+      <div class="nupud"><button class="nupp pea" id="sSalvesta">Salvesta ja lae andmed</button></div>
+    </details>
   </section>
 
   <!-- OTSING -->
@@ -174,6 +223,7 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
       <div class="nupud">
         <button class="nupp vaike" id="aMuudaNimi">Muuda nime</button>
         <button class="nupp vaike" id="aSeadista">Seadista uuesti</button>
+        <button class="nupp vaike ohtlik" id="aLogiValja">Logi välja</button>
       </div>
     </div>
     <div class="kaart" id="aJagaKaart">
@@ -213,6 +263,11 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
 /* ============================================================
    SALVESTUS (telefoni vahemälu)
    ============================================================ */
+// Veebirakenduse aadress sisselogimiseks (siis ei pea seda telefonis sisestama).
+// Kui tühi, küsitakse aadressi sisselogimisel või võetakse viimati kasutatud aadress.
+const VAIKIMISI_URL = 'https://script.google.com/macros/s/AKfycbz1Dix5_TgtrDUXRHn3n4pFym-oG6XWlFgz-IDXGikdXYE4mykGQT8aZREsTFqZ_Cdi/exec';
+// Diagnostika: kas telefoni mälus oli seadme tunnus juba enne seda avamist (kui ei, siis mälu oli tühi)
+const MALU_OLI = (() => { try { return !!localStorage.getItem('ladu_seade'); } catch (e) { return false; } })();
 const V = { seaded: 'ladu_seaded', andmed: 'ladu_andmed', valjas: 'ladu_valjas', inv: 'ladu_inv', seanss: 'ladu_seanss' };
 function loe(k, vaikimisi) { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : vaikimisi; } catch (e) { return vaikimisi; } }
 function kirjuta(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { naita('Telefoni mälu on täis: ' + e.message, true); return false; } }
@@ -272,8 +327,133 @@ function kustutaKoik(pohjus) {
   EPOOD = null; EPOOD_MAP = new Map(); IDB.kirjuta('epood', null).catch(() => {});
   try { $('sUrl').value = ''; $('sVoti').value = ''; $('sKes').value = ''; } catch (e) {}
   aktiivne = ''; mine('seadistus');
-  const el = $('v-seadistus').querySelector('p');
-  if (el) el.innerHTML = `<b style="color:var(--punane)">${esc(pohjus || 'Ligipääs on eemaldatud.')}</b> Telefonist kustutati kõik laoandmed. Kui see on viga, küsi uus link.`;
+  naitaLogin(`<b style="color:var(--punane)">${esc(pohjus || 'Ligipääs on eemaldatud.')}</b> Telefonist kustutati kõik laoandmed. Kui see on viga, räägi adminiga.`);
+}
+
+// Server keeldus, aga kasutaja pole eemaldatud (seade välja logitud, vana link vms):
+// laoandmed ja saatmata muudatused jäävad telefoni, küsitakse ainult uut sisselogimist.
+// Kui telefonis on andmed, jääb otsing tööle ja üleval on ainult kollane riba „Logi uuesti sisse“.
+function valjaLogitud(pohjus, ise) {
+  if (SEADED && SEADED.url) kirjuta('ladu_url', SEADED.url);
+  kirjuta('ladu_valjalogimine', String(pohjus || '').slice(0, 80));     // diagnostika järgmisele sisselogimisele
+  $('laadimine').classList.remove('lahti');
+  if (SEADED && IX && !ise) {       // ise välja logides andmeid ilma sisselogimiseta ei näidata
+    SEADED.logiSisse = pohjus || 'Logi uuesti sisse.';
+    kirjuta(V.seaded, SEADED);
+    naitaLogiriba();
+    naitaLogin(`<b style="color:var(--punane)">${esc(SEADED.logiSisse)}</b> Telefoni andmed ja saatmata muudatused on alles.`);
+    return;
+  }
+  SEADED = null;
+  try { localStorage.removeItem(V.seaded); } catch (e) {}
+  naitaLogiriba();
+  aktiivne = ''; mine('seadistus');
+  naitaLogin(`<b style="color:var(--punane)">${esc(pohjus || 'Logi uuesti sisse.')}</b> Telefoni andmed ja saatmata muudatused on alles.`);
+}
+function naitaLogiriba() {
+  const lahti = !!(SEADED && SEADED.logiSisse);
+  $('logiriba').classList.toggle('lahti', lahti);
+  if (lahti) { $('logiribaTekst').textContent = 'Logi uuesti sisse. Otsing töötab telefoni andmetega.'; $('logiribaTekst').title = SEADED.logiSisse; }
+}
+function avaLogin() {
+  $('lTagasi').style.display = SEADED && IX ? '' : 'none';
+  if (SEADED && SEADED.logiSisse) naitaLogin(`<b style="color:var(--punane)">${esc(SEADED.logiSisse)}</b> Telefoni andmed ja saatmata muudatused on alles.`);
+  aktiivne = ''; mine('seadistus');
+  setTimeout(() => ($('lNimi').value ? $('lParool') : $('lNimi')).focus(), 100);
+}
+
+function naitaLogin(teade) {
+  const url = VAIKIMISI_URL || loe('ladu_url', '') || '';
+  $('lUrl').value = url;
+  $('lUrlRida').style.display = url ? 'none' : '';
+  $('lNimi').value = loe('ladu_kasutajanimi', '') || '';
+  $('lParool').value = '';
+  if (teade) $('sTeade').innerHTML = teade;
+}
+
+// Lühike kirjeldus, mida admin näeb Kasutajad aknas (nt „Android · Chrome · avakuva“)
+function seadmeKirjeldus() {
+  const ua = navigator.userAgent;
+  const os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? ((ua.match(/Android[^;]*;\s*([^;)]+?)(?:\sBuild|\))/) || [])[1] || 'Android')
+    : /Windows/.test(ua) ? 'Windows' : /Mac/.test(ua) ? 'Mac' : 'muu';
+  const br = /EdgA?\//.test(ua) ? 'Edge' : /SamsungBrowser/.test(ua) ? 'Samsung' : /CriOS|Chrome\//.test(ua) ? 'Chrome' : /FxiOS|Firefox/.test(ua) ? 'Firefox' : /Safari/.test(ua) ? 'Safari' : '';
+  const ak = (window.navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) ? 'avakuva' : '';
+  return [os, br, ak].filter(Boolean).join(' · ');
+}
+
+let logibSisse = false;
+async function diagnostika() {
+  let pusiv = '?';
+  try { if (navigator.storage && navigator.storage.persisted) pusiv = (await navigator.storage.persisted()) ? 'jah' : 'ei'; } catch (e) {}
+  return { malu: MALU_OLI ? 'olemas' : 'tühi', eelmine: loe('ladu_valjalogimine', '') || '', pusiv };
+}
+
+// Laadimisekraan esimesel laadimisel (tühi telefon või pärast sisselogimist)
+const LAAD_SAMMUD = ['Sisse logitud', 'Saadan ootel muudatused', 'Laen tooted, asukohad ja paigutuse', 'Koostan otsingu'];
+function laadSamm(i) {
+  $('laadSammud').innerHTML = LAAD_SAMMUD.map((t, j) => `<li class="${j < i ? 'tehtud' : j === i ? 'kaib' : ''}">${j < i ? '✓' : j === i ? '›' : '·'} ${esc(t)}</li>`).join('');
+}
+let laadTaimer = null;
+async function laeAndmedEkraaniga() {
+  const t0 = Date.now();
+  $('laadimine').classList.add('lahti'); $('laadViga').style.display = 'none';
+  $('laadPealkiri').textContent = 'Laen andmeid…';
+  laadSamm(1);
+  clearInterval(laadTaimer);
+  laadTaimer = setInterval(() => {
+    const s = Math.round((Date.now() - t0) / 1000);
+    $('laadAeg').textContent = s + ' s' + (s > 15 ? ' · esimene kord võib võtta kuni minut' : '');
+  }, 500);
+  $('laadAeg').textContent = '0 s';
+  try {
+    await laeAndmed(true, laadSamm);
+    if (!IX) throw new Error(VIIMANE_VIGA || 'Andmeid ei saanud');
+    laadSamm(LAAD_SAMMUD.length);
+    $('laadimine').classList.remove('lahti');
+  } catch (e) {
+    if (!$('laadimine').classList.contains('lahti')) return;   // nt välja logitud vahepeal
+    $('laadPealkiri').textContent = 'Andmeid ei õnnestunud laadida';
+    $('laadVigaTekst').textContent = e.message;
+    $('laadViga').style.display = '';
+  } finally { clearInterval(laadTaimer); }
+}
+
+async function logiSisse() {
+  if (logibSisse) return;
+  const url = ($('lUrl').value || '').trim(), nimi = $('lNimi').value.trim().toLowerCase(), parool = $('lParool').value;
+  if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(url)) { naita('URL peab algama https://script.google.com/', true); $('lUrlRida').style.display = ''; return; }
+  if (!nimi || !parool) { naita('Sisesta kasutajanimi ja parool', true); return; }
+  logibSisse = true; $('lLogi').disabled = true; $('lLogi').textContent = 'Login…';
+  try {
+    const r = await fetch(url, {
+      method: 'POST', credentials: 'omit', cache: 'no-store', redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ tegevus: 'login', kasutaja: nimi, parool, seade: seadmeKirjeldus(), diag: await diagnostika() })
+    });
+    let j = null;
+    try { j = JSON.parse(await r.text()); } catch (e) { throw new Error('Google vastas HTTP ' + r.status + ', mitte andmetega. Kontrolli URL-i.'); }
+    if (!j.ok) {
+      if (j.katseidJaanud !== undefined && j.katseidJaanud <= 3) throw new Error((j.viga || 'Vale kasutajanimi või parool') + ` (katseid jäänud: ${j.katseidJaanud})`);
+      throw new Error(j.viga || 'Sisselogimine ebaõnnestus');
+    }
+    // teine server -> vanad andmed kustu (võivad olla teisest tabelist)
+    if (loe('ladu_url', '') && loe('ladu_url', '') !== url) { ANDMED = null; IX = null; salvestaAndmed(); }
+    const olidAndmed = !!IX;
+    SEADED = { url, voti: j.voti, kes: j.nimi, isiklik: true, sisselogitud: true, kasutaja: nimi, roll: j.roll };
+    kirjuta(V.seaded, SEADED); kirjuta('ladu_url', url); kirjuta('ladu_kasutajanimi', nimi);
+    try { localStorage.removeItem('ladu_valjalogimine'); } catch (e) {}
+    $('lParool').value = ''; $('lParool').type = 'password';
+    $('sTeade').textContent = 'Kasutajanime ja parooli annab admin.';
+    naitaLogiriba(); olek(); rakendaRoll();
+    aktiivne = ''; mine('otsing');
+    naita('Tere, ' + j.nimi + '!');
+    if (olidAndmed) laeAndmed(true);           // andmed olemas: uuendus taustal
+    else laeAndmedEkraaniga();                 // tühi telefon: laadimisekraan
+  } catch (e) {
+    naita(e.message, true);
+  } finally {
+    logibSisse = false; $('lLogi').disabled = false; $('lLogi').textContent = 'Logi sisse';
+  }
 }
 
 function salvestaAndmed() {
@@ -330,6 +510,7 @@ function juhis(koht, pool) {
 // Kõik muudatused on korduvsaatmisel ohutud (sama seos / sama loenduse ID).
 async function api(p, ms = 25000) {
   if (!SEADED) throw new Error('Telefon on seadistamata');
+  if (SEADED.logiSisse) { const x = new Error('Logi uuesti sisse'); x.lopp = true; throw x; }
   let viga;
   for (let katse = 0; katse < 3; katse++) {
     if (katse) await new Promise(r => setTimeout(r, 2000 * katse));
@@ -347,7 +528,11 @@ async function api(p, ms = 25000) {
       if (j) {
         j._server = true;           // vastus tuli serverist (ka siis, kui ok:false)
         if (j.minuRoll) uuendaRoll(j.minuRoll);
-        if (j.ligipaasPuudub) { kustutaKoik(j.viga); const x = new Error(j.viga || 'Ligipääs on eemaldatud'); x.lopp = true; throw x; }
+        if (j.ligipaasPuudub) {
+          // andmed kustutatakse ainult siis, kui admin eemaldas kasutaja; muidu küsitakse uuesti sisselogimist
+          if (j.pohjus === 'eemaldatud') kustutaKoik(j.viga); else valjaLogitud(j.viga);
+          const x = new Error(j.viga || 'Ligipääs puudub'); x.lopp = true; throw x;
+        }
         return j;
       }
       {
@@ -365,8 +550,9 @@ async function api(p, ms = 25000) {
 }
 
 let laeb = false, VIIMANE_VIGA = '', VIIMANE_AEG = '';
-async function laeAndmed(vaikne) {
+async function laeAndmed(vaikne, samm = () => {}) {
   if (!SEADED) return;
+  if (SEADED.logiSisse) { if (!vaikne) avaLogin(); return; }
   if (laeb) { naita('Laadimine juba käib, oota…'); return; }
   laeb = true;
   const t0 = Date.now();
@@ -378,7 +564,9 @@ async function laeAndmed(vaikne) {
   }, 1000);
   nupp.textContent = 'Laen…'; olek('Laen andmeid…');
   try {
+    samm(1);
     await saadaValjas();
+    samm(2);
     let j, katse = 0;
     const versioon = ANDMED && ANDMED.tooted && ANDMED.lyhike ? ANDMED.versioon : undefined;
     while (true) {
@@ -387,6 +575,8 @@ async function laeAndmed(vaikne) {
     }
     if (!j.ok) throw new Error(j.viga);
     delete j._server;
+    samm(3);
+    await new Promise(r => setTimeout(r, 30));      // laadimisekraan jõuab sammu näidata
     if (j.muutmata) {
       ANDMED.kontrollitud = new Date().toISOString();   // telefonis on juba uusim
       if (!IX) ehitaIndeks();                            // nt pärast 7 päeva võrguta olekut
@@ -911,6 +1101,9 @@ function renderSeaded() {
   $('aKes').textContent = SEADED ? SEADED.kes + (SEADED.isiklik ? ' (isiklik ligipääs' + (SEADED.roll ? ', ' + (rolliNimi[SEADED.roll] || SEADED.roll) : '') + ')' : '') : '';
   $('aJagaKaart').style.display = SEADED && SEADED.isiklik ? 'none' : '';
   $('aMuudaNimi').style.display = SEADED && SEADED.isiklik ? 'none' : '';
+  $('aSeadista').style.display = SEADED && SEADED.sisselogitud ? 'none' : '';
+  $('aLogiValja').style.display = SEADED && SEADED.sisselogitud ? '' : 'none';
+  if (SEADED && SEADED.sisselogitud) $('aKes').textContent = SEADED.kes + ' (kasutajanimi ' + SEADED.kasutaja + (SEADED.roll ? ', ' + (rolliNimi[SEADED.roll] || SEADED.roll) : '') + ')';
   $('aAndmed').textContent = (IX ? `${IX.tooted.size} toodet, ${IX.kohad.size} asukohta telefonis` : 'Andmed puuduvad') +
     (EPOOD_MAP.size ? ` · e-poe QR: ${EPOOD_MAP.size} toodet` : '') +
     (VIIMANE_AEG ? ` · viimane laadimine ${VIIMANE_AEG}` : '') + (VIIMANE_VIGA ? ` · viimane viga: ${VIIMANE_VIGA}` : '');
@@ -1334,6 +1527,18 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && SK.
 $('otsing').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
 $('uuendaNupp').addEventListener('click', () => laeAndmed(false));
 $('sSalvesta').addEventListener('click', salvestaSeadistus);
+$('lVorm').addEventListener('submit', e => { e.preventDefault(); logiSisse(); });
+$('lNaita').addEventListener('click', () => { const p = $('lParool'); p.type = p.type === 'password' ? 'text' : 'password'; p.focus(); });
+$('lTagasi').addEventListener('click', () => mine('otsing'));
+$('logiribaNupp').addEventListener('click', avaLogin);
+$('laadProovi').addEventListener('click', laeAndmedEkraaniga);
+$('laadSulge').addEventListener('click', () => $('laadimine').classList.remove('lahti'));
+$('aLogiValja').addEventListener('click', async () => {
+  const ootel = VALJAS.length ? `\n\n${VALJAS.length} muudatust ootab veel saatmist – need jäävad telefoni ja saadetakse pärast järgmist sisselogimist.` : '';
+  if (!confirm('Login selle telefoni välja?' + ootel)) return;
+  try { await api({ tegevus: 'logiValja' }, 10000); } catch (e) {}   // ka võrguta: telefon logib ikka välja
+  if (SEADED) valjaLogitud('Välja logitud.', true);
+});
 
 $('iSeanss').addEventListener('change', () => { kirjuta(V.seanss, $('iSeanss').value.trim()); $('iKokku').innerHTML = ''; renderInventuur(); });
 $('iToode').addEventListener('input', invOtsi);
@@ -1369,6 +1574,9 @@ setInterval(saadaValjas, 30000);
    KÄIVITUS
    ============================================================ */
 (async function kaivita() {
+  // palu püsivat salvestust, et Chrome ei kustutaks mälu vabastamiseks lehe andmeid
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) {}
+  naitaLogin();
   $('iSeanss').value = loe(V.seanss, '') || '';
   try {
     ANDMED = (await IDB.loe('andmed')) || null;
@@ -1380,7 +1588,9 @@ setInterval(saadaValjas, 30000);
   // Link jääb aadressiribale: iPhone'i avakuva ikoon võib hoida andmeid Safarist eraldi
   // ja vajab linki esimesel avamisel. Seadistatud telefon ei küsi seetõttu midagi uuesti.
   ehitaIndeks();
-  if (lingist && lingist.u) {
+  if (lingist && lingist.u && SEADED && SEADED.sisselogitud) {
+    // sisselogitud telefon: vana seadistuslink (nt avakuva ikoonis) ei kirjuta sisselogimist üle
+  } else if (lingist && lingist.u) {
     if (lingist.n) {
       // isiklik link: nimi on lingis, midagi ei küsita
       if (!SEADED || SEADED.url !== lingist.u || SEADED.voti !== lingist.k) {
@@ -1410,7 +1620,8 @@ setInterval(saadaValjas, 30000);
   const p = new URLSearchParams(location.search);
   if (SEADED && p.get('asukoht')) avaKoht(p.get('asukoht'));
   else mine(SEADED ? 'otsing' : 'seadistus');
-  if (SEADED) laeAndmed(true);
+  naitaLogiriba();
+  if (SEADED && !SEADED.logiSisse) { if (IX) laeAndmed(true); else laeAndmedEkraaniga(); }
 })();
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {

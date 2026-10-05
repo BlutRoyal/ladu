@@ -1,0 +1,17 @@
+{
+  "name": "Ladu",
+  "short_name": "Ladu",
+  "description": "Laoäpp: otsing, asukohad ja inventuur",
+  "lang": "et",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f4f1",
+  "theme_color": "#2e6b3a",
+  "icons": [
+    { "src": "ikoon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "ikoon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "ikoon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
