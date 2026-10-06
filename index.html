@@ -51,6 +51,10 @@ label { display: block; font-size: 13px; color: var(--hall); margin: 12px 0 4px;
 .hall { color: var(--hall); font-size: 14px; }
 .koht { display: block; width: 100%; text-align: left; margin-top: 10px; padding: 12px 14px; border-radius: 12px; background: var(--roh-hele); border: 1px solid var(--roh-joon); cursor: pointer; }
 .koht.fluid { background: var(--kollane); border-color: var(--kol-joon); }
+/* TOORAINE: pakitud toote kohal on tooraine */
+.silt.tooraine { color: #8a4b00; background: #ffe7c7; border-color: #e0a75a; letter-spacing: normal; font-weight: 600; }
+.tooraine-info { margin-top: 6px; padding: 6px 10px; border-radius: 10px; background: #ffe7c7; color: #5c3200; border: 1px solid #e0a75a; font-size: 14px; }
+@media (prefers-color-scheme: dark) { .silt.tooraine { color: #ffc98a; background: #43301a; border-color: #8a6230; } .tooraine-info { background: #43301a; color: #ffd9ad; border-color: #8a6230; } }
 .koht .kk { font-size: 28px; font-weight: 800; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
 .koht .juhis { font-size: 16px; }
 /* VASTUVOTT */
@@ -560,6 +564,7 @@ function salvestaAndmed() {
 }
 // Seos serveri kujul (lühike massiiv või vana objekt) -> ühtne objekt
 const onAjutineLiik = v => /^(ajutine|fluid)$/i.test(String(v || '').trim());
+const onTooraineLiik = v => /^tooraine$/i.test(String(v || '').trim());   // TOORAINE
 function seosObj(x) {
   return Array.isArray(x)
     ? { kood: normKood(x[0]), koht: normKoht(x[1]), liik: x[2], pool: x[3] }
@@ -835,8 +840,9 @@ async function saadaValjas() {
             const P = ANDMED.paigutus = ANDMED.paigutus || [];
             const sama = x => { const o = seosObj(x); return o.kood === op.kood && o.koht === op.asukoht; };
             if (op.tegevus === 'lisaSeos' && !P.some(sama)) {
-              P.push(ANDMED.lyhike ? [op.kood, op.asukoht, j.liik || 'ajutine', '']
-                                   : { Kood: op.kood, Asukoht: op.asukoht, Liik: j.liik || 'ajutine', Pool: '' });
+              const liik = j.liik || op.liik || 'ajutine';
+              P.push(ANDMED.lyhike ? [op.kood, op.asukoht, liik, '']
+                                   : { Kood: op.kood, Asukoht: op.asukoht, Liik: liik, Pool: '' });
             }
             if (op.tegevus === 'eemaldaSeos') ANDMED.paigutus = P.filter(x => !sama(x));
           }
@@ -898,7 +904,7 @@ function ehitaSeosed() {
   let s = (ANDMED.paigutus || []).map(seosObj);
   VALJAS.forEach(op => {
     if (op.tegevus === 'lisaSeos' && !s.some(x => x.kood === op.kood && x.koht === op.asukoht)) {
-      s.push({ kood: op.kood, koht: op.asukoht, liik: 'ajutine', pool: '', ootel: true });
+      s.push({ kood: op.kood, koht: op.asukoht, liik: op.liik || 'ajutine', pool: '', ootel: true });
     } else if (op.tegevus === 'eemaldaSeos') {
       s = s.filter(x => !(x.kood === op.kood && x.koht === op.asukoht));
     }
@@ -1021,10 +1027,11 @@ function tooteKaart(t) {
     const k = IX.kohad.get(x.koht);
     const fl = k && k.fluid;
     return `<button class="koht${fl ? ' fluid' : ''}" data-koht="${esc(x.koht)}">
-      <div class="kk">${esc(x.koht)}${fl ? '<span class="silt">ajutine</span>' : ''}${x.ootel ? '<span class="silt">saatmata</span>' : ''}</div>
+      <div class="kk">${esc(x.koht)}${fl ? '<span class="silt">ajutine</span>' : ''}${x.ootel ? '<span class="silt">saatmata</span>' : ''}${tooraineSilt(x)}</div>
       <div class="juhis">${esc(juhis(x.koht, x.pool))}</div>
     </button>`;
   }).join('');
+  const pysi = s.filter(x => !onAjutineKoht(x) && !onTooraineLiik(x.liik));
   return `<div class="kaart">
     <div class="toode-kood">${esc(t.kood)}${IX.peidetud.has(t.kood) ? '<span class="silt">valikust väljas</span>' : ''}</div>
     <div>${esc(t.nimi)}</div>
@@ -1034,6 +1041,7 @@ function tooteKaart(t) {
     <div class="nupud">
       ${voibMuuta() ? `<button class="nupp vaike" data-lisafluid="${esc(t.kood)}">＋ Lisa ajutisse kohta</button>` : ''}
       ${voibMuuta() && s.some(x => !onAjutineKoht(x)) ? `<button class="nupp vaike" data-tyhikaart="${esc(t.kood)}">Koht tühi</button>` : ''}
+      ${voibMuuta() && pysi.length ? `<button class="nupp vaike" data-tooraine="${esc(t.kood)}">Pesas on tooraine</button>` : ''}
       ${otsingValitud ? '<button class="nupp vaike" data-sulge>Sulge</button>' : ''}
     </div>
   </div>`;
@@ -1073,14 +1081,19 @@ function renderKoht() {
   const s = IX.seosKoht.get(k) || [];
   const read = s.map(x => {
     const t = IX.tooted.get(x.kood);
-    const saabEemaldada = voibMuuta() && (info.fluid || onAjutineLiik(x.liik));
+    const toor = onTooraineLiik(x.liik);
+    const saabEemaldada = voibMuuta() && (info.fluid || onAjutineLiik(x.liik) || toor);
     return `<div class="rida-tulemus" style="cursor:default">
       <button class="nupp vaike" style="float:right;margin-left:8px" data-toode="${esc(x.kood)}">Ava</button>
-      <span class="toode-kood" style="font-size:16px">${esc(x.kood)}</span>${x.pool && x.pool !== 'terve' ? `<span class="silt">${esc(x.pool)}</span>` : ''}${x.ootel ? '<span class="silt">saatmata</span>' : ''}
+      <span class="toode-kood" style="font-size:16px">${esc(x.kood)}</span>${x.pool && x.pool !== 'terve' ? `<span class="silt">${esc(x.pool)}</span>` : ''}${x.ootel ? '<span class="silt">saatmata</span>' : ''}${toor ? '<span class="silt tooraine">tooraine</span>' : ''}
       <div>${esc(t ? t.nimi : 'Buumi ekspordis pole')}</div>
-      ${saabEemaldada ? `<div class="nupud" style="margin-top:6px"><button class="nupp vaike ohtlik" data-eemalda="${esc(x.kood)}" data-kohast="${esc(k)}">Eemalda siit</button></div>` : ''}
+      ${t && toor ? `<div class="hall vaike">Maardu ${fmtNr(nr(t.maardu))} ${esc(t.uhik || '')}</div>` : ''}
+      ${saabEemaldada ? `<div class="nupud" style="margin-top:6px"><button class="nupp vaike ohtlik" data-eemalda="${esc(x.kood)}" data-kohast="${esc(k)}">${toor ? 'Tooraine viidi ära' : 'Eemalda siit'}</button></div>` : ''}
     </div>`;
   }).join('');
+  // TOORAINE: püsikoht (pakitud toode) -> saab märkida, et seal on praegu tooraine
+  const pakitud = s.filter(x => !onAjutineLiik(x.liik) && !onTooraineLiik(x.liik));
+  const toorVorm = !info.fluid && voibMuuta() && pakitud.length;
   el.innerHTML = `<div class="kaart">
       <div style="font-size:30px;font-weight:800;letter-spacing:1px">${esc(k)}${info.fluid ? '<span class="silt">ajutine</span>' : ''}</div>
       <div class="juhis">${esc(juhis(k, ''))}</div>
@@ -1093,7 +1106,24 @@ function renderKoht() {
         <button class="skann-nupp" data-skannikohta aria-label="Skänni toode">⌗</button>
       </div>
       <div id="kSoovitused" class="soovitused"></div>
-    </div>` : ''}`;
+    </div>` : ''}
+    ${toorVorm ? (kohtTooraine === k ? `<div class="kaart" id="kToorKaart">
+      <label for="kToor" style="margin-top:0">Siin on tooraine (${pakitud.map(x => esc(x.kood)).join(', ')} asemel)</label>
+      ${(() => { const p = toorainePakkumised(pakitud.map(x => x.kood)).filter(t => !s.some(x => x.kood === t.kood));
+        return p.length ? `<div class="soovitused">${p.map(t => `<button class="rida-tulemus" data-toorsiia="${esc(t.kood)}"><b>${esc(t.kood)}</b> ${esc(t.nimi)}<div class="hall vaike">Maardu ${fmtNr(nr(t.maardu))} ${esc(t.uhik || '')}</div></button>`).join('')}</div>` : ''; })()}
+      <div class="otsirida" style="margin-top:8px">
+        <input id="kToor" type="search" placeholder="Muu tooraine: kood või nimi" autocomplete="off" autocapitalize="characters" spellcheck="false">
+        <button class="skann-nupp" data-skannitoor aria-label="Skänni tooraine">⌗</button>
+      </div>
+      <div id="kToorSoov" class="soovitused"></div>
+      <div class="nupud"><button class="nupp" data-toorloobu>Loobu</button></div>
+    </div>` : `<div class="nupud"><button class="nupp" data-toorava style="flex:1">Siin on tooraine</button></div>`) : ''}`;
+  const tinp = $('kToor');
+  if (tinp) tinp.addEventListener('input', () => {
+    const q = tinp.value, tapne = leiaToode(q);
+    const l = tapne ? [tapne] : otsiTooteid(q, 8);
+    $('kToorSoov').innerHTML = l.map(t => `<button class="rida-tulemus" data-toorsiia="${esc(t.kood)}"><b>${esc(t.kood)}</b> ${esc(t.nimi)}</button>`).join('');
+  });
   const inp = $('kLisa');
   if (inp) inp.addEventListener('input', () => {
     const q = inp.value;
@@ -1122,6 +1152,70 @@ function eemaldaSeos(kood, koht) {
   if (i >= 0) { VALJAS.splice(i, 1); kirjuta(V.valjas, VALJAS); }
   else lisaValjas({ tegevus: 'eemaldaSeos', kood, asukoht: koht });
   ehitaSeosed(); naita('Eemaldatud'); olek(); renderAktiivne();
+}
+
+/* ---------- TOORAINE: pakitud toote kohal ajutiselt tooraine ---------- */
+let kohtTooraine = null;                 // koht, mille vaates on „Siin on tooraine“ vorm lahti
+// tooraine soovitused pakitud koodi järgi: 60100EKP -> 60100E (KP/PP lõpp maha), siis lühemad eesliited
+function toorainePakkumised(koodid) {
+  const out = [], nah = new Set();
+  koodid.forEach(k => {
+    const l = [k.replace(/(KP|PP)$/, '')];
+    for (let n = k.length - 1; n >= Math.max(3, k.length - 4); n--) l.push(k.slice(0, n));
+    l.forEach(c => { if (c !== k && !nah.has(c) && IX.tooted.has(c)) { nah.add(c); out.push(IX.tooted.get(c)); } });
+  });
+  return out.slice(0, 4);
+}
+// koha tooraine seosed (v.a antud kood)
+const kohaTooraine = (koht, v) => (IX && IX.seosKoht.get(koht) || []).filter(x => onTooraineLiik(x.liik) && x.kood !== v);
+// silt toote kohale: see on tooraine või pesas on teine toode toorainena
+function tooraineSilt(x) {
+  if (onTooraineLiik(x.liik)) {
+    const p = (IX.seosKoht.get(x.koht) || []).filter(s => !onTooraineLiik(s.liik) && !onAjutineLiik(s.liik)).map(s => s.kood);
+    return `<span class="silt tooraine">tooraine${p.length ? ' ' + esc(p.join(', ')) + ' kohal' : ''}</span>`;
+  }
+  const t = kohaTooraine(x.koht, x.kood);
+  return t.length ? `<span class="silt tooraine">pesas tooraine ${esc(t.map(s => s.kood).join(', '))}</span>` : '';
+}
+function lisaTooraine(kood, koht) {
+  kood = normKood(kood); koht = normKoht(koht);
+  if (!IX.tooted.has(kood)) { naita('Toodet ' + kood + ' ei leitud', true); return; }
+  if ((IX.seosKoht.get(koht) || []).some(x => x.kood === kood)) { naita(kood + ' on juba siin'); return; }
+  lisaValjas({ tegevus: 'lisaSeos', kood, asukoht: koht, liik: 'tooraine' });
+  kohtTooraine = null;
+  ehitaSeosed(); naita(`${kood} märgitud toorainena kohta ${koht}`); renderAktiivne();
+}
+// Toote kaardilt: vali püsikoht ja ava selle vaade vormiga
+function tooraineKaardilt(kood) {
+  const p = (IX.seosKood.get(kood) || []).filter(x => !onAjutineKoht(x) && !onTooraineLiik(x.liik));
+  if (!p.length) return;
+  let x = p[0];
+  if (p.length > 1) {
+    const v = prompt('Mis kohas on tooraine?\n' + p.map((x, i) => `${i + 1}) ${x.koht}`).join('\n'), '1');
+    x = v && p[Number(v) - 1];
+    if (!x) return;
+  }
+  kohtTooraine = x.koht; avaKoht(x.koht);
+}
+// Pakitud kaup tuli oma kohale tagasi -> küsi, kas tooraine viidi ära
+function kusiTooraineAra(kood, koht) {
+  kohaTooraine(koht, kood).forEach(x => {
+    if (!confirm(`Pesas ${koht} on märgitud tooraine ${x.kood}. Kas see viidi ära?`)) return;
+    const i = VALJAS.findIndex(o => o.tegevus === 'lisaSeos' && o.kood === x.kood && o.asukoht === koht);
+    if (i >= 0) { VALJAS.splice(i, 1); kirjuta(V.valjas, VALJAS); }
+    else lisaValjas({ tegevus: 'eemaldaSeos', kood: x.kood, asukoht: koht });
+    ehitaSeosed();
+  });
+}
+function skanniTooraine() {
+  const koht = kohtVaates;
+  avaSkanner(async v => {
+    const t = await tolgendaTaielik(v);
+    if (t.vale) { naita(t.vale, true); return; }
+    const toode = t.kood && leiaToode(t.kood);
+    if (!toode) { naita('Toodet ei leitud: ' + (t.kood || v), true); return; }
+    if (confirm(`Märgin ${toode.kood} (${toode.nimi}) toorainena kohta ${koht}?`)) lisaTooraine(toode.kood, koht);
+  }, 'Skänni tooraine ribakood');
 }
 
 /* ---------- Inventuur ---------- */
@@ -1834,7 +1928,131 @@ let GK = loe(V.kog, { nimekirjad: [], aeg: '' });       // serveri seis
 let gAvatud = loe(V.kogAvatud, null), gRezhiim = loe(V.kogRezhiim, 'jarjest');
 let gRida = null, gUusRida = null, gKontrollitud = null, gVahele = new Set(), laebKog = false, gViga = '';
 
-// asukoha järjestus: väikepakend külg 1 püstakud 1→8, külg 2 püstakud 8→1; siis suur ladu rea kaupa
+/* ---------- MARSRUUT: korjejärjekord uksest 2 (Lao mõõdud, mm) ----------
+   G = { W, H, post, uks: [x, laius], vp: [x, y, pikkus X, pikkus Y], read: { rida: [x, y, sügavus, [tala laiused]] } }
+   Suur ladu: korjaja läheb vahekäikude kaupa alt üles (uksest kaugemale), igas vahekäigus valitakse
+   kõige lühem käik (läbi või sama otsa kaudu tagasi). Väikepakend on alati viimane. Ilma mõõtudeta
+   jääb vana järjekord (rea kaupa), väikepakend ikka viimaseks. Sama kood on telefonis ja arvutis. */
+let MR_G = null, MR_V = null;
+function mrVorgustik(G) {
+  if (MR_G === G) return MR_V;
+  const post = G.post || 90;
+  const read = Object.keys(G.read).map(r => {
+    const [x, y, s, w] = G.read[r];
+    return { r: +r, x, y, s, w, ots: x + w.reduce((a, b) => a + b, 0) + (w.length + 1) * post };
+  }).sort((a, b) => a.y - b.y);
+  // vahekäigud = vahed ridade vahel (≥ 1 m); seljad koos read (vahe ~0,2 m) on üks plokk
+  const vk = [], plokid = [[]];
+  read.forEach((r, i) => {
+    const jargm = read[i + 1];
+    plokid[plokid.length - 1].push(r);
+    if (jargm && jargm.y - (r.y + r.s) >= 1000) { vk.push({ y: (r.y + r.s + jargm.y) / 2, read: [] }); plokid.push([]); }
+  });
+  // rida on vahekäigu poole, mis on tal kõrval (all või üleval); mõlemal pool vahekäik -> alumine
+  const reaVk = {};
+  plokid.forEach((p, i) => p.forEach(r => {
+    const k = i > 0 && (i === plokid.length - 1 || r === p[0]) ? i - 1 : i;
+    if (vk[k]) { reaVk[r.r] = k; vk[k].read.push(r); }
+  }));
+  const vp = G.vp || null;
+  const kesk = plokid.slice(1, -1).flat();
+  const vasakX = Math.min(...(kesk.length ? kesk : read).map(r => r.x)) - 1000;
+  // paremalt läbipääs plokist (vahekäik k -> k+1), kui ploki otsa ja seina/VP-riiuli vahel on ≥ 1,2 m
+  const parem = vk.map((_, k) => {
+    const p = plokid[k + 1]; if (!p || k + 1 >= vk.length) return null;
+    const ots = Math.max(...p.map(r => r.ots)), y1 = Math.min(...p.map(r => r.y)), y2 = Math.max(...p.map(r => r.y + r.s));
+    const piir = vp && vp[1] < y2 && vp[1] + vp[3] > y1 ? vp[0] : G.W;
+    return piir - ots >= 1200 ? (ots + piir) / 2 : null;
+  });
+  const solm = [], D = 0;   // 0 = uks, siis iga vahekäigu vasak ja parem ots, viimane = väikepakend
+  solm.push({ x: G.uks[0] + G.uks[1] / 2, y: 0 });
+  vk.forEach((v, k) => {
+    const omaOts = Math.max(...v.read.map(r => r.ots));
+    const px = Math.max(parem[k] || 0, k > 0 ? parem[k - 1] || 0 : 0) || omaOts;
+    v.L = solm.push({ x: vasakX, y: v.y }) - 1;
+    v.R = solm.push({ x: px, y: v.y }) - 1;
+  });
+  const P = vp ? solm.push({ x: vp[0] - 800, y: vp[1] + vp[3] / 2 }) - 1 : -1;
+  const n = solm.length, d = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => i === j ? 0 : Infinity));
+  const serv = (a, b, c) => { if (c < d[a][b]) d[a][b] = d[b][a] = c; };
+  const kaug = (a, b) => Math.abs(solm[a].x - solm[b].x) + Math.abs(solm[a].y - solm[b].y);
+  if (vk.length) { serv(D, vk[0].L, kaug(D, vk[0].L)); serv(D, vk[0].R, kaug(D, vk[0].R)); }
+  vk.forEach((v, k) => {
+    serv(v.L, v.R, kaug(v.L, v.R));
+    if (vk[k + 1]) {
+      serv(v.L, vk[k + 1].L, kaug(v.L, vk[k + 1].L));
+      if (parem[k] != null) serv(v.R, vk[k + 1].R, Math.abs(v.y - vk[k + 1].y) + Math.abs(solm[v.R].x - parem[k]) + Math.abs(solm[vk[k + 1].R].x - parem[k]));
+    }
+    if (P >= 0 && solm[v.R].x >= vp[0] - 4000 && v.y > vp[1] - 4000 && v.y < vp[1] + vp[3] + 4000) serv(v.R, P, kaug(v.R, P));
+  });
+  for (let k = 0; k < n; k++) for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) if (d[i][k] + d[k][j] < d[i][j]) d[i][j] = d[i][k] + d[k][j];
+  MR_G = G; MR_V = { read: Object.fromEntries(read.map(r => [r.r, r])), reaVk, vk, solm, d, P, post };
+  return MR_V;
+}
+// koht "rida-püstak-tala-alusekoht" -> {k: vahekäik, x} või null (sellist rida/püstakut mõõtudes pole)
+function mrPunkt(V, koht) {
+  const m = /^(\d+)-(\d+)-(\d+)-(\d+)$/.exec(koht || ''); if (!m) return null;
+  const r = V.read[+m[1]], p = +m[2];
+  if (!r || V.reaVk[r.r] == null || p < 1 || p > r.w.length) return null;
+  let x = r.x + V.post;
+  for (let i = 0; i < p - 1; i++) x += r.w[i] + V.post;
+  return { k: V.reaVk[r.r], x: x + r.w[p - 1] / 2, t: +m[3], a: +m[4] };
+}
+// käik vahekäigus: sisse e, välja o, katta [lo, hi]; tagastab pikkuse ja kas alustada madalamast x-ist
+function mrKatmine(e, o, lo, hi) {
+  lo = Math.min(lo, e, o); hi = Math.max(hi, e, o);
+  const a = Math.abs(e - lo) + Math.abs(o - hi), b = Math.abs(e - hi) + Math.abs(o - lo);
+  return { c: hi - lo + Math.min(a, b), ylesse: a <= b };
+}
+// vana järjekord: suur ladu rea kaupa, siis muud kohad, siis väikepakend (külg 1 püstak 1→8, külg 2 8→1), siis kohata
+function mrVanaVoti(koht) {
+  const o = String(koht || '').split('-'), n = i => parseInt(o[i], 10) || 0;
+  if (o[0] === 'V') return [2, n(1), n(1) === 2 ? -n(2) : n(2), n(3), n(4)];
+  if (o.length === 4 && o.every(x => /^\d+$/.test(x))) return [0, n(0), n(1), n(2), n(3)];
+  return koht ? [1, 0, 0, 0, 0] : [3, 0, 0, 0, 0];
+}
+const mrVordle = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] - b[i]; return 0; };
+// kohad -> Map koht -> järjekorranumber (väiksem = enne)
+function marsruut(kohad, G) {
+  const koik = [...new Set(kohad.map(k => k || ''))], jrk = new Map();
+  let V = null;
+  try { V = G && G.read && G.uks ? mrVorgustik(G) : null; } catch (e) { V = null; }
+  const punktid = V ? koik.map(k => ({ koht: k, p: mrPunkt(V, k) })).filter(x => x.p) : [];
+  let nr = 0;
+  if (punktid.length) {
+    const vkid = [...new Set(punktid.map(x => x.p.k))].sort((a, b) => a - b);
+    const onVP = V.P >= 0 && koik.some(k => /^V-/.test(k));
+    // DP: olek = mis otsast vahekäigust väljuti (solm), väärtus = parim pikkus + tee
+    let olekud = [{ s: 0, c: 0, tee: [] }];
+    vkid.forEach(k => {
+      const v = V.vk[k], xs = punktid.filter(x => x.p.k === k).map(x => x.p.x);
+      const lo = Math.min(...xs), hi = Math.max(...xs);
+      const sisse = [v.L, v.R], uued = new Map();
+      olekud.forEach(o => {
+        const sisseV = sisse.map(s => ({ s, x: V.solm[s].x, c: V.d[o.s][s] }));
+        if (o.s === 0 && k === 0) sisseV.push({ s: -1, x: V.solm[0].x, c: v.y });   // uksest otse vahekäiku
+        sisseV.forEach(e => [v.L, v.R].forEach(x => {
+          const m = mrKatmine(e.x, V.solm[x].x, lo, hi), c = o.c + e.c + m.c;
+          if (!(c < Infinity)) return;
+          if (!uued.has(x) || c < uued.get(x).c) uued.set(x, { s: x, c, tee: o.tee.concat([{ k, ylesse: m.ylesse }]) });
+        }));
+      });
+      olekud = [...uued.values()];
+    });
+    const lopp = o => o.c + (onVP ? V.d[o.s][V.P] + V.d[V.P][0] : V.d[o.s][0]);
+    const parim = olekud.reduce((a, b) => lopp(b) < lopp(a) ? b : a);
+    parim.tee.forEach(({ k, ylesse }) => {
+      punktid.filter(x => x.p.k === k)
+        .sort((a, b) => (ylesse ? a.p.x - b.p.x : b.p.x - a.p.x) || a.p.t - b.p.t || a.p.a - b.p.a)
+        .forEach(x => jrk.set(x.koht, nr++));
+    });
+  }
+  koik.filter(k => !jrk.has(k)).sort((a, b) => mrVordle(mrVanaVoti(a), mrVanaVoti(b))).forEach(k => jrk.set(k, nr++));
+  return jrk;
+}
+/* ---------- /MARSRUUT ---------- */
+// parima koha valik (mitme koha korral): väikepakend külg 1 püstakud 1→8, külg 2 8→1; siis suur ladu rea kaupa.
+// Korjejärjekord ise tuleb MARSRUUT-ist (uksest 2, väikepakend viimasena).
 function kohtVoti(koht) {
   const o = String(koht || '').split('-'), n = i => parseInt(o[i], 10) || 0;
   if (o[0] === 'V') return [0, n(1), n(1) === 2 ? -n(2) : n(2), n(3), n(4)];
@@ -1894,8 +2112,18 @@ const gArv = n => fmtNr(nr(n));
 function gJarjestatud(n) {
   // BUUM: tellimuse nimekiri on arvutis juba järjestatud (pakid, nurgad, muu, väikepakend)
   if (/^BUUM/.test(n.markus || '')) return n.read.map(r => Object.assign({}, r, { k: reaKoht(r.kood) })).sort((a, b) => a.jrk - b.jrk);
-  return n.read.map(r => Object.assign({}, r, { k: reaKoht(r.kood) }))
-    .sort((a, b) => vordleVoti(kohtVoti(a.k.parim && a.k.parim.koht), kohtVoti(b.k.parim && b.k.parim.koht)) || (a.jrk - b.jrk));
+  const read = n.read.map(r => Object.assign({}, r, { k: reaKoht(r.kood) })), koht = r => (r.k.parim && r.k.parim.koht) || '';
+  const jrk = marsruut(read.map(koht), laoMoodud());   // MARSRUUT
+  return read.sort((a, b) => (jrk.get(koht(a)) - jrk.get(koht(b))) || (a.jrk - b.jrk));
+}
+// MARSRUUT: lao mõõdud tulevad serverist koos andmetega (arvutis laaditud Lao mõõdud.xlsx)
+let MR_TEKST = null, MR_OBJ = null;
+function laoMoodud() {
+  const m = ANDMED && ANDMED.mood;
+  if (!m) return null;
+  if (typeof m !== 'string') return m;
+  if (m !== MR_TEKST) { MR_TEKST = m; try { MR_OBJ = JSON.parse(m); } catch (e) { MR_OBJ = null; } }
+  return MR_OBJ;
 }
 function gKokku(n) {
   return { tehtud: n.read.filter(r => r.olek).length, puudu: n.read.filter(r => r.olek === 'puudu').length, kokku: n.read.length };
@@ -1964,6 +2192,8 @@ function gKaart(r, read) {
   return `<div class="kaart g-kaart">
     <div class="g-suur">${koht ? esc(koht.koht) : 'Asukoht puudub'}</div>
     ${koht ? `<div class="hall">${esc(juhis(koht.koht, koht.pool))}</div>` : ''}
+    ${koht && onTooraineLiik(koht.liik) ? `<div class="tooraine-info">Tooraine alus ${esc((IX.seosKoht.get(koht.koht) || []).filter(s => !onTooraineLiik(s.liik) && !onAjutineLiik(s.liik)).map(s => s.kood).join(', '))} kohal</div>` : ''}
+    ${koht && kohaTooraine(koht.koht, r.kood).length ? `<div class="tooraine-info">Pesas on tooraine ${esc(kohaTooraine(koht.koht, r.kood).map(s => s.kood).join(', '))}; pakitud kaupa ei pruugi olla</div>` : ''}
     ${muud.length ? `<div class="hall vaike">Ka: ${muud.map(x => esc(x.koht)).join(', ')}</div>` : ''}
     <div style="margin-top:8px"><b>${esc(r.kood)}</b> ${esc(t ? t.nimi : 'Buumi ekspordis pole')}</div>
     <div class="g-vaja">${r.vaja ? `Vaja <b>${gArv(r.vaja)}</b>` : 'Uus rida'} ${esc(t && t.uhik || '')}
@@ -1973,7 +2203,7 @@ function gKaart(r, read) {
       <input id="gKogus" data-gid="${esc(r.id)}" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" value="${r.olek ? String(r.votetud).replace('.', ',') : r.vaja ? String(r.vaja).replace('.', ',') : ''}" aria-label="Võetud kogus" style="font-size:22px;font-weight:700">
       <button class="skann-nupp" data-gskann="rida" aria-label="Skänni toode">⌗</button>
     </div>
-    ${koht ? `<div class="nupud" style="margin-top:6px"><button class="nupp vaike" data-gtyhi="${esc(r.kood + '|' + koht.koht)}">${onAjutineKoht(koht) ? 'Ajutine koht jäi tühjaks' : 'Koht jäi tühjaks'}</button></div>` : ''}
+    ${koht ? `<div class="nupud" style="margin-top:6px"><button class="nupp vaike" data-gtyhi="${esc(r.kood + '|' + koht.koht)}">${onTooraineLiik(koht.liik) ? 'Tooraine alus sai tühjaks' : onAjutineKoht(koht) ? 'Ajutine koht jäi tühjaks' : 'Koht jäi tühjaks'}</button></div>` : ''}
     <div class="nupud"><button class="nupp pea" data-gkinnita style="flex:1">Kinnita</button>
       ${gUusRida ? '<button class="nupp" data-gloobu>Loobu</button>'
         : gRezhiim === 'jarjest' && !r.olek && !gRida ? `<button class="nupp" data-gvahele="${esc(r.id)}">Jäta vahele</button>`
@@ -2069,7 +2299,7 @@ $('v-kogumine').addEventListener('click', e => {
   if ('gtait' in d) { tVaade = true; renderKogumine(); laeTait(); window.scrollTo(0, 0); return; }
   if ('ttagasi' in d) { tVaade = false; renderKogumine(); return; }
   if ('tuuenda' in d) { laeTait(); return; }
-  if (d.ttehtud) { taitMuuda({ op: 'tehtud', id: d.ttehtud, olek: 'tehtud' }); naita('Täidetud'); renderKogumine(); return; }
+  if (d.ttehtud) { const x = taitRead().find(r => r.id === d.ttehtud); taitMuuda({ op: 'tehtud', id: d.ttehtud, olek: 'tehtud' }); if (x) kusiTooraineAra(x.kood, x.koht); naita('Täidetud'); renderKogumine(); return; }
   if (d.tpole) { const m = prompt('Kaupa pole kusagilt võtta. Märkus (valikuline):', ''); if (m === null) return; taitMuuda({ op: 'tehtud', id: d.tpole, olek: 'pole', markus: m.trim() }); renderKogumine(); return; }
   if (d.tkustuta) { if (confirm('Kustutan selle rea (märgiti kogemata)?')) { taitMuuda({ op: 'kustuta', id: d.tkustuta }); renderKogumine(); } return; }
   if ('gtagasi' in d) { gAvatud = null; kirjuta(V.kogAvatud, null); renderKogumine(); laeKog(true); }
@@ -2112,7 +2342,8 @@ let VASTU = loe(V.vastu, []);            // selle telefoni vastuvõtud (viimased
 let TT = loe(V.tait, { read: [], aeg: '' }), tVaade = false, laebTait = false, tViga = '';
 
 function vKohad(t) {
-  return (IX.seosKood.get(t.kood) || []).slice().sort((a, b) => (onAjutineKoht(a) - onAjutineKoht(b)) || vordleVoti(kohtVoti(a.koht), kohtVoti(b.koht)));
+  const j = x => onAjutineKoht(x) ? 2 : onTooraineLiik(x.liik) ? 1 : 0;   // TOORAINE: püsikoht, siis tooraine koht, siis ajutine
+  return (IX.seosKood.get(t.kood) || []).slice().sort((a, b) => (j(a) - j(b)) || vordleVoti(kohtVoti(a.koht), kohtVoti(b.koht)));
 }
 // Vabad ajutised kohad, lähimad toote praegustele kohtadele (sama rida, sama püstak, siis kõrvalpüstakud)
 function vabadAjutised(t, max = 6) {
@@ -2148,7 +2379,7 @@ function renderVastuvott(taust) {
       <label for="vKogus">Kogus (valikuline)</label>
       <input id="vKogus" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" style="font-size:20px;font-weight:700">
       ${kohad.length ? `<h3 style="margin:14px 0 0">Vii siia</h3>` + kohad.map(x => `<div class="v-koht-rida">
-          <div class="koht${onAjutineKoht(x) ? ' fluid' : ''}" style="cursor:default"><div class="kk">${esc(x.koht)}${onAjutineKoht(x) ? '<span class="silt">ajutine</span>' : ''}</div>
+          <div class="koht${onAjutineKoht(x) ? ' fluid' : ''}" style="cursor:default"><div class="kk">${esc(x.koht)}${onAjutineKoht(x) ? '<span class="silt">ajutine</span>' : ''}${tooraineSilt(x)}</div>
             <div class="juhis">${esc(juhis(x.koht, x.pool))}</div></div>
           <button class="nupp pea" data-vpanin="${esc(x.koht)}">✓ Panin<br>siia</button></div>`).join('')
         : `<div class="logiriba" style="display:flex;margin-top:12px">Tootel pole kohta. Pane see ajutisse kohta; püsikoha saab anda arvutis.</div>`}
@@ -2201,6 +2432,7 @@ function vPane(koht) {
   // kaup toodi kohta, mis ootas täitmist -> täidetud
   const oot = taitOotel(t.kood, koht);
   if (oot) taitMuuda({ op: 'tehtud', id: oot.id, olek: 'tehtud', markus: 'vastuvõtt' });
+  kusiTooraineAra(t.kood, koht);   // TOORAINE
   naita(`${t.kood} → ${koht}` + (kogus !== '' ? ` (${fmtNr(kogus)})` : ''));
   vToode = null; renderVastuvott();
   setTimeout(() => $('vOtsi') && $('vOtsi').focus(), 50);
@@ -2273,7 +2505,7 @@ function margiTyhi(kood, koht, markus) {
 // Ajutine koht tühjaks -> seos maha (seal pole enam midagi); püsikoht tühjaks -> täitmise nimekirja
 function tyhiKoht(kood, koht) {
   const x = (IX.seosKood.get(kood) || []).find(s => s.koht === koht);
-  if (x && onAjutineKoht(x)) { eemaldaSeos(kood, koht); return; }
+  if (x && (onAjutineKoht(x) || onTooraineLiik(x.liik))) { eemaldaSeos(kood, koht); return; }   // TOORAINE: alus sai tühjaks -> märge maha
   if (confirm(`Märgin ${koht} tühjaks? ${kood} lisatakse täitmise nimekirja.`)) margiTyhi(kood, koht);
 }
 function tyhiKaardilt(kood) {
@@ -2340,6 +2572,11 @@ document.addEventListener('click', e => {
   if (d.tyhikaart) { tyhiKaardilt(d.tyhikaart); return; }   // VASTUVOTT
   if ('skannikohta' in d) { skanniKohta(); return; }
   if (d.eemalda) { eemaldaSeos(d.eemalda, d.kohast); return; }
+  if (d.tooraine) { tooraineKaardilt(d.tooraine); return; }                     // TOORAINE
+  if ('toorava' in d) { kohtTooraine = kohtVaates; renderKoht(); const c = $('kToorKaart'); if (c) c.scrollIntoView({ block: 'nearest' }); return; }
+  if ('toorloobu' in d) { kohtTooraine = null; renderKoht(); return; }
+  if (d.toorsiia) { lisaTooraine(d.toorsiia, kohtVaates); return; }
+  if ('skannitoor' in d) { skanniTooraine(); return; }
   if (d.invvali) { valiInvToode(IX.tooted.get(d.invvali)); return; }
   if (d.invmuuda) { invAlustaParandus(d.invmuuda); return; }
   if (d.invkustuta) { invKustuta(d.invkustuta); return; }
