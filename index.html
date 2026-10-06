@@ -53,6 +53,11 @@ label { display: block; font-size: 13px; color: var(--hall); margin: 12px 0 4px;
 .koht.fluid { background: var(--kollane); border-color: var(--kol-joon); }
 .koht .kk { font-size: 28px; font-weight: 800; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
 .koht .juhis { font-size: 16px; }
+/* VASTUVOTT */
+.v-koht-rida { display: flex; gap: 8px; align-items: stretch; margin-top: 10px; }
+.v-koht-rida .koht { margin-top: 0; flex: 1; }
+.v-koht-rida .nupp { flex: none; }
+.t-kaart .g-suur { color: var(--punane); }
 .silt { display: inline-block; font-size: 12px; padding: 1px 7px; border-radius: 6px; border: 1px solid currentColor; margin-left: 6px; vertical-align: 2px; }
 .rida-tulemus { display: block; width: 100%; text-align: left; background: var(--kaart); border: 1px solid var(--joon); border-radius: 12px; padding: 10px 12px; margin-top: 8px; cursor: pointer; }
 .rida-tulemus .kohad { font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
@@ -80,7 +85,7 @@ label { display: block; font-size: 13px; color: var(--hall); margin: 12px 0 4px;
 #laadimine li.tehtud { color: var(--roheline); }
 #laadimine li.kaib { color: var(--tekst); font-weight: 600; }
 nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; background: var(--kaart); border-top: 1px solid var(--joon); padding-bottom: env(safe-area-inset-bottom); }
-nav button { flex: 1; min-height: 60px; background: none; border: 0; font-size: 14px; color: var(--hall); cursor: pointer; }
+nav button { flex: 1; min-width: 0; min-height: 60px; background: none; border: 0; font-size: 13px; padding: 0 2px; color: var(--hall); cursor: pointer; }
 nav button.aktiivne { color: var(--roheline); font-weight: 700; }
 nav .ikoon { display: block; font-size: 20px; line-height: 1.1; }
 .rida-pais { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
@@ -241,6 +246,9 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
     <div id="iKokku"></div>
   </section>
 
+  <!-- VASTUVÕTT (VASTUVOTT) -->
+  <section class="vaade" id="v-vastuvott"><div id="vSisu"></div></section>
+
   <!-- KOGUMINE (komplekteerimine) -->
   <section class="vaade" id="v-kogumine"><div id="gSisu"></div></section>
 
@@ -267,6 +275,7 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
 
 <nav id="nav">
   <button data-vaade="otsing"><span class="ikoon">⌕</span>Otsing</button>
+  <button data-vaade="vastuvott"><span class="ikoon">⇣</span>Vastuvõtt</button>
   <button data-vaade="kogumine"><span class="ikoon">☑</span>Kogumine</button>
   <button data-vaade="inventuur"><span class="ikoon">▦</span>Inventuur</button>
   <button data-vaade="seaded"><span class="ikoon">⚙</span>Seaded</button>
@@ -303,7 +312,8 @@ const VAIKIMISI_URL = 'https://script.google.com/macros/s/AKfycbz1Dix5_TgtrDUXRH
 const MALU_OLI = (() => { try { return !!localStorage.getItem('ladu_seade'); } catch (e) { return false; } })();
 const V = { seaded: 'ladu_seaded', andmed: 'ladu_andmed', valjas: 'ladu_valjas', inv: 'ladu_inv', seanss: 'ladu_seanss',
             kog: 'ladu_kog', kogAvatud: 'ladu_kog_avatud', kogRezhiim: 'ladu_kog_rezhiim',   // kog*: KOGUMINE
-            invSeansid: 'ladu_invseansid' };   // INVSEANSS
+            invSeansid: 'ladu_invseansid',   // INVSEANSS
+            vastu: 'ladu_vastu', tait: 'ladu_tait' };   // VASTUVOTT
 function loe(k, vaikimisi) { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : vaikimisi; } catch (e) { return vaikimisi; } }
 function kirjuta(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { naita('Telefoni mälu on täis: ' + e.message, true); return false; } }
 
@@ -353,7 +363,9 @@ function rakendaRoll() {
   if (inv) inv.style.display = voibMuuta() ? '' : 'none';
   const kog = document.querySelector('nav button[data-vaade="kogumine"]');
   if (kog) kog.style.display = voibMuuta() ? '' : 'none';
-  if (!voibMuuta() && typeof aktiivne !== 'undefined' && (aktiivne === 'inventuur' || aktiivne === 'kogumine')) mine('otsing');
+  const vas = document.querySelector('nav button[data-vaade="vastuvott"]');   // VASTUVOTT
+  if (vas) vas.style.display = voibMuuta() ? '' : 'none';
+  if (!voibMuuta() && typeof aktiivne !== 'undefined' && (aktiivne === 'inventuur' || aktiivne === 'kogumine' || aktiivne === 'vastuvott')) mine('otsing');
 }
 
 function kustutaKoik(pohjus) {
@@ -597,7 +609,7 @@ function juhis(koht, pool) {
 // Kõik muudatused on korduvsaatmisel ohutud (sama seos / sama loenduse ID).
 // KIIRENDUS: lugemispäringud. Kui Google ei vasta TEINE_PARING_MS jooksul, saadetakse sama päring teist
 // korda ja kasutatakse seda, mis enne vastab (Apps Script jääb vahel rippuma). Kirjutamisi ei korrata.
-const LUGEMISED = new Set(['andmed', 'ping', 'epood', 'epoodLeia', 'inventuurLoe']);
+const LUGEMISED = new Set(['andmed', 'ping', 'epood', 'epoodLeia', 'inventuurLoe', 'kogumised', 'inventuuriSeansid', 'taitmised']);   // VASTUVOTT: + taitmised   // PARANDUS 2.2.1: + kogumised, inventuuriSeansid
 const TEINE_PARING_MS = 8000;
 function kaksPaaringut(uks, signal) {
   return new Promise((res, rej) => {
@@ -654,7 +666,9 @@ async function api(p, ms = 25000) {
         return j;
       }
     } catch (e) {
-      if (e.name === 'AbortError' || e.lopp) throw e;
+      if (e.lopp) throw e;
+      // PARANDUS 2.2.1: ajalõpp (brauseri teade „signal is aborted without reason“) -> arusaadav eestikeelne viga
+      if (e.name === 'AbortError') throw new Error('Google ei vastanud ' + Math.round(ms / 1000) + ' sekundi jooksul, proovi uuesti');
       viga = e;
       if (!navigator.onLine) break;         // võrguta pole mõtet korrata
     } finally { clearTimeout(t); }
@@ -776,6 +790,18 @@ async function saadaValjas() {
           kirjuta(V.kog, GK);
         } else naita('Kogumine: ' + j.viga, true);
         VALJAS.splice(0, n);
+      } else if (esimene.tegevus === 'taitmine') {
+        // VASTUVOTT: tühjade korjekohtade muudatused ühe päringuga
+        let n = 0; while (n < VALJAS.length && VALJAS[n].tegevus === 'taitmine' && n < 100) n++;
+        const pakk = VALJAS.slice(0, n);
+        const j = await api({ tegevus: 'taitmine', muudatused: pakk.map(x => x.m) });
+        if (j.ok) {
+          pakk.forEach(x => taitRakenda(TT.read = TT.read || [], x.m, SEADED.kes));
+          const vead = (j.tulemused || []).filter(t => !t.ok);
+          if (vead.length) naita('Täitmine: ' + vead[0].viga, true);
+          kirjuta(V.tait, TT);
+        } else naita('Täitmine: ' + j.viga, true);
+        VALJAS.splice(0, n);
       } else if (esimene.tegevus === 'inventuur') {
         // kõik järjestikused inventuurimuudatused ühe päringuga
         let n = 0; while (n < VALJAS.length && VALJAS[n].tegevus === 'inventuur' && n < 200) n++;
@@ -792,7 +818,7 @@ async function saadaValjas() {
       } else {
         // KIIRENDUS: järjestikused seose muudatused ühe päringuga (server teeb need järjekorras)
         let n = 0;
-        const seos = x => x.tegevus === 'lisaSeos' || x.tegevus === 'eemaldaSeos';   // KOOND: kogumist/inventuuri pakki ei panda
+        const seos = x => x.tegevus === 'lisaSeos' || x.tegevus === 'eemaldaSeos' || x.tegevus === 'vastuvott';   // KOOND: kogumist/inventuuri pakki ei panda; VASTUVOTT
         if (MITU_TOOTAB) while (n < VALJAS.length && seos(VALJAS[n]) && n < 20) n++;
         const pakk = n > 1 ? VALJAS.slice(0, n) : [esimene];
         let tulemused;
@@ -927,7 +953,7 @@ function mine(v) {
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('aktiivne', b.dataset.vaade === v || (v === 'koht' && b.dataset.vaade === eelmine)));
   $('nav').style.display = v === 'seadistus' ? 'none' : 'flex';
   renderAktiivne();
-  if (v === 'kogumine') laeKog(true);
+  if (v === 'kogumine') { laeKog(true); laeTait(true); }   // VASTUVOTT: + täitmine
   if (v === 'inventuur') laeInvSeansid();
   window.scrollTo(0, 0);
 }
@@ -937,6 +963,7 @@ function renderAktiivne() {
   else if (aktiivne === 'koht') renderKoht();
   else if (aktiivne === 'inventuur') renderInventuur();
   else if (aktiivne === 'kogumine') renderKogumine(true);
+  else if (aktiivne === 'vastuvott') renderVastuvott(true);   // VASTUVOTT
   else if (aktiivne === 'seaded') renderSeaded();
 }
 
@@ -1006,6 +1033,7 @@ function tooteKaart(t) {
     ${kohad || '<div class="tuhi" style="padding:14px 0 4px">Asukoht puudub</div>'}
     <div class="nupud">
       ${voibMuuta() ? `<button class="nupp vaike" data-lisafluid="${esc(t.kood)}">＋ Lisa ajutisse kohta</button>` : ''}
+      ${voibMuuta() && s.some(x => !onAjutineKoht(x)) ? `<button class="nupp vaike" data-tyhikaart="${esc(t.kood)}">Koht tühi</button>` : ''}
       ${otsingValitud ? '<button class="nupp vaike" data-sulge>Sulge</button>' : ''}
     </div>
   </div>`;
@@ -1737,7 +1765,7 @@ function pimeloendus() { const s = invSeansiInfo(); return !!(s && s.pime && s.o
 async function laeInvSeansid() {
   if (!SEADED || !navigator.onLine || !voibMuuta()) return;
   try {
-    const j = await api({ tegevus: 'inventuuriSeansid' }, 15000);
+    const j = await api({ tegevus: 'inventuuriSeansid' }, 30000);   // PARANDUS 2.2.1: 15 s -> 30 s
     if (!j.ok) return;
     INVS = j.seansid || []; kirjuta(V.invSeansid, INVS);
     const avatud = INVS.filter(x => x.olek !== 'lukus');
@@ -1855,7 +1883,7 @@ async function laeKog(vaikne) {
   if (!vaikne && aktiivne === 'kogumine') renderKogumine(true);
   try {
     await saadaValjas();
-    const j = await api({ tegevus: 'kogumised', ainultAvatud: 1 });
+    const j = await api({ tegevus: 'kogumised', ainultAvatud: 1 }, 60000);   // PARANDUS 2.2.1: 25 s jäi Apps Scriptile väheks
     if (!j.ok) throw new Error(j.viga);
     GK = { nimekirjad: j.nimekirjad || [], aeg: j.aeg }; kirjuta(V.kog, GK); gViga = '';
   } catch (e) { gViga = e.message; }
@@ -1864,6 +1892,8 @@ async function laeKog(vaikne) {
 
 const gArv = n => fmtNr(nr(n));
 function gJarjestatud(n) {
+  // BUUM: tellimuse nimekiri on arvutis juba järjestatud (pakid, nurgad, muu, väikepakend)
+  if (/^BUUM/.test(n.markus || '')) return n.read.map(r => Object.assign({}, r, { k: reaKoht(r.kood) })).sort((a, b) => a.jrk - b.jrk);
   return n.read.map(r => Object.assign({}, r, { k: reaKoht(r.kood) }))
     .sort((a, b) => vordleVoti(kohtVoti(a.k.parim && a.k.parim.koht), kohtVoti(b.k.parim && b.k.parim.koht)) || (a.jrk - b.jrk));
 }
@@ -1872,6 +1902,7 @@ function gKokku(n) {
 }
 
 function renderKogumine(taust) {   // taust = uuendus ei tulnud kasutaja tegevusest (KOOND)
+  if (tVaade && !gAvatud) { renderTaitmine(); return; }   // VASTUVOTT
   const L = kogNimekirjad();
   const n = gAvatud && L.find(x => x.id === gAvatud);
   if (!n) { gAvatud = null; renderKogNimekirjad(L); return; }
@@ -1942,6 +1973,7 @@ function gKaart(r, read) {
       <input id="gKogus" data-gid="${esc(r.id)}" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" value="${r.olek ? String(r.votetud).replace('.', ',') : r.vaja ? String(r.vaja).replace('.', ',') : ''}" aria-label="Võetud kogus" style="font-size:22px;font-weight:700">
       <button class="skann-nupp" data-gskann="rida" aria-label="Skänni toode">⌗</button>
     </div>
+    ${koht ? `<div class="nupud" style="margin-top:6px"><button class="nupp vaike" data-gtyhi="${esc(r.kood + '|' + koht.koht)}">${onAjutineKoht(koht) ? 'Ajutine koht jäi tühjaks' : 'Koht jäi tühjaks'}</button></div>` : ''}
     <div class="nupud"><button class="nupp pea" data-gkinnita style="flex:1">Kinnita</button>
       ${gUusRida ? '<button class="nupp" data-gloobu>Loobu</button>'
         : gRezhiim === 'jarjest' && !r.olek && !gRida ? `<button class="nupp" data-gvahele="${esc(r.id)}">Jäta vahele</button>`
@@ -1955,6 +1987,7 @@ function renderKogNimekirjad(L) {
   $('gSisu').innerHTML = `<div class="rida-pais"><h2 style="margin:0">Kogumine</h2>
       <button class="nupp vaike" data-guuenda>${laebKog ? 'Laen…' : 'Uuenda'}</button></div>
     ${gViga ? `<div class="hall" style="color:var(--punane)">${esc(gViga)}</div>` : ''}
+    ${taitNupp()}
     ${L.length ? L.map(n => {
       const k = gKokku(n);
       return `<button class="rida-tulemus" data-gava="${esc(n.id)}"><b>${esc(n.nimi)}</b>
@@ -1986,6 +2019,9 @@ function gKinnita() {
   const olek = r.vaja && votetud < r.vaja ? 'puudu' : 'tehtud';
   kogMuuda({ op: 'rida', nimekiri: gAvatud, id: r.id, kood: r.kood, vaja: r.vaja || 0, votetud, olek });
   naita(`${r.kood}: ${fmtNr(votetud)}` + (olek === 'puudu' ? ` (puudu ${fmtNr(r.vaja - votetud)})` : ''), false);
+  // VASTUVOTT: puudu jäi -> korjekoht on tõenäoliselt tühi
+  const pk = olek === 'puudu' && (r.k || reaKoht(r.kood)).parim;
+  if (pk && !onAjutineKoht(pk) && !taitOotel(r.kood, pk.koht) && confirm(`Kas ${pk.koht} jäi tühjaks? Lisan selle täitmise nimekirja.`)) margiTyhi(r.kood, pk.koht, 'kogumisel puudu');
   gVahele.delete(r.id); gRida = null; gUusRida = null; gKontrollitud = null;
   renderKogumine(); window.scrollTo(0, 0);
 }
@@ -2029,6 +2065,13 @@ function gLopeta() {
 $('v-kogumine').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   const d = b.dataset;
+  if (d.gtyhi) { const [kood, koht] = d.gtyhi.split('|'); tyhiKoht(kood, koht); return; }   // VASTUVOTT
+  if ('gtait' in d) { tVaade = true; renderKogumine(); laeTait(); window.scrollTo(0, 0); return; }
+  if ('ttagasi' in d) { tVaade = false; renderKogumine(); return; }
+  if ('tuuenda' in d) { laeTait(); return; }
+  if (d.ttehtud) { taitMuuda({ op: 'tehtud', id: d.ttehtud, olek: 'tehtud' }); naita('Täidetud'); renderKogumine(); return; }
+  if (d.tpole) { const m = prompt('Kaupa pole kusagilt võtta. Märkus (valikuline):', ''); if (m === null) return; taitMuuda({ op: 'tehtud', id: d.tpole, olek: 'pole', markus: m.trim() }); renderKogumine(); return; }
+  if (d.tkustuta) { if (confirm('Kustutan selle rea (märgiti kogemata)?')) { taitMuuda({ op: 'kustuta', id: d.tkustuta }); renderKogumine(); } return; }
   if ('gtagasi' in d) { gAvatud = null; kirjuta(V.kogAvatud, null); renderKogumine(); laeKog(true); }
   else if ('guuenda' in d) laeKog();
   else if (d.gava) gAva(d.gava);
@@ -2057,6 +2100,222 @@ $('v-kogumine').addEventListener('input', e => {
 });
 $('v-kogumine').addEventListener('keydown', e => { if (e.target.id === 'gKogus' && e.key === 'Enter') gKinnita(); });
 
+
+/* ============================================================
+   VASTUVÕTT JA KORJEKOHA TÄITMINE (VASTUVOTT)
+   Vastuvõtt: skänni saabunud toode -> näeb, kuhu see käib -> „Panin siia“ (või vali/skänni ajutine koht).
+   Täitmine: „Koht jäi tühjaks“ kogumisel või toote kaardil -> nimekiri Kogumise all -> „Täidetud“.
+   ============================================================ */
+const onAjutineKoht = x => onAjutineLiik(x.liik) || !!(IX && IX.kohad.get(x.koht) || {}).fluid;
+let vToode = null;
+let VASTU = loe(V.vastu, []);            // selle telefoni vastuvõtud (viimased 100)
+let TT = loe(V.tait, { read: [], aeg: '' }), tVaade = false, laebTait = false, tViga = '';
+
+function vKohad(t) {
+  return (IX.seosKood.get(t.kood) || []).slice().sort((a, b) => (onAjutineKoht(a) - onAjutineKoht(b)) || vordleVoti(kohtVoti(a.koht), kohtVoti(b.koht)));
+}
+// Vabad ajutised kohad, lähimad toote praegustele kohtadele (sama rida, sama püstak, siis kõrvalpüstakud)
+function vabadAjutised(t, max = 6) {
+  const ref = (IX.seosKood.get(t.kood) || []).map(x => kohtVoti(x.koht));
+  const l = [];
+  IX.kohad.forEach(k => { if (k.fluid && !(IX.seosKoht.get(k.koht) || []).length) l.push(k.koht); });
+  const kaugus = koht => {
+    if (!ref.length) return 0;
+    const v = kohtVoti(koht);
+    return Math.min(...ref.map(r => r[0] !== v[0] ? 1e9 : r[1] !== v[1] ? 1e6 * Math.abs(r[1] - v[1]) + 100 * Math.abs(r[2] - v[2])
+                                                    : 100 * Math.abs(r[2] - v[2]) + Math.abs(r[3] - v[3])));
+  };
+  return l.map(k => ({ k, d: kaugus(k), v: kohtVoti(k) })).sort((a, b) => (a.d - b.d) || vordleVoti(a.v, b.v)).slice(0, max).map(x => x.k);
+}
+
+function renderVastuvott(taust) {
+  const el = $('vSisu');
+  if (!IX) { el.innerHTML = '<div class="tuhi">Andmed puuduvad. Vajuta „Uuenda“.</div>'; return; }
+  const hoiaOts = taust && $('vOtsi') ? $('vOtsi').value : '', hoiaKog = taust && $('vKogus') ? $('vKogus').value : '';
+  const fookus = document.activeElement && document.activeElement.id;
+  let html = `<h2 style="margin:4px 0 6px">Vastuvõtt</h2>`;
+  if (!vToode) {
+    html += `<p class="hall" style="margin-top:0">Skänni saabunud toode. Näed, kuhu see käib; vii kaup kohale ja kinnita.</p>
+      <div class="kaart"><div class="otsirida">
+        <input id="vOtsi" type="search" placeholder="Kood, EAN või nimi" autocomplete="off" autocapitalize="characters" spellcheck="false">
+        <button class="skann-nupp" data-vskann aria-label="Skänni toode">⌗</button></div>
+        <div id="vSoovitused" class="soovitused"></div></div>`;
+  } else {
+    const t = vToode, kohad = vKohad(t), vabad = vabadAjutised(t);
+    html += `<div class="kaart">
+      <div class="toode-kood">${esc(t.kood)}</div><div>${esc(t.nimi)}</div>
+      ${laoseis(t)}
+      <label for="vKogus">Kogus (valikuline)</label>
+      <input id="vKogus" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" style="font-size:20px;font-weight:700">
+      ${kohad.length ? `<h3 style="margin:14px 0 0">Vii siia</h3>` + kohad.map(x => `<div class="v-koht-rida">
+          <div class="koht${onAjutineKoht(x) ? ' fluid' : ''}" style="cursor:default"><div class="kk">${esc(x.koht)}${onAjutineKoht(x) ? '<span class="silt">ajutine</span>' : ''}</div>
+            <div class="juhis">${esc(juhis(x.koht, x.pool))}</div></div>
+          <button class="nupp pea" data-vpanin="${esc(x.koht)}">✓ Panin<br>siia</button></div>`).join('')
+        : `<div class="logiriba" style="display:flex;margin-top:12px">Tootel pole kohta. Pane see ajutisse kohta; püsikoha saab anda arvutis.</div>`}
+      <h3 style="margin:16px 0 0">${kohad.length ? 'Ei mahu? Pane ajutisse kohta' : 'Ajutine koht'}</h3>
+      <div class="otsirida" style="margin-top:6px">
+        <input id="vKoht" type="text" placeholder="Koht, nt 3-2-6-1" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done">
+        <button class="skann-nupp" data-vskann aria-label="Skänni koha QR">⌗</button></div>
+      ${vabad.length ? `<div class="hall vaike" style="margin-top:6px">Vabad ajutised kohad${(IX.seosKood.get(t.kood) || []).length ? ' lähedal' : ''}:</div>
+        <div class="nupud" style="margin-top:4px">${vabad.map(k => `<button class="nupp vaike" data-vpanin="${esc(k)}">${esc(k)}</button>`).join('')}</div>` : ''}
+      <div class="nupud"><button class="nupp" data-vloobu style="flex:1">Loobu</button></div>
+    </div>`;
+  }
+  const tana = new Date().toDateString();
+  const read = VASTU.filter(x => new Date(x.aeg).toDateString() === tana);
+  html += `<h2>Täna vastu võetud <span class="hall">${read.length || ''}</span></h2>` + (read.length
+    ? `<div class="kaart" style="padding:4px 14px">${read.map(x => `<div class="g-rida" style="cursor:default">
+        <span class="g-koht">${esc(x.koht)}</span><span><b>${esc(x.kood)}</b><span class="hall g-nimi">${esc((IX.tooted.get(x.kood) || {}).nimi || '')}</span></span>
+        <span class="g-kogus">${x.kogus !== '' ? esc(fmtNr(nr(x.kogus))) : ''}<small> ${new Date(x.aeg).toLocaleTimeString('et-EE', { hour: '2-digit', minute: '2-digit' })}</small></span></div>`).join('')}</div>`
+    : '<div class="tuhi">Selles telefonis täna veel midagi</div>');
+  el.innerHTML = html;
+  if (hoiaOts && $('vOtsi')) { $('vOtsi').value = hoiaOts; vSoovita(); }
+  if (hoiaKog && $('vKogus')) $('vKogus').value = hoiaKog;
+  if (fookus && $(fookus)) $(fookus).focus();
+}
+function vSoovita() {
+  const q = $('vOtsi').value, tapne = leiaToode(q);
+  if (tapne) { vValiToode(tapne); return; }
+  $('vSoovitused').innerHTML = otsiTooteid(q, 8).map(t => `<button class="rida-tulemus" data-vvali="${esc(t.kood)}"><b>${esc(t.kood)}</b> ${esc(t.nimi)}</button>`).join('');
+}
+function vValiToode(t) {
+  vToode = t; renderVastuvott(); window.scrollTo(0, 0);
+}
+function vPane(koht) {
+  const t = vToode; if (!t) return;
+  koht = normKoht(koht);
+  const info = IX.kohad.get(koht);
+  if (!info) { naita('Asukohta ' + koht + ' pole', true); return; }
+  const kogusTekst = ($('vKogus') ? $('vKogus').value : '').replace(/\s/g, '');
+  if (kogusTekst && !/^\d+([.,]\d+)?$/.test(kogusTekst)) { naita('Kogus peab olema number', true); $('vKogus').focus(); return; }
+  const olemas = (IX.seosKood.get(t.kood) || []).some(x => x.koht === koht);
+  if (!olemas) {
+    if (!info.fluid) { naita(`${koht} on püsikoht ja seal pole seda toodet. Püsikohti muudetakse arvutist.`, true); return; }
+    if (!lisaSeos(t.kood, koht)) return;
+  }
+  const kogus = kogusTekst ? nr(kogusTekst) : '';
+  const id = uusId().replace(/-/g, '').slice(0, 12);
+  lisaValjas({ tegevus: 'vastuvott', kood: t.kood, asukoht: koht, kogus, id });
+  VASTU.unshift({ kood: t.kood, koht, kogus, aeg: new Date().toISOString() });
+  VASTU = VASTU.slice(0, 100); kirjuta(V.vastu, VASTU);
+  // kaup toodi kohta, mis ootas täitmist -> täidetud
+  const oot = taitOotel(t.kood, koht);
+  if (oot) taitMuuda({ op: 'tehtud', id: oot.id, olek: 'tehtud', markus: 'vastuvõtt' });
+  naita(`${t.kood} → ${koht}` + (kogus !== '' ? ` (${fmtNr(kogus)})` : ''));
+  vToode = null; renderVastuvott();
+  setTimeout(() => $('vOtsi') && $('vOtsi').focus(), 50);
+}
+function vSkanni() {
+  avaSkanner(async v => {
+    const t = await tolgendaTaielik(v);
+    if (t.vale) { naita(t.vale, true); return; }
+    if (t.koht) { if (vToode) vPane(t.koht); else naita('Skänni enne toode, siis koha QR', true); return; }
+    const toode = leiaToode(t.kood);
+    if (!toode) { naita('Toodet ei leitud: ' + t.kood, true); return; }
+    if (t.epoodist) naita('Toode leitud e-poe QR järgi');
+    vValiToode(toode);
+  }, vToode ? 'Skänni koha QR (või uus toode)' : 'Skänni toote ribakood');
+}
+
+$('v-vastuvott').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const d = b.dataset;
+  if ('vskann' in d) vSkanni();
+  else if (d.vvali) vValiToode(IX.tooted.get(d.vvali));
+  else if (d.vpanin) vPane(d.vpanin);
+  else if ('vloobu' in d) { vToode = null; renderVastuvott(); }
+});
+$('v-vastuvott').addEventListener('input', e => { if (e.target.id === 'vOtsi') vSoovita(); });
+$('v-vastuvott').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  if (e.target.id === 'vKoht' && e.target.value.trim()) vPane(e.target.value);
+  else if (e.target.id === 'vOtsi') { const t = leiaToode(e.target.value); if (t) vValiToode(t); }
+  else if (e.target.id === 'vKogus') e.target.blur();
+});
+
+/* ---------- täitmine ---------- */
+function taitRakenda(L, m, kes) {
+  const i = L.findIndex(x => x.id === m.id);
+  if (m.op === 'uus') {
+    if (i < 0 && !L.some(x => x.olek === 'ootel' && x.kood === m.kood && x.koht === m.asukoht))
+      L.push({ id: m.id, kood: m.kood, koht: m.asukoht, olek: 'ootel', aeg: m.aeg, kes, markus: m.markus || '' });
+  } else if (m.op === 'tehtud') { if (i >= 0 && L[i].olek === 'ootel') Object.assign(L[i], { olek: m.olek, tehtud: m.aeg, tegija: kes }); }
+  else if (m.op === 'kustuta') { if (i >= 0) L.splice(i, 1); }
+}
+function taitRead() {
+  const L = JSON.parse(JSON.stringify(TT.read || []));
+  VALJAS.forEach(op => { if (op.tegevus === 'taitmine') taitRakenda(L, op.m, SEADED && SEADED.kes); });
+  return L;
+}
+const taitOotel = (kood, koht) => taitRead().find(x => x.olek === 'ootel' && x.kood === kood && x.koht === koht);
+function taitMuuda(m) {
+  m.aeg = new Date().toISOString();
+  lisaValjas({ tegevus: 'taitmine', m });
+}
+async function laeTait(vaikne) {
+  if (laebTait || !SEADED || !navigator.onLine || !voibMuuta()) return;
+  laebTait = true;
+  if (!vaikne && aktiivne === 'kogumine' && tVaade) renderKogumine(true);
+  try {
+    await saadaValjas();
+    const j = await api({ tegevus: 'taitmised', ainultOotel: 1 }, 60000);
+    if (!j.ok) throw new Error(j.viga);
+    TT = { read: j.read || [], aeg: j.aeg }; kirjuta(V.tait, TT); tViga = '';
+  } catch (e) { tViga = e.message; }
+  finally { laebTait = false; if (aktiivne === 'kogumine') renderKogumine(true); }
+}
+function margiTyhi(kood, koht, markus) {
+  if (taitOotel(kood, koht)) { naita(`${koht} on juba täitmise nimekirjas`); return; }
+  taitMuuda({ op: 'uus', id: uusId(), kood, asukoht: koht, markus: markus || '' });
+  naita(`${koht} lisatud täitmise nimekirja`);
+  if (aktiivne === 'kogumine') renderKogumine(true);
+}
+// Ajutine koht tühjaks -> seos maha (seal pole enam midagi); püsikoht tühjaks -> täitmise nimekirja
+function tyhiKoht(kood, koht) {
+  const x = (IX.seosKood.get(kood) || []).find(s => s.koht === koht);
+  if (x && onAjutineKoht(x)) { eemaldaSeos(kood, koht); return; }
+  if (confirm(`Märgin ${koht} tühjaks? ${kood} lisatakse täitmise nimekirja.`)) margiTyhi(kood, koht);
+}
+function tyhiKaardilt(kood) {
+  const p = (IX.seosKood.get(kood) || []).filter(x => !onAjutineKoht(x));
+  if (!p.length) return;
+  if (p.length === 1) { tyhiKoht(kood, p[0].koht); return; }
+  const v = prompt('Mis koht jäi tühjaks?\n' + p.map((x, i) => `${i + 1}) ${x.koht}`).join('\n'), '1');
+  const x = v && p[Number(v) - 1];
+  if (x) margiTyhi(kood, x.koht);
+}
+function taitNupp() {
+  const n = taitRead().filter(x => x.olek === 'ootel').length;
+  return `<button class="rida-tulemus" data-gtait style="${n ? 'border-color:var(--punane)' : ''}"><b>Täitmine</b>
+    <div class="hall">${n ? `<span style="color:var(--punane)">${n} tühja korjekohta ootab kaupa</span>` : 'Tühje korjekohti pole'}</div></button>`;
+}
+function renderTaitmine() {
+  const L = taitRead();
+  const ootel = L.filter(x => x.olek === 'ootel').sort((a, b) => vordleVoti(kohtVoti(a.koht), kohtVoti(b.koht)));
+  const tehtud = L.filter(x => x.olek !== 'ootel').sort((a, b) => String(b.tehtud).localeCompare(String(a.tehtud)));
+  const kust = x => (IX && IX.seosKood.get(x.kood) || []).filter(s => s.koht !== x.koht).sort((a, b) => (onAjutineKoht(b) - onAjutineKoht(a)) || vordleVoti(kohtVoti(a.koht), kohtVoti(b.koht)));
+  $('gSisu').innerHTML = `<div class="rida-pais"><button class="nupp vaike" data-ttagasi>← Kogumine</button>
+      <button class="nupp vaike" data-tuuenda>${laebTait ? 'Laen…' : 'Uuenda'}</button></div>
+    <h2 style="margin:10px 0 6px">Täitmine <span class="hall">${ootel.length || ''}</span></h2>
+    ${tViga ? `<div class="hall" style="color:var(--punane)">${esc(tViga)}</div>` : ''}
+    ${ootel.length ? ootel.map(x => {
+      const t = IX && IX.tooted.get(x.kood), k = kust(x);
+      return `<div class="kaart g-kaart t-kaart">
+        <div class="hall vaike">Tühi korjekoht</div>
+        <div class="g-suur">${esc(x.koht)}</div><div class="hall">${esc(juhis(x.koht, ''))}</div>
+        <div style="margin-top:8px"><b>${esc(x.kood)}</b> ${esc(t ? t.nimi : 'Buumi ekspordis pole')}</div>
+        <div class="g-vaja">Võta: ${k.length ? k.map(s => `<button class="nupp vaike" data-koht="${esc(s.koht)}">${esc(s.koht)}${onAjutineKoht(s) ? ' (ajutine)' : ''}</button>`).join(' ') : '<span class="hall">teist kohta pole</span>'}
+          ${t ? `<span class="hall"> · laos ${gArv(t.maardu)} ${esc(t.uhik || '')}</span>` : ''}</div>
+        <div class="hall vaike">${esc(x.kes || '')}${x.aeg ? ' · ' + new Date(x.aeg).toLocaleString('et-EE', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}${x.markus ? ' · ' + esc(x.markus) : ''}</div>
+        <div class="nupud"><button class="nupp pea" data-ttehtud="${esc(x.id)}" style="flex:1">✓ Täidetud</button>
+          <button class="nupp" data-tpole="${esc(x.id)}">Kaupa pole</button>
+          <button class="nupp ohtlik" data-tkustuta="${esc(x.id)}" aria-label="Kustuta">✕</button></div>
+      </div>`;
+    }).join('') : `<div class="tuhi">${laebTait ? 'Laen…' : 'Tühje korjekohti pole. Kogumisel saab koha tühjaks märkida.'}</div>`}
+    ${tehtud.length ? `<h2>Tehtud</h2><div class="kaart" style="padding:4px 14px">${tehtud.map(x => `<div class="g-rida ${x.olek === 'pole' ? 'puudu' : 'tehtud'}" style="cursor:default">
+        <span class="g-koht">${esc(x.koht)}</span><span><b>${esc(x.kood)}</b><span class="hall g-nimi">${x.olek === 'pole' ? 'kaupa pole' : 'täidetud'}${x.tegija ? ' · ' + esc(x.tegija) : ''}</span></span><span></span></div>`).join('')}</div>` : ''}`;
+}
+
 /* ============================================================
    SÜNDMUSED
    ============================================================ */
@@ -2078,6 +2337,7 @@ document.addEventListener('click', e => {
     return;
   }
   if (d.lisasiia) { lisaSeos(d.lisasiia, kohtVaates); return; }
+  if (d.tyhikaart) { tyhiKaardilt(d.tyhikaart); return; }   // VASTUVOTT
   if ('skannikohta' in d) { skanniKohta(); return; }
   if (d.eemalda) { eemaldaSeos(d.eemalda, d.kohast); return; }
   if (d.invvali) { valiInvToode(IX.tooted.get(d.invvali)); return; }
