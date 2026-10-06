@@ -154,6 +154,8 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
 #teade.viga { background: var(--punane); color: #fff; }
 
 #prindiAla { display: none; }
+.leht table.kog { width: 100%; border-collapse: collapse; font: 10pt system-ui, sans-serif; }
+.leht table.kog td, .leht table.kog th { border: 1px solid #000; padding: 1.5mm 2mm; text-align: left; }
 @media print {
   @page { size: A4 landscape; margin: 8mm; }
   body > *:not(#prindiAla) { display: none !important; }
@@ -183,7 +185,9 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
     <div id="otsTulemus"></div>
   </div>
   <span class="olek" id="olek"></span>
-  <button class="nupp" id="peidetudNupp" title="Valikust väljas tooted">Peidetud</button>
+  <button class="nupp" id="invNupp" title="Inventuuriseansid ja loendused">Inventuur</button>
+  <button class="nupp" id="kogNupp" title="Komplekteerimise nimekirjad">Komplekteerimine</button>
+  <button class="nupp" id="peidetudNupp" title="Peidetud tooted ja Buumi kontroll">Kontroll</button>
   <button class="nupp" id="kasutajadNupp" title="Kasutajad ja ligipääs">Kasutajad</button>
   <button class="nupp" id="uuenda">Uuenda</button>
   <button class="nupp" id="seadedNupp" title="Seaded">⚙</button>
@@ -267,12 +271,16 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
 <div class="katte" id="peidAken">
   <div class="modaal lai">
     <div class="rida" style="justify-content:space-between">
-      <h2 style="margin:0">Valikust väljas</h2>
+      <h2 style="margin:0">Kontroll <span class="hall vaike" id="varuInfo" style="font-weight:400"></span></h2>
       <button class="nupp" id="peidSulge">Sulge</button>
     </div>
     <div class="rida" style="margin:10px 0">
       <button class="nupp" data-peidvaade="peidetud" id="pvPeidetud">Peidetud</button>
       <button class="nupp" data-peidvaade="kand" id="pvKand">Kandidaadid</button>
+      <button class="nupp" data-peidvaade="kohata" id="pvKohata">Laos, kohata</button>
+      <button class="nupp" data-peidvaade="buumita" id="pvBuumita">Buumis pole</button>
+      <button class="nupp" data-peidvaade="fluid" id="pvFluid">Vanad ajutised</button>
+      <label class="hall vaike" id="pvFluidPaevi" style="display:none;align-items:center;gap:4px">vanemad kui <input id="fluidPaevi" type="number" min="1" value="30" style="width:60px"> päeva</label>
       <input id="peidOts" type="search" placeholder="Filtreeri…" style="flex:1;min-width:160px">
     </div>
     <p class="hall vaike" id="peidSelgitus"></p>
@@ -284,7 +292,7 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
 <div class="katte" id="kasAken">
   <div class="modaal lai">
     <div class="rida" style="justify-content:space-between">
-      <h2 style="margin:0">Kasutajad</h2>
+      <h2 style="margin:0">Kasutajad <span id="kasOlek" class="hall vaike" style="font-weight:400"></span></h2>
       <button class="nupp" id="kasSulge">Sulge</button>
     </div>
     <p class="hall vaike">Anna igaühele kasutajanimi ja parool (🔑). Ta logib telefonis sisse; iga seade on tema real näha ja selle saab „✕“ nupuga välja logida.
@@ -297,6 +305,52 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
     </div>
     <div id="kasSisu"><p class="hall">Laen…</p></div>
     <div class="kast" style="border:1px solid var(--joon);border-radius:10px;margin-top:14px" id="kasVanad"></div>
+  </div>
+</div>
+
+<!-- inventuur (INVSEANSS) -->
+<div class="katte" id="invAken">
+  <div class="modaal lai">
+    <div class="rida" style="justify-content:space-between">
+      <h2 style="margin:0">Inventuur</h2>
+      <button class="nupp" id="invSulge">Sulge</button>
+    </div>
+    <div class="rida" style="gap:8px;margin:8px 0">
+      <input id="invUusNimi" type="text" placeholder="Uue seansi nimi, nt Inventuur oktoober 2026" style="flex:1;min-width:200px">
+      <label style="display:inline-flex;gap:4px;align-items:center"><input type="checkbox" id="invUusPime"> pimeloendus</label>
+      <button class="nupp pea" id="invLoo">Loo seanss</button>
+    </div>
+    <div id="invSeansid"></div>
+    <div id="invSeansiInfo" style="margin:10px 0"></div>
+    <div class="rida" style="gap:6px;margin:8px 0;flex-wrap:wrap">
+      <button class="nupp" id="inv_kokku" data-invvaade="kokku">Kokkuvõte</button>
+      <button class="nupp" id="inv_read" data-invvaade="read">Kõik read</button>
+      <button class="nupp" id="inv_kahtlased" data-invvaade="kahtlased">Kahtlased</button>
+      <input id="invOts" type="search" placeholder="Filtreeri (kood, nimi, koht, kes)…" style="flex:1;min-width:160px">
+      <button class="nupp" id="invUuenda">Uuenda</button>
+      <button class="nupp" id="invCsv">CSV</button>
+      <button class="nupp" id="invCsvKoht">CSV asukohtadega</button>
+    </div>
+    <div id="invSisu"></div>
+  </div>
+</div>
+
+<!-- komplekteerimine (KOGUMINE) -->
+<div class="katte" id="kogAken">
+  <div class="modaal lai">
+    <div class="rida" style="justify-content:space-between">
+      <h2 style="margin:0">Komplekteerimine</h2>
+      <button class="nupp" id="kogSulge">Sulge</button>
+    </div>
+    <h3 style="margin:12px 0 4px;font-size:14px">Uus nimekiri</h3>
+    <div class="rida" style="gap:8px">
+      <input id="kogNimi" type="text" placeholder="Nimekirja nimi, nt Pood 06.10" style="flex:1;min-width:180px">
+      <button class="nupp pea" id="kogSaada" disabled>Saada telefoni</button>
+    </div>
+    <textarea id="kogKleebi" rows="3" placeholder="Kleebi siia Sheetsist (Ctrl+V)" style="width:100%;margin-top:8px;font:13px ui-monospace,monospace"></textarea>
+    <div id="kogEelvaade"></div>
+    <h3 style="margin:18px 0 4px;font-size:14px">Nimekirjad <button class="nupp" id="kogUuenda" style="min-height:24px;padding:0 8px">Uuenda</button></h3>
+    <div id="kogNimekirjad"></div>
   </div>
 </div>
 
@@ -353,7 +407,7 @@ function kustutaKohalik(pohjus) {
     $('sKes').value = SEADED ? SEADED.kes : (loe('ladu_arvuti_nimi', '') || 'arvuti');
     $('sVoti').value = SEADED && !SEADED.sisselogitud ? SEADED.voti : '';
     $('lNimi').value = SEADED && SEADED.kasutaja ? SEADED.kasutaja : '';
-    $('sPohjus').innerHTML = `<b>Server keeldus:</b> ${esc(String(pohjus || 'ligipääs puudub').replace(/\.+$/, ''))}.<br>
+    $('sPohjus').innerHTML = `<b>Pead uuesti sisse logima:</b> ${esc(String(pohjus || 'ligipääs puudub').replace(/\.+$/, ''))}.<br>
       Logi uuesti sisse või proovi võtmega uuesti. Kui ei aita: sisesta hädavõti (Apps Script → käivita <code>adminLigipaas</code> – näitab ka sinu isiklikku võtit
       ja vabastab admin-seadmed) ja ava Kasutajad → oma rida → „Kasuta selles arvutis“. Põhjus on ka Sheeti lehel Logi („keeldutud“).`;
     $('sPohjus').style.display = '';
@@ -391,32 +445,73 @@ function teade(t, viga) {
 /* ============================================================
    SERVER
    ============================================================ */
-// Google annab vahel ajutiselt 404 / HTML-lehe (nt kohe pärast juurutust) – proovime paar korda uuesti
+// Google suunab POST-i vahel ümber ja päringu sisu (ka võti) kaob teel. Server 2.1 vastab siis tuhiParing,
+// vanem server üldise keeldumisega „Ligipääs puudub või on eemaldatud“. See pole päris keeldumine – proovi uuesti.
+const tuhiParing = j => !!j && (!!j.tuhiParing ||
+  (!!j.ligipaasPuudub && j.pohjus === 'tundmatu' && /^Ligipääs puudub või on eemaldatud/.test(j.viga || '')));
+const AJUTINE = 'Ühendus Google\'iga katkes, proovin uuesti';
+
+// KIIRENDUS: lugemispäringud. Kui Google ei vasta TEINE_PARING_MS jooksul, saadetakse sama päring teist
+// korda ja kasutatakse seda, mis enne vastab (Apps Script jääb vahel rippuma). Kirjutamisi ei korrata.
+const LUGEMISED = new Set(['andmed', 'ping', 'kasutajad', 'epood', 'epoodLeia', 'inventuurLoe']);
+const TEINE_PARING_MS = 8000;
+function kaksPaaringut(uks, signal) {
+  return new Promise((res, rej) => {
+    let valmis = false, ootel = 1;
+    const ctl2 = new AbortController();
+    signal.addEventListener('abort', () => ctl2.abort(), { once: true });
+    const voit = v => { if (valmis) return; valmis = true; clearTimeout(t); ctl2.abort(); res(v); };
+    const kaotus = e => { if (valmis) return; if (--ootel === 0) { valmis = true; clearTimeout(t); rej(e); } };
+    const t = setTimeout(() => { if (valmis) return; ootel++; uks(ctl2.signal).then(voit, kaotus); }, TEINE_PARING_MS);
+    uks(signal).then(voit, e => { if (ootel === 1) clearTimeout(t); kaotus(e); });   // kiire viga -> tavaline korduskatse
+  });
+}
+
+// Google annab vahel ajutiselt 404 / HTML-lehe või kaotab päringu – proovime vaikselt uuesti.
+// Sisselogimise aken avaneb ainult kahe järjestikuse päris keeldumise peale (või kui kasutaja on eemaldatud).
 async function api(p, ms = 60000) {
-  let viga;
+  let viga, keeldOli = false;
   for (let katse = 0; katse < 3; katse++) {
-    if (katse) await new Promise(r => setTimeout(r, 2500 * katse));
+    if (katse) { teade(AJUTINE + '…'); await new Promise(r => setTimeout(r, 1500 * katse)); }
     const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms);
     try {
-      const r = await fetch(SEADED.url, {
-        method: 'POST', signal: ctl.signal, credentials: 'omit', cache: 'no-store', redirect: 'follow',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(Object.assign({ voti: SEADED.voti, kes: SEADED.kes || 'arvuti', seade: seadmeId() }, p))
-      });
-      const tekst = await r.text();
-      let j = null;
-      try { j = JSON.parse(tekst); } catch (e) { j = null; }
+      const keha = JSON.stringify(Object.assign({ voti: SEADED.voti, kes: SEADED.kes || 'arvuti', seade: seadmeId() }, p));
+      const uks = async signal => {   // KOOND: 2.1 korduskatse + kiirenduse kaksPaaringut
+        const r = await fetch(SEADED.url, {
+          method: 'POST', signal, credentials: 'omit', cache: 'no-store', redirect: 'follow',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: keha
+        });
+        const tekst = await r.text();
+        try { return JSON.parse(tekst); }
+        catch (e) { throw new Error(AJUTINE + ` (Google vastas HTTP ${r.status})`); }
+      };
+      const j = await (LUGEMISED.has(p.tegevus) ? kaksPaaringut(uks, ctl.signal) : uks(ctl.signal));
+      if (j && tuhiParing(j)) { viga = new Error(AJUTINE); continue; }
+      if (j && !j.ok && /hõivatud/.test(j.viga || '')) { viga = new Error(j.viga); continue; }   // lukk kinni – proovi uuesti
       if (j) {
-        if (j.ligipaasPuudub) { kustutaKohalik(j.viga); const x = new Error('Ligipääs puudub või on eemaldatud'); x.lopp = true; throw x; }
+        if (j.ligipaasPuudub) {
+          if (!keeldOli && j.pohjus !== 'eemaldatud') { keeldOli = true; viga = new Error(AJUTINE); continue; }   // üks keeldumine võib olla juhus
+          kustutaKohalik(keeldumiseSelgitus(j));
+          const x = new Error('Server keeldus: ' + (j.viga || 'ligipääs puudub')); x.lopp = true; throw x;
+        }
         return j;
       }
-      { viga = new Error(`Google vastas HTTP ${r.status}: ${(tekst.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1] || tekst.slice(0, 100)}`); }
+      viga = new Error(AJUTINE);
     } catch (e) {
-      if (e.name === 'AbortError' || e.lopp) throw e;   // aegumist / eemaldamist ei korda
-      viga = e;
+      if (e.lopp) throw e;                                  // päris keeldumist ei korda
+      viga = e.name === 'AbortError' ? new Error(AJUTINE + ' (Google ei vastanud)') : e;
     } finally { clearTimeout(t); }
   }
   throw viga;
+}
+// Arusaadav põhjus sisselogimise aknasse
+function keeldumiseSelgitus(j) {
+  const p = j.pohjus;
+  return p === 'seanss' ? 'See arvuti on välja logitud (admin logis seadme välja või sisselogimine aegus)'
+    : p === 'eemaldatud' ? (j.viga || 'Kasutaja on eemaldatud')
+    : p === 'seade' ? (j.viga || 'Võti on seotud teise seadmega')
+    : p === 'tundmatu' ? 'Võtit ei tunta enam ära (võti on vahetatud või kustutatud)'
+    : (j.viga || 'Ligipääs puudub');
 }
 
 let laeb = false, VIGA = '';
@@ -425,11 +520,18 @@ async function laeAndmed(teavita) {
   laeb = true; olek();
   try {
     const versioon = ANDMED && ANDMED.tooted && ANDMED.tootekaart ? ANDMED.versioon : undefined;
-    const j = await api({ tegevus: 'andmed', osad: 'tooted,tootekaart,asukohad,paigutus,seaded', versioon });
+    // KIIRENDUS: esimesel korral tuleb samas päringus ka ping-info ja kasutajate nimekiri (eraldi päringuid pole)
+    const kysiKas = !KAS_LAETUD && !KAS_OOTEL;
+    const j = await api({ tegevus: 'andmed', osad: 'tooted,tootekaart,asukohad,paigutus,seaded', versioon,
+                          ping: !PING_TEHTUD || undefined, kasutajad: kysiKas || undefined });
     if (!j.ok) throw new Error(j.viga);
-    if (!j.muutmata) { ANDMED = j; salvestaAndmed(); }
+    const { ping, kasutajad, ...andmed } = j;
+    if (!j.muutmata) { ANDMED = andmed; salvestaAndmed(); }
     VIGA = '';
-    if (!PING_TEHTUD) { PING_TEHTUD = true; api({ tegevus: 'ping' }, 20000).then(p => { HADAVOTI = !!(p && p.hadavoti); olek(); }).catch(() => { PING_TEHTUD = false; }); }
+    if (ping) { PING_TEHTUD = true; HADAVOTI = !!ping.hadavoti; VARU_AEG = ping.varukoopia !== undefined ? ping.varukoopia : null; }
+    if (kasutajad && kasutajad.ok && !KAS_OOTEL) kasPaneServerist(kasutajad);
+    // vana server (ilma kiirenduseta) ei saada ping-infot -> eraldi päring nagu enne
+    if (!PING_TEHTUD) { PING_TEHTUD = true; api({ tegevus: 'ping' }, 20000).then(p => { HADAVOTI = !!(p && p.hadavoti); VARU_AEG = p && p.varukoopia !== undefined ? p.varukoopia : null; olek(); }).catch(() => { PING_TEHTUD = false; }); }
     ehitaKoik();
     if (teavita) teade(j.muutmata ? 'Andmed on värsked' : 'Andmed uuendatud');
   } catch (e) {
@@ -438,19 +540,30 @@ async function laeAndmed(teavita) {
   } finally { laeb = false; olek(); }
 }
 
-let saadab = false;
+let saadab = false, MITU_TOOTAB = true;
 async function saada() {
   if (saadab || !VALJAS.length || !SEADED) return;
   saadab = true; olek();
   try {
     while (VALJAS.length) {
-      const op = VALJAS[0];
-      const j = await api(Object.assign({}, op.paring), 45000);
-      if (!j.ok) teade('Salvestamine ebaõnnestus: ' + j.viga, true);
-      else rakenda(ANDMED, op.paring);
-      VALJAS.shift();
+      // KIIRENDUS: kõik ootel muudatused ühe päringuga (server teeb need järjekorras)
+      const pakk = MITU_TOOTAB ? VALJAS.slice(0, 30) : VALJAS.slice(0, 1);
+      let tulemused;
+      if (pakk.length === 1) tulemused = [await api(Object.assign({}, pakk[0].paring), 45000)];
+      else {
+        const j = await api({ tegevus: 'mitu', paringud: pakk.map(op => op.paring) }, 90000);
+        if (!j.tulemused) { MITU_TOOTAB = false; continue; }     // vana server: saada ükshaaval
+        tulemused = j.tulemused;
+      }
+      let vigu = 0;
+      pakk.forEach((op, i) => {
+        const j = tulemused[i] || { ok: false, viga: 'vastus puudub' };
+        if (!j.ok) { vigu++; teade('Salvestamine ebaõnnestus: ' + j.viga, true); }
+        else rakenda(ANDMED, op.paring);
+      });
+      VALJAS.splice(0, pakk.length);
       kirjuta(V.valjas, VALJAS); salvestaAndmed();
-      if (!j.ok) { ehitaSeosed(); renderKoik(); }
+      if (vigu) { ehitaSeosed(); renderKoik(); }
       VIGA = '';
     }
   } catch (e) {
@@ -491,7 +604,7 @@ function muuda(...paringud) {
   saada();
 }
 
-let HADAVOTI = false, PING_TEHTUD = false;
+let HADAVOTI = false, PING_TEHTUD = false, VARU_AEG = null;   // VARU_AEG: KONTROLL (null = server ei tea varukoopiast)
 function olek() {
   const osad = [];
   if (HADAVOTI) osad.push('<span class="viga" title="Kasutajad → oma rida → Kasuta selles arvutis">⚠ hädavõti</span>');
@@ -995,23 +1108,108 @@ function renderPeidetud() {
         <td>${seosed(t.kood).map(s => esc(s.koht)).join(', ') || '<span class="hall">–</span>'}</td>
         <td><button class="nupp" data-taasta="${esc(t.kood)}">Taasta</button></td></tr>`).join('') + '</table>'
       : '<p class="hall">Peidetud tooteid pole.</p>';
-  } else {
+  } else if (peidVaade === 'kand') {
     $('peidSelgitus').textContent = 'Tooted, mille nimes on „@“ või mis algavad „x.“-iga, Maardu laoseis on 0 või alla selle ja millel on veel asukoht. Vaata üle ja peida vajadusel.';
-    read = [...T.values()].filter(t => !PEIDETUD.has(t.kood) && seosed(t.kood).length && nr(t.maardu) <= 0 &&
-                                        (t.nimi.includes('@') || /^x\./i.test(t.nimi.trim()))).filter(sobib).sort((a, b) => CN.compare(a.kood, b.kood));
+    read = kandidaadid().filter(sobib);
     $('peidSisu').innerHTML = read.length ? `<table class="tabel"><tr><th>Kood</th><th>Nimetus</th><th>Maardu</th><th>Asukohad</th><th></th></tr>` +
       read.map(t => `<tr><td><b>${esc(t.kood)}</b></td><td>${esc(t.nimi)}</td><td>${fmt(nr(t.maardu))}</td>
         <td>${seosed(t.kood).map(s => esc(s.koht)).join(', ')}</td>
         <td><button class="nupp" data-peida="${esc(t.kood)}">Peida</button></td></tr>`).join('') + '</table>'
       : '<p class="hall">Kandidaate pole.</p>';
+  } else if (peidVaade === 'kohata') {
+    // KONTROLL: Maardus on kogus, aga asukohta pole (kiiremad eespool)
+    $('peidSelgitus').textContent = 'Tooted, mille Maardu laoseis on üle 0, aga millel pole ühtegi asukohta. Peidetud ja lõppenud (@, x.) tooted on välja jäetud. Kiirema käibega eespool.';
+    const koik = kohata().filter(t => !q || (t.kood + ' ' + t.nimi + ' ' + t.grupp).toLowerCase().includes(q)), MAX = 500;
+    read = koik.slice(0, MAX);
+    $('peidSisu').innerHTML = read.length ? `<table class="tabel"><tr><th>Kood</th><th>Nimetus</th><th>Grupp</th><th>Maardu</th><th>Kuus</th><th></th></tr>` +
+      read.map(t => `<tr><td><b>${esc(t.kood)}</b></td><td>${esc(t.nimi)}</td><td class="hall">${esc(t.grupp)}</td><td>${fmt(nr(t.maardu))}</td><td>${t.ak ? fmt(t.ak) : '–'}</td>
+        <td><button class="nupp" data-peida="${esc(t.kood)}">Peida</button></td></tr>`).join('') + '</table>' +
+      (koik.length > MAX ? `<p class="hall">Näitan ${MAX} / ${koik.length}. Kitsenda filtriga (nt grupi nimi).</p>` : '')
+      : '<p class="hall">Kõigil laos olevatel toodetel on asukoht.</p>';
+  } else if (peidVaade === 'fluid') {
+    // FLUIDVANUS: ajutised (fluid) seosed, mis on vanemad kui X päeva
+    const p = Math.max(1, nr($('fluidPaevi').value) || 30);
+    $('peidSelgitus').textContent = `Ajutistes (fluid) kohtades olevad tooted, mis on lisatud üle ${p} päeva tagasi. Vaata üle, kas kaup on veel seal; vajadusel eemalda seos.`;
+    read = vanadAjutised(p).filter(x => !q || (x.kood + ' ' + toode(x.kood).nimi + ' ' + x.koht + ' ' + x.kes).toLowerCase().includes(q));
+    $('peidSisu').innerHTML = read.length ? `<table class="tabel"><tr><th>Asukoht</th><th>Kood</th><th>Nimetus</th><th>Lisatud</th><th>Päevi</th><th>Lisas</th><th></th></tr>` +
+      read.map(x => `<tr><td><b>${esc(x.koht)}</b></td><td><b>${esc(x.kood)}</b></td><td>${esc(toode(x.kood).nimi)}</td>
+        <td class="hall">${x.aeg.toLocaleDateString('et-EE')}</td><td>${x.paevi}</td><td class="hall">${esc(x.kes)}</td>
+        <td><button class="nupp ohtlik" data-fluideemalda="${esc(x.kood + '|' + x.koht)}">Eemalda seos</button></td></tr>`).join('') + '</table>'
+      : `<p class="hall">Üle ${p} päeva vanu ajutisi seoseid pole.</p>`;
+  } else {
+    // KONTROLL: paigutatud koodid, mida Buumi ekspordis enam pole
+    $('peidSelgitus').textContent = 'Asukohaga koodid, mida viimases Buumi ekspordis pole (kood muutunud või toode kustutatud). Midagi ei eemaldata ise.';
+    read = buumita().filter(k => !q || k.toLowerCase().includes(q));
+    $('peidSisu').innerHTML = read.length ? `<table class="tabel"><tr><th>Kood</th><th>Asukohad</th><th></th></tr>` +
+      read.map(k => `<tr><td><b>${esc(k)}</b></td><td>${seosed(k).map(s => esc(s.koht)).join(', ')}</td>
+        <td><button class="nupp ohtlik" data-buumita="${esc(k)}">Eemalda asukohad</button></td></tr>`).join('') + '</table>'
+      : '<p class="hall">Kõik paigutatud koodid on Buumi ekspordis olemas.</p>';
   }
-  const kand = [...T.values()].filter(t => !PEIDETUD.has(t.kood) && seosed(t.kood).length && nr(t.maardu) <= 0 && (t.nimi.includes('@') || /^x\./i.test(t.nimi.trim()))).length;
   $('pvPeidetud').textContent = `Peidetud (${PEIDETUD.size})`;
-  $('pvKand').textContent = `Kandidaadid (${kand})`;
+  $('pvKand').textContent = `Kandidaadid (${kandidaadid().length})`;
+  $('pvKohata').textContent = `Laos, kohata (${kohata().length})`;
+  $('pvBuumita').textContent = `Buumis pole (${buumita().length})`;
+  $('pvKohata').setAttribute('aria-pressed', peidVaade === 'kohata');
+  $('pvBuumita').setAttribute('aria-pressed', peidVaade === 'buumita');
+  $('pvFluid').setAttribute('aria-pressed', peidVaade === 'fluid');
+  $('pvFluid').textContent = `Vanad ajutised (${vanadAjutised(Math.max(1, nr($('fluidPaevi').value) || 30)).length})`;
+  $('pvFluidPaevi').style.display = peidVaade === 'fluid' ? 'inline-flex' : 'none';
+  const pv = ANDMED && ANDMED.laoAndmedUuendatud ? new Date(ANDMED.laoAndmedUuendatud) : null;
+  $('varuInfo').textContent = [
+    pv && !isNaN(pv) ? 'Buumi andmed: ' + pv.toLocaleString('et-EE', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : '',
+    VARU_AEG === null ? '' : VARU_AEG ? 'Varukoopia: ' + new Date(VARU_AEG).toLocaleString('et-EE', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : '⚠ varukoopia seadistamata'
+  ].filter(Boolean).join(' · ');
+}
+
+const loppenud = t => t.nimi.includes('@') || /^x\./i.test(t.nimi.trim());
+const kandidaadid = () => [...T.values()].filter(t => !PEIDETUD.has(t.kood) && seosed(t.kood).length && nr(t.maardu) <= 0 && loppenud(t))
+                                         .sort((a, b) => CN.compare(a.kood, b.kood));
+// KONTROLL
+const kohata = () => [...T.values()].filter(t => nr(t.maardu) > 0 && !seosed(t.kood).length && !PEIDETUD.has(t.kood) && !loppenud(t))
+                                     .sort((a, b) => (b.ak - a.ak) || CN.compare(a.kood, b.kood));
+const buumita = () => T.size ? [...KOODI_SEOSED.keys()].filter(k => !T.has(k)).sort(CN.compare) : [];
+
+// FLUIDVANUS: serveri seosed (neil on Lisatud aeg), mis on ajutised või asuvad fluid-kohas
+function vanadAjutised(paevi) {
+  const piir = Date.now() - paevi * 864e5, saatmata = new Set(SEOSED.map(s => s.kood + '|' + s.koht));
+  return (ANDMED && ANDMED.paigutus || []).map(x => ({ kood: normKood(x.Kood), koht: normKoht(x.Asukoht), liik: String(x.Liik || ''), kes: String(x.Lisas || ''), aeg: new Date(x.Lisatud) }))
+    .filter(x => x.kood && x.koht && saatmata.has(x.kood + '|' + x.koht) && !isNaN(x.aeg) && x.aeg.getTime() < piir &&
+                 (/^(ajutine|fluid)$/i.test(x.liik) || (KOHAD.get(x.koht) || {}).fluid))
+    .map(x => Object.assign(x, { paevi: Math.floor((Date.now() - x.aeg) / 864e5) }))
+    .sort((a, b) => a.aeg - b.aeg);
+}
+function eemaldaFluid(v) {
+  const [kood, koht] = v.split('|');
+  if (!confirm(`Eemaldan seose ${kood} @ ${koht}?`)) return;
+  muuda({ tegevus: 'muudaPaigutust', eemalda: [{ Kood: kood, Asukoht: koht }], lisa: [] });
+  teade(`${kood} @ ${koht} eemaldatud`);
+  renderKoik(); renderPeidetud();
+}
+
+function eemaldaBuumita(kood) {
+  const s = seosed(kood);
+  if (!s.length || !confirm(`Eemaldan koodi ${kood} asukohad (${s.map(x => x.koht).join(', ')})?\n\nSeda koodi viimases Buumi ekspordis pole.`)) return;
+  muuda({ tegevus: 'muudaPaigutust', eemalda: s.map(x => ({ Kood: kood, Asukoht: x.koht })), lisa: [] });
+  teade(`${kood}: ${s.length} asukohta eemaldatud`);
+  if (VALITUD && VALITUD.kood === kood) VALITUD = null;
+  renderKoik(); renderPeidetud();
 }
 
 /* ---------- kasutajad ---------- */
 let KASUTAJAD = [], SEANSID = [], VANAD_KEELATUD = false;
+// KIIRENDUS: nimekiri tuleb juba käivitusel (laeAndmed) ja aken avaneb kohe; muudatused paistavad kohe,
+// server kinnitab neid järjekorras taustal. Serveri nimekiri võetakse üle alles siis, kui kõik on kinnitatud.
+let KAS_LAETUD = false, KAS_UUENDAB = false, KAS_OOTEL = 0, KAS_SERVER = null, KAS_VIGA = false;
+function kasPaneServerist(j) {
+  if (j.read) KASUTAJAD = j.read;
+  if (j.seansid) SEANSID = j.seansid;
+  if (j.vanadKeelatud !== undefined) VANAD_KEELATUD = !!j.vanadKeelatud;
+  if (j.read && j.seansid) KAS_LAETUD = true;
+}
+function kasOlek() {
+  const el = $('kasOlek'); if (!el) return;
+  el.textContent = KAS_OOTEL ? `· salvestan (${KAS_OOTEL})…` : KAS_UUENDAB ? '· uuendan…' : '';
+}
 // kas see arvuti kasutab selle kasutaja võtit või on tema nimega sisse logitud
 const minuKasutaja = k => !!SEADED && (SEADED.voti === k['Võti'] || (!!SEADED.kasutaja && SEADED.kasutaja === String(k.Kasutajanimi || '').toLowerCase()));
 const baasUrl = () => location.origin + location.pathname.replace(/[^/]*$/, '');
@@ -1020,13 +1218,18 @@ const arvutiLink = k => baasUrl() + 'arvuti.html#s=' + lingiKood({ u: SEADED.url
 
 async function avaKasutajad() {
   $('kasAken').classList.add('lahti');
-  $('kasSisu').innerHTML = '<p class="hall">Laen…</p>';
+  if (KAS_LAETUD) renderKasutajad();                  // kohe eelmise seisuga, värskendus taustal
+  else $('kasSisu').innerHTML = '<p class="hall">Laen…</p>';
+  if (KAS_OOTEL || KAS_UUENDAB) { kasOlek(); return; }
+  KAS_UUENDAB = true; kasOlek();
   try {
     const j = await api({ tegevus: 'kasutajad' });
     if (!j.ok) throw new Error(j.viga);
-    KASUTAJAD = j.read || []; SEANSID = j.seansid || []; VANAD_KEELATUD = !!j.vanadKeelatud;
-    renderKasutajad();
-  } catch (e) { $('kasSisu').innerHTML = `<p class="hoiatus">${esc(e.message)}</p>`; }
+    if (!KAS_OOTEL) { kasPaneServerist(j); renderKasutajad(); }
+  } catch (e) {
+    if (KAS_LAETUD) teade('Kasutajate värskendus ebaõnnestus: ' + e.message, true);
+    else $('kasSisu').innerHTML = `<p class="hoiatus">${esc(e.message)}</p>`;
+  } finally { KAS_UUENDAB = false; kasOlek(); }
 }
 
 function renderKasutajad() {
@@ -1039,7 +1242,7 @@ function renderKasutajad() {
       <button class="nupp" style="padding:0 7px;min-height:22px;flex:none" data-kasseanss="${esc(s.ID)}" title="Logi see seade välja">✕</button>
       <span><b style="font-weight:600">${esc(s.Seade || 'seade')}</b><br><span class="hall">viimati ${aeg(s['Viimati nähtud'])} · sisse ${aeg(s.Loodud)}</span></span></div>`).join('');
   $('kasSisu').innerHTML = read.length ? `<table class="tabel"><tr><th>Nimi</th><th>Kasutajanimi</th><th>Roll</th><th>Olek</th><th>Seadmed</th><th>Viimati nähtud</th><th></th></tr>` +
-    read.map(k => `<tr${aktiivne(k) ? '' : ' style="opacity:.55"'}>
+    read.map(k => k._ootel ? `<tr style="opacity:.6"><td><b>${esc(k.Nimi)}</b></td><td class="hall">–</td><td>${esc(k.Roll)}</td><td class="hall" colspan="4">lisan…</td></tr>` : `<tr${aktiivne(k) ? '' : ' style="opacity:.55"'}>
       <td><b>${esc(k.Nimi)}</b>${minuKasutaja(k) ? ' <span class="silt">see arvuti</span>' : ''}</td>
       <td>${k.Kasutajanimi ? esc(k.Kasutajanimi) + (k.ParoolOlemas ? '' : ' <span class="hoiatus vaike">parool puudub</span>') : '<span class="hall">–</span>'}
         ${k.LoginLukus ? `<div class="hoiatus vaike">🔒 lukus (valed paroolid) <button class="nupp" style="min-height:22px;padding:0 6px" data-kaslukk="${esc(k.ID)}">Ava lukk</button></div>` : ''}</td>
@@ -1069,34 +1272,319 @@ function renderKasutajad() {
   $('kasVanad').innerHTML += `<div class="hall vaike" style="margin-top:10px;border-top:1px solid var(--joon2);padding-top:8px">
     <b>Hädavõti (ADMIN_VOTI)</b> jääb alati kehtima – see on ainult Apps Scripti seadetes ega liigu linkides. Kasuta seda ainult siis,
     kui isiklik admin-võti on kadunud. Hädaabi: Apps Script → käivita <code>adminLigipaas</code> (vabastab admin-seadmed, logis on URL ja võtmed).</div>`;
+  kasOlek();
 }
 
-// Server tagastab uuendatud nimekirja kohe kaasa – teist päringut pole vaja
-let kasTootab = false;
-async function kasTegevus(p, teadeOk) {
-  if (kasTootab) return null;                       // topeltvajutus
-  kasTootab = true;
-  document.querySelectorAll('#kasAken button, #kasAken select').forEach(b => b.disabled = true);
-  try {
-    const j = await api(p);
-    if (j.read) { KASUTAJAD = j.read; }
-    if (j.seansid) { SEANSID = j.seansid; }
-    if (!j.ok) throw new Error(j.viga);
-    if (j.vanadKeelatud !== undefined) VANAD_KEELATUD = !!j.vanadKeelatud;
-    if (teadeOk) teade(teadeOk);
-    return j;
-  } catch (e) { teade(e.message, true); return null; }
-  finally {
-    kasTootab = false;
-    renderKasutajad();
-    document.querySelectorAll('#kasAken button, #kasAken input, #kasAken select').forEach(b => b.disabled = false);
-    $('kasLisa').textContent = 'Lisa kasutaja';
+// KIIRENDUS: ennusta(K) muudab kohalikku koopiat kohe (K = {kas: kasutaja ID järgi, seansid}); päring läheb
+// järjekorda taustal ja nupud jäävad kasutatavaks. Vea korral võetakse serveri tegelik seis (muudatus kaob).
+// KASUTAJAD: ootel muudatused lähevad ühe päringuga (mitu). Kuni päring käib, kogunevad uued klikid
+// järgmisesse pakki, nii et 5 klikki = 1–2 päringut, mitte 5 järjest.
+let KAS_JRK = [], KAS_SAADAB = false, KAS_MITU = true;
+function kasTegevus(p, teadeOk, ennusta) {
+  if (ennusta) {
+    KASUTAJAD = KASUTAJAD.map(k => Object.assign({}, k)); SEANSID = SEANSID.map(s => Object.assign({}, s));
+    try { ennusta({ kas: id => KASUTAJAD.find(k => k.ID === id) || {} }); } catch (e) {}
   }
+  KAS_OOTEL++; renderKasutajad();
+  return new Promise(res => { KAS_JRK.push({ p, teadeOk, res }); kasSaada(); });
+}
+function kasServerilt(j) {
+  if (!j) return;
+  if (j.read || j.seansid || j.vanadKeelatud !== undefined) {
+    KAS_SERVER = Object.assign(KAS_SERVER || {}, j.read ? { read: j.read } : {}, j.seansid ? { seansid: j.seansid } : {},
+                               j.vanadKeelatud !== undefined ? { vanadKeelatud: j.vanadKeelatud } : {});
+  }
+}
+async function kasSaada() {
+  if (KAS_SAADAB) return;
+  KAS_SAADAB = true;
+  try {
+    while (KAS_JRK.length) {
+      const pakk = KAS_JRK.splice(0, KAS_MITU ? 30 : 1);
+      let tulemused;
+      try {
+        if (pakk.length === 1) tulemused = [await api(pakk[0].p)];
+        else {
+          const j = await api({ tegevus: 'mitu', paringud: pakk.map(x => x.p) }, 90000);
+          // vana server ei luba kasutajaid pakis -> saada ükshaaval nagu enne
+          if (!j.tulemused || j.tulemused.every(t => t && /^Ei saa pakis|^Tundmatu tegevus/.test(t.viga || ''))) {
+            KAS_MITU = false; KAS_JRK.unshift(...pakk); continue;
+          }
+          if (j.kasutajad && j.kasutajad.ok) kasServerilt(j.kasutajad);
+          tulemused = j.tulemused.map(t => t && t.ok && !t.read && j.kasutajad && j.kasutajad.read ? Object.assign({}, t, { read: j.kasutajad.read }) : t);
+        }
+      } catch (e) {
+        KAS_VIGA = true; teade(e.message, true);
+        tulemused = pakk.map(() => null);
+      }
+      for (let i = 0; i < pakk.length; i++) {
+        const x = pakk[i], j = tulemused[i] === null ? null : (tulemused[i] || { ok: false, viga: 'vastus puudub' });
+        let tulem = null;
+        if (j) {
+          kasServerilt(j);
+          if (!j.ok) { KAS_VIGA = true; teade(j.viga, true); }
+          else { if (x.teadeOk) teade(x.teadeOk); tulem = j; }
+        }
+        x.res(tulem);
+        if (--KAS_OOTEL === 0) await kasLopeta(); else kasOlek();
+      }
+    }
+  } finally { KAS_SAADAB = false; }
+}
+async function kasLopeta() {
+  // vea korral (nt ühendus katkes) loe tegelik seis serverist, et ekraan ei näitaks salvestamata muudatust
+  if (KAS_VIGA && !(KAS_SERVER && KAS_SERVER.read && KAS_SERVER.seansid)) {
+    try { const j = await api({ tegevus: 'kasutajad' }); if (j.ok) KAS_SERVER = j; } catch (e) {}
+  }
+  if (!KAS_OOTEL) {
+    if (KAS_SERVER) kasPaneServerist(KAS_SERVER);
+    KAS_SERVER = null; KAS_VIGA = false;
+  }
+  renderKasutajad();
 }
 
 async function kopeeri(tekst, mis) {
   try { await navigator.clipboard.writeText(tekst); teade(mis + ' kopeeritud'); }
   catch (e) { prompt('Kopeeri:', tekst); }
+}
+
+/* ---------- inventuur (INVSEANSS) ---------- */
+let INVS = [], INV_VALITUD = null, INV_READ = [], INV_VAADE = 'kokku';
+async function avaInventuur() {
+  $('invAken').classList.add('lahti');
+  await laeInvSeansid();
+}
+async function laeInvSeansid() {
+  try {
+    const j = await api({ tegevus: 'inventuuriSeansid' });
+    if (!j.ok) throw new Error(j.viga);
+    INVS = j.seansid || [];
+    if (!INV_VALITUD && INVS.length) INV_VALITUD = INVS.slice().reverse().find(s => s.olek !== 'lukus') ? INVS.slice().reverse().find(s => s.olek !== 'lukus').nimi : INVS[INVS.length - 1].nimi;
+    renderInvSeansid();
+    if (INV_VALITUD) laeInvRead();
+  } catch (e) { $('invSeansid').innerHTML = `<p class="hoiatus">${esc(e.message)}</p>`; }
+}
+async function laeInvRead() {
+  $('invSisu').innerHTML = '<p class="hall">Laen…</p>';
+  try {
+    const j = await api({ tegevus: 'inventuurLoe', seanss: INV_VALITUD });
+    if (!j.ok) throw new Error(j.viga);
+    INV_READ = (j.read || []).map(r => ({ id: String(r.ID), aeg: r.Aeg, kes: String(r['Seade/kasutaja'] || ''), koht: normKoht(r.Asukoht), kood: normKood(r.Kood), kogus: nr(r.Kogus) }));
+    renderInvRead();
+  } catch (e) { $('invSisu').innerHTML = `<p class="hoiatus">${esc(e.message)}</p>`; }
+}
+function renderInvSeansid() {
+  $('invSeansid').innerHTML = INVS.length ? `<div class="rida" style="gap:6px;flex-wrap:wrap">` + INVS.slice().reverse().map(s =>
+    `<button class="nupp" data-invvali="${esc(s.nimi)}" aria-pressed="${s.nimi === INV_VALITUD}">${s.olek === 'lukus' ? '🔒 ' : ''}${esc(s.nimi)}${s.pime ? ' <span class="hall">(pime)</span>' : ''}</button>`).join('') + '</div>'
+    : '<p class="hall vaike">Seansse pole. Kuni ühtegi pole loodud, sisestavad telefonid seansi nime ise (vana viis).</p>';
+  const s = INVS.find(x => x.nimi === INV_VALITUD);
+  $('invSeansiInfo').innerHTML = s ? `<b>${esc(s.nimi)}</b> <span class="hall">loodud ${new Date(s.loodud).toLocaleDateString('et-EE')}${s.loi ? ' · ' + esc(s.loi) : ''}</span>
+      ${s.olek === 'lukus' ? `<span class="hall"> · lukustatud ${new Date(s.lukustatud).toLocaleString('et-EE', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}</span> <button class="nupp" data-involek="avatud">Ava</button>`
+        : '<button class="nupp" data-involek="lukus" title="Telefonid ei saa enam lisada ega muuta">🔒 Lukusta (lõpeta)</button>'}
+      <label style="display:inline-flex;gap:4px;align-items:center;margin-left:8px"><input type="checkbox" data-invpime ${s.pime ? 'checked' : ''}> pimeloendus (telefon ei näita laoseisu)</label>`
+    : (INV_VALITUD ? `<b>${esc(INV_VALITUD)}</b>` : '');
+}
+// topeltkontroll: sama kood samas kohas mitu korda; ilma kohata sama kood + sama kogus mitu korda
+function invKahtlased() {
+  const g = new Map(), m = new Map();
+  INV_READ.forEach(r => {
+    if (r.koht) { const k = r.kood + '|' + r.koht; (g.get(k) || g.set(k, []).get(k)).push(r); }
+    else { const k = r.kood + '|' + r.kogus; (m.get(k) || m.set(k, []).get(k)).push(r); }
+  });
+  const v = new Map();
+  g.forEach(l => { if (l.length > 1) l.forEach(r => v.set(r.id, `sama koht loetud ${l.length}×`)); });
+  m.forEach(l => { if (l.length > 1) l.forEach(r => v.set(r.id, `sama kogus ilma asukohata ${l.length}×`)); });
+  return v;
+}
+function renderInvRead() {
+  const kahtl = invKahtlased();
+  const q = $('invOts').value.trim().toLowerCase();
+  const sobib = (kood, lisa) => !q || (kood + ' ' + ((T.get(kood) || {}).nimi || '') + ' ' + (lisa || '')).toLowerCase().includes(q);
+  ['kokku', 'read', 'kahtlased'].forEach(x => $('inv_' + x).setAttribute('aria-pressed', INV_VAADE === x));
+  $('inv_read').textContent = `Kõik read (${INV_READ.length})`;
+  $('inv_kahtlased').textContent = `Kahtlased (${kahtl.size})`;
+  const aeg = v => v ? new Date(v).toLocaleString('et-EE', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+  const reaHtml = list => `<table class="tabel"><tr><th>Aeg</th><th>Kes</th><th>Asukoht</th><th>Kood</th><th>Nimetus</th><th>Kogus</th><th></th><th></th></tr>` +
+    list.map(r => `<tr${kahtl.has(r.id) ? ' style="background:rgba(255,170,0,.13)"' : ''}><td class="hall">${aeg(r.aeg)}</td><td>${esc(r.kes)}</td>
+      <td>${r.koht ? esc(r.koht) : '<span class="hall">–</span>'}</td><td><b>${esc(r.kood)}</b></td><td>${esc((T.get(r.kood) || {}).nimi || '')}</td>
+      <td><b>${fmt(r.kogus)}</b></td><td style="color:#b26a00">${kahtl.has(r.id) ? '⚠ ' + esc(kahtl.get(r.id)) : ''}</td>
+      <td><button class="nupp ohtlik" data-invkustuta="${esc(r.id)}" title="Kustuta see loendus">✕</button></td></tr>`).join('') + '</table>';
+  if (!INV_READ.length) { $('invSisu').innerHTML = '<p class="hall">Selles seansis pole veel loendusi.</p>'; return; }
+  if (INV_VAADE === 'read') {
+    $('invSisu').innerHTML = reaHtml(INV_READ.filter(r => sobib(r.kood, r.koht + ' ' + r.kes)).sort((a, b) => String(b.aeg).localeCompare(String(a.aeg))));
+  } else if (INV_VAADE === 'kahtlased') {
+    const l = INV_READ.filter(r => kahtl.has(r.id) && sobib(r.kood, r.koht + ' ' + r.kes)).sort((a, b) => CN.compare(a.kood, b.kood) || CN.compare(a.koht, b.koht));
+    $('invSisu').innerHTML = l.length ? '<p class="hall vaike">Kontrolli üle: kas sama kohta loeti kogemata kaks korda või sisestati sama arv topelt. Vale rea saad ✕-ga kustutada.</p>' + reaHtml(l)
+      : '<p class="hall">Kahtlasi ridu pole.</p>';
+  } else {
+    const k = new Map();
+    INV_READ.forEach(r => { const x = k.get(r.kood) || k.set(r.kood, { kood: r.kood, kogus: 0, n: 0, kohad: new Set(), kahtl: 0 }).get(r.kood); x.kogus += r.kogus; x.n++; if (r.koht) x.kohad.add(r.koht); if (kahtl.has(r.id)) x.kahtl++; });
+    const l = [...k.values()].filter(x => sobib(x.kood)).sort((a, b) => CN.compare(a.kood, b.kood));
+    $('invSisu').innerHTML = `<p class="hall vaike">${k.size} toodet · ${INV_READ.length} loendust · ${new Set(INV_READ.map(r => r.kes)).size} sisestajat. Vahe = loetud − Maardu (Buumi seis ${ANDMED && ANDMED.laoAndmedUuendatud ? aeg(ANDMED.laoAndmedUuendatud) : '?'}).</p>
+      <table class="tabel"><tr><th>Kood</th><th>Nimetus</th><th>Loetud</th><th>Maardu</th><th>Vahe</th><th>Loendusi</th><th>Kohad</th></tr>` +
+      l.map(x => { const t = T.get(x.kood), vahe = t ? x.kogus - nr(t.maardu) : null;
+        return `<tr><td><b>${esc(x.kood)}</b></td><td>${esc(t ? t.nimi : 'Buumi ekspordis pole')}</td><td><b>${fmt(x.kogus)}</b></td><td>${t ? fmt(nr(t.maardu)) : '–'}</td>
+          <td${vahe ? ` style="color:${vahe < 0 ? 'var(--punane,#b3261e)' : '#b26a00'};font-weight:600"` : ''}>${vahe == null ? '' : (vahe > 0 ? '+' : '') + fmt(vahe)}</td>
+          <td>${x.n}${x.kahtl ? ' <span style="color:#b26a00">⚠</span>' : ''}</td><td class="hall">${[...x.kohad].sort(CN.compare).map(esc).join(', ')}</td></tr>`; }).join('') + '</table>';
+  }
+}
+function invCsvArvuti(kohtadega) {
+  if (!INV_READ.length) { teade('Loendusi pole', true); return; }
+  const k = new Map();
+  INV_READ.forEach(r => { const v = kohtadega ? r.kood + ';' + r.koht : r.kood; k.set(v, (k.get(v) || 0) + r.kogus); });
+  const csv = '﻿' + [kohtadega ? 'Kood;Asukoht;Kogus' : 'Kood;Kogus kokku'].concat([...k].sort((a, b) => CN.compare(a[0], b[0])).map(([v, n]) => v + ';' + String(Math.round(n * 1000) / 1000).replace('.', ','))).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = `inventuur_${String(INV_VALITUD).replace(/[^\wäöüõšž-]+/gi, '_')}${kohtadega ? '_asukohad' : ''}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+async function invTegevus(p, tekst) {
+  try { const j = await api(p); if (!j.ok) throw new Error(j.viga || (j.tulemused && j.tulemused[0] && j.tulemused[0].viga)); if (tekst) teade(tekst); return true; }
+  catch (e) { teade(e.message, true); return false; }
+}
+
+/* ---------- komplekteerimine (KOGUMINE) ---------- */
+let KOG = [], KOG_MUSTAND = [], KOG_VAATA = null;
+const kogAeg = v => v ? new Date(v).toLocaleString('et-EE', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+const kogTana = () => new Date().toLocaleDateString('et-EE', { day: '2-digit', month: '2-digit' });
+
+// Kleebitud Sheetsi tabel -> [{kood, vaja}]. Päisest otsitakse "Kood" ja "Saata poodi" (või Kogus/Vaja), muidu viimane arv.
+function kogParsi(tekst) {
+  const read = String(tekst || '').replace(/\r/g, '').split('\n').map(r => r.split('\t').map(x => x.trim())).filter(r => r.some(Boolean));
+  if (!read.length) return [];
+  const H = read[0].map(h => h.toLowerCase());
+  let iK = H.findIndex(h => h === 'kood' || h === 'tootekood');
+  let iV = -1;
+  if (iK >= 0) {
+    for (const re of [/^saata poodi$/, /saata/, /^(kogus|vaja|tellida)$/]) { iV = H.findIndex(h => re.test(h)); if (iV >= 0) break; }
+    read.shift();
+  }
+  const arv = x => /^-?\d+([.,]\d+)?$/.test(String(x).replace(/\s/g, ''));
+  const kokku = new Map();
+  read.forEach(r => {
+    const kood = normKood(iK >= 0 ? r[iK] : (r.find(x => T.has(normKood(x))) || r.find(x => x && !arv(x) && !/^(true|false)$/i.test(x)) || ''));
+    let v = iV >= 0 ? r[iV] : [...r].reverse().find(arv);
+    v = nr(String(v == null ? '' : v).replace(/\s/g, ''));
+    if (!kood || !(v > 0)) return;
+    kokku.set(kood, (kokku.get(kood) || 0) + v);
+  });
+  return [...kokku].map(([kood, vaja]) => ({ kood, vaja }));
+}
+
+async function avaKogumine() {
+  $('kogAken').classList.add('lahti');
+  if (!$('kogNimi').value) $('kogNimi').value = 'Pood ' + kogTana();
+  renderKogMustand();
+  await laeKogumised();
+}
+async function laeKogumised() {
+  $('kogNimekirjad').innerHTML = '<p class="hall">Laen…</p>';
+  try {
+    const j = await api({ tegevus: 'kogumised' });
+    if (!j.ok) throw new Error(j.viga);
+    KOG = j.nimekirjad || [];
+    renderKogNimekirjad();
+  } catch (e) { $('kogNimekirjad').innerHTML = `<p class="hoiatus">${esc(e.message)}</p>`; }
+}
+
+function renderKogMustand() {
+  const tk = KOG_MUSTAND;
+  $('kogSaada').textContent = tk.length ? `Saada telefoni (${tk.length} rida)` : 'Saada telefoni';
+  $('kogSaada').disabled = !tk.length;
+  if (!tk.length) { $('kogEelvaade').innerHTML = '<p class="hall vaike">Märgi Sheetsis read koos päisega (Kood … Saata poodi), Ctrl+C ja kleebi ülal olevasse kasti. Saata poodi kogust saad siin enne saatmist muuta.</p>'; return; }
+  let puudu = 0, kohata = 0;
+  $('kogEelvaade').innerHTML = `<table class="tabel"><tr><th>Kood</th><th>Nimetus</th><th>Asukoht</th><th>Maardu</th><th style="width:90px">Saata</th><th></th></tr>` +
+    tk.map((r, i) => {
+      const t = T.get(r.kood), s = seosed(r.kood);
+      if (!t) puudu++; else if (!s.length) kohata++;
+      const vahe = t && r.vaja > nr(t.maardu);
+      return `<tr><td><b>${esc(r.kood)}</b></td>
+        <td>${t ? esc(t.nimi) : '<span class="hoiatus">Buumi ekspordis pole</span>'}</td>
+        <td>${s.length ? s.map(x => esc(x.koht)).join(', ') : '<span style="color:#b26a00">asukoht puudub</span>'}</td>
+        <td${vahe ? ' style="color:#b26a00;font-weight:600" title="Saata rohkem kui laos"' : ''}>${t ? fmt(nr(t.maardu)) : '–'}</td>
+        <td><input type="text" inputmode="decimal" data-kogvaja="${i}" value="${String(r.vaja).replace('.', ',')}" style="width:80px"></td>
+        <td><button class="nupp" data-kogeemalda="${i}" title="Eemalda rida">✕</button></td></tr>`;
+    }).join('') + '</table>' +
+    (puudu || kohata ? `<p class="vaike" style="color:#b26a00">${puudu ? puudu + ' koodi pole Buumi ekspordis. ' : ''}${kohata ? kohata + ' tootel pole asukohta (telefon näitab neid lõpus).' : ''}</p>` : '');
+}
+
+async function kogSaada() {
+  const nimi = $('kogNimi').value.trim();
+  if (!nimi) { teade('Anna nimekirjale nimi', true); $('kogNimi').focus(); return; }
+  const read = KOG_MUSTAND.filter(r => r.vaja > 0);
+  if (!read.length) return;
+  $('kogSaada').disabled = true; $('kogSaada').textContent = 'Saadan…';
+  try {
+    const j = await api({ tegevus: 'looKogumine', id: 'K' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), nimi, read });
+    if (!j.ok) throw new Error(j.viga);
+    teade(`„${nimi}“ saadetud telefoni (${j.ridu} rida)`);
+    KOG_MUSTAND = []; $('kogKleebi').value = ''; $('kogNimi').value = 'Pood ' + kogTana();
+    renderKogMustand(); laeKogumised();
+  } catch (e) { teade('Ei saanud saata: ' + e.message, true); renderKogMustand(); }
+}
+
+function kogKokku(n) {
+  const tehtud = n.read.filter(r => r.olek).length, puudu = n.read.filter(r => r.olek === 'puudu').length;
+  return { tehtud, puudu, kokku: n.read.length };
+}
+function kogOlek(n) {
+  if (n.olek === 'valmis') return `<b style="color:var(--roheline,#1a7f37)">valmis</b> <span class="hall">${kogAeg(n.lopetatud)}${n.koguja ? ' · ' + esc(n.koguja) : ''}</span>`;
+  if (n.olek === 'kogumisel') return `kogumisel <span class="hall">${esc(n.koguja)}</span>`;
+  if (n.olek === 'arhiiv') return '<span class="hall">arhiivis</span>';
+  return 'ootab';
+}
+function renderKogNimekirjad() {
+  const jrk = { kogumisel: 0, avatud: 1, valmis: 2, arhiiv: 3 };
+  const l = KOG.slice().sort((a, b) => (jrk[a.olek] - jrk[b.olek]) || String(b.loodud).localeCompare(String(a.loodud)));
+  $('kogNimekirjad').innerHTML = l.length ? `<table class="tabel"><tr><th>Nimekiri</th><th>Loodud</th><th>Olek</th><th>Read</th><th></th></tr>` +
+    l.map(n => {
+      const k = kogKokku(n);
+      return `<tr><td><b>${esc(n.nimi)}</b>${n.markus ? `<div class="hall vaike">${esc(n.markus)}</div>` : ''}</td>
+        <td class="hall">${kogAeg(n.loodud)}${n.loi ? ' · ' + esc(n.loi) : ''}</td>
+        <td>${kogOlek(n)}</td>
+        <td>${k.tehtud}/${k.kokku}${k.puudu ? ` <span style="color:#b26a00">· ${k.puudu} puudu</span>` : ''}</td>
+        <td style="white-space:nowrap"><button class="nupp" data-kogvaata="${esc(n.id)}">${KOG_VAATA === n.id ? 'Peida' : 'Vaata'}</button>
+          <button class="nupp" data-kogprindi="${esc(n.id)}">Prindi</button>
+          <button class="nupp" data-kogcsv="${esc(n.id)}">CSV</button>
+          ${n.olek === 'valmis' ? `<button class="nupp" data-kogava="${esc(n.id)}" title="Telefonis saab jälle muuta">Ava uuesti</button>` : ''}
+          <button class="nupp ohtlik" data-kogkustuta="${esc(n.id)}">Kustuta</button></td></tr>` +
+        (KOG_VAATA === n.id ? `<tr><td colspan="5">${kogTabel(n)}</td></tr>` : '');
+    }).join('') + '</table>' : '<p class="hall">Nimekirju pole.</p>';
+}
+function kogTabel(n, print) {
+  const ok = print ? '' : ' style="color:#b26a00"';
+  return `<table class="tabel kog"><tr><th>Kood</th><th>Nimetus</th>${print ? '' : '<th>Asukoht</th>'}<th>Vaja</th><th>Võetud</th><th>Puudu</th></tr>` +
+    n.read.map(r => {
+      const t = T.get(r.kood), puudu = r.votetud == null ? r.vaja : Math.max(0, r.vaja - r.votetud);
+      return `<tr><td><b>${esc(r.kood)}</b>${r.lisatud ? ' <span class="hall">(lisatud)</span>' : ''}</td><td>${esc(t ? t.nimi : '')}</td>
+        ${print ? '' : `<td class="hall">${seosed(r.kood).map(x => esc(x.koht)).join(', ')}</td>`}
+        <td>${r.vaja ? fmt(r.vaja) : ''}</td><td>${r.votetud == null ? '<span class="hall">–</span>' : '<b>' + fmt(r.votetud) + '</b>'}</td>
+        <td${puudu ? ok : ''}>${puudu && r.vaja ? fmt(puudu) : ''}</td></tr>`;
+    }).join('') + '</table>';
+}
+function kogPrindi(id) {
+  const n = KOG.find(x => x.id === id);
+  if (!n) return;
+  const k = kogKokku(n), votetud = n.read.reduce((s, r) => s + (r.votetud || 0), 0);
+  prindi([{ pealkiri: n.nimi, markus: `${n.olek === 'valmis' ? 'Komplekteeritud ' + kogAeg(n.lopetatud) : 'Pooleli'}${n.koguja ? ' · ' + n.koguja : ''} · ${k.kokku} rida · kokku ${fmt(votetud)}${k.puudu ? ' · ' + k.puudu + ' rida puudu' : ''}`,
+            html: kogTabel(n, true) }]);
+}
+function kogCsv(id) {
+  const n = KOG.find(x => x.id === id);
+  if (!n) return;
+  const kaart = new Map();
+  n.read.forEach(r => { if (r.votetud > 0) kaart.set(r.kood, (kaart.get(r.kood) || 0) + r.votetud); });
+  if (!kaart.size) { teade('Võetud koguseid pole veel', true); return; }
+  const csv = '﻿' + ['Kood;Kogus'].concat([...kaart].map(([k, v]) => k + ';' + String(Math.round(v * 1000) / 1000).replace('.', ','))).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = `kogumine_${n.nimi.replace(/[^\wäöüõšž-]+/gi, '_')}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+async function kogMuuda(p, tekst) {
+  try { const j = await api(Object.assign({ tegevus: 'muudaKogumist' }, p)); if (!j.ok) throw new Error(j.viga); teade(tekst); }
+  catch (e) { teade(e.message, true); }
+  laeKogumised();
 }
 
 /* ---------- print ---------- */
@@ -1185,7 +1673,7 @@ function valgusta(selektor) {
    SÜNDMUSED
    ============================================================ */
 document.addEventListener('click', e => {
-  const el = e.target.closest('[data-vaade],[data-kood],[data-tyhi],[data-k],[data-tegevus],[data-varv],[data-kylg],[data-pystak],[data-rida],[data-rp],[data-vp],[data-i],[data-jrk],[data-peida],[data-taasta],[data-peidvaade],[data-kaslink],[data-kasarvuti],[data-kaskasuta],[data-kasvoti],[data-kaseemalda],[data-kastaasta],[data-vanad],[data-kasvabasta],[data-kaskustuta],[data-kasparool],[data-kasseanss],[data-kasvaljakoik],[data-kaslukk]');
+  const el = e.target.closest('[data-vaade],[data-kood],[data-tyhi],[data-k],[data-tegevus],[data-varv],[data-kylg],[data-pystak],[data-rida],[data-rp],[data-vp],[data-i],[data-jrk],[data-peida],[data-taasta],[data-peidvaade],[data-buumita],[data-fluideemalda],[data-kaslink],[data-kasarvuti],[data-kaskasuta],[data-kasvoti],[data-kaseemalda],[data-kastaasta],[data-vanad],[data-kasvabasta],[data-kaskustuta],[data-kasparool],[data-kasseanss],[data-kasvaljakoik],[data-kaslukk]');
   if (!el) { if (!e.target.closest('.otsing-kast')) $('otsTulemus').classList.remove('lahti'); return; }
   const d = el.dataset;
   if (d.vaade) { UI.vaade = d.vaade; VALITUD = null; salvestaUI(); renderKoik(); return; }
@@ -1193,6 +1681,8 @@ document.addEventListener('click', e => {
   if (d.peida) { peida(d.peida); return; }
   if (d.taasta) { taasta(d.taasta); return; }
   if (d.peidvaade) { peidVaade = d.peidvaade; renderPeidetud(); return; }
+  if (d.buumita) { eemaldaBuumita(d.buumita); return; }
+  if (d.fluideemalda) { eemaldaFluid(d.fluideemalda); return; }
   if (d.kaslink || d.kasarvuti || d.kaskasuta || d.kasvoti || d.kaseemalda || d.kastaasta || d.vanad || d.kasvabasta || d.kaskustuta || d.kasparool || d.kasseanss || d.kasvaljakoik || d.kaslukk) { kasKlikk(d); return; }
   if (d.tyhi) { const [koht, h] = d.tyhi.split('|'); paiguta(koht, +h); return; }
   if (d.kood) { VALITUD = { kood: d.kood, koht: d.koht || null }; renderAside(); renderTooala(); return; }
@@ -1253,50 +1743,51 @@ function kasKlikk(d) {
     if (nimi === null) return;
     const parool = prompt(`${k.Nimi} (${nimi.trim().toLowerCase()}): uus parool, vähemalt 6 märki.\nÜtle see talle ise; seda ei näe hiljem keegi, ka mitte sina.`, '');
     if (parool === null) return;
-    kasTegevus({ tegevus: 'muudaKasutajat', id: k.ID, kasutajanimi: nimi, parool }, `${k.Nimi}: kasutajanimi ${nimi.trim().toLowerCase()}, parool määratud`);
+    kasTegevus({ tegevus: 'muudaKasutajat', id: k.ID, kasutajanimi: nimi, parool }, `${k.Nimi}: kasutajanimi ${nimi.trim().toLowerCase()}, parool määratud`,
+      K => { const x = K.kas(k.ID); x.Kasutajanimi = nimi.trim().toLowerCase(); x.ParoolOlemas = true; });
     return;
   }
   if (d.kaslukk) {
     const k = leia(d.kaslukk);
-    kasTegevus({ tegevus: 'avaLukk', kasutajanimi: k.Kasutajanimi }, k.Nimi + ': lukk avatud');
+    kasTegevus({ tegevus: 'avaLukk', kasutajanimi: k.Kasutajanimi }, k.Nimi + ': lukk avatud', K => { K.kas(k.ID).LoginLukus = false; });
     return;
   }
   if (d.kasseanss) {
     const s = SEANSID.find(x => x.ID === d.kasseanss), k = s && leia(s['Kasutaja ID']);
     if (!confirm(`Login ${k ? k.Nimi + ' ' : ''}seadme „${s ? s.Seade : ''}“ välja? Seal tuleb uuesti sisse logida.`)) return;
-    kasTegevus({ tegevus: 'eemaldaSeanss', id: d.kasseanss }, 'Seade välja logitud');
+    kasTegevus({ tegevus: 'eemaldaSeanss', id: d.kasseanss }, 'Seade välja logitud', () => { SEANSID = SEANSID.filter(x => x.ID !== d.kasseanss); });
     return;
   }
   if (d.kasvaljakoik) {
     const k = leia(d.kasvaljakoik);
     if (!confirm(`Login ${k.Nimi} kõik seadmed välja?`)) return;
-    kasTegevus({ tegevus: 'eemaldaSeanss', kasutajaId: k.ID }, k.Nimi + ': kõik seadmed välja logitud');
+    kasTegevus({ tegevus: 'eemaldaSeanss', kasutajaId: k.ID }, k.Nimi + ': kõik seadmed välja logitud', () => { SEANSID = SEANSID.filter(x => x['Kasutaja ID'] !== k.ID); });
     return;
   }
   if (d.kaseemalda) {
     const k = leia(d.kaseemalda);
     if (minuKasutaja(k)) { teade('Ei saa eemaldada kasutajat, kellena see arvuti töötab', true); return; }
     if (!confirm(`Eemaldan ${k.Nimi} ligipääsu? Tema võti lakkab kohe töötamast.`)) return;
-    kasTegevus({ tegevus: 'muudaKasutajat', id: k.ID, aktiivne: false }, k.Nimi + ' eemaldatud');
+    kasTegevus({ tegevus: 'muudaKasutajat', id: k.ID, aktiivne: false }, k.Nimi + ' eemaldatud', K => { K.kas(k.ID).Aktiivne = 'ei'; });
     return;
   }
-  if (d.kastaasta) { kasTegevus({ tegevus: 'muudaKasutajat', id: d.kastaasta, aktiivne: true }, 'Taastatud'); return; }
+  if (d.kastaasta) { kasTegevus({ tegevus: 'muudaKasutajat', id: d.kastaasta, aktiivne: true }, 'Taastatud', K => { K.kas(d.kastaasta).Aktiivne = 'jah'; }); return; }
   if (d.kaskustuta) {
     const k = leia(d.kaskustuta);
     if (!confirm(`Kustutan ${k.Nimi} jäädavalt registrist?`)) return;
-    kasTegevus({ tegevus: 'kustutaKasutaja', id: k.ID }, k.Nimi + ' kustutatud'); return;
+    kasTegevus({ tegevus: 'kustutaKasutaja', id: k.ID }, k.Nimi + ' kustutatud', () => { KASUTAJAD = KASUTAJAD.filter(x => x.ID !== k.ID); }); return;
   }
   if (d.kasvabasta) {
     const k = leia(d.kasvabasta);
     if (!confirm(`Vabastan ${k.Nimi} seadmed? Järgmine seade, mis tema lingi avab, seotakse uuesti.`)) return;
-    kasTegevus({ tegevus: 'muudaKasutajat', id: k.ID, vabastaSeadmed: true }, 'Seadmed vabastatud – ava link uues seadmes'); return;
+    kasTegevus({ tegevus: 'muudaKasutajat', id: k.ID, vabastaSeadmed: true }, 'Seadmed vabastatud – ava link uues seadmes', K => { K.kas(k.ID).Seadmed = ''; }); return;
   }
   if (d.vanad !== undefined) {
     const keela = d.vanad === '1';
     if (keela) {
       if (!confirm('Keelan ühise telefonivõtme? Kõik vanad ühise lingiga telefonid lakkavad töötamast (hädavõti ADMIN_VOTI jääb kehtima).')) return;
     }
-    kasTegevus({ tegevus: 'vanadVotmed', keela }, keela ? 'Ühised võtmed keelatud' : 'Ühised võtmed lubatud');
+    kasTegevus({ tegevus: 'vanadVotmed', keela }, keela ? 'Ühised võtmed keelatud' : 'Ühised võtmed lubatud', () => { VANAD_KEELATUD = keela; });
   }
 }
 $('kasutajadNupp').addEventListener('click', () => { if (SEADED) avaKasutajad(); });
@@ -1305,20 +1796,79 @@ document.addEventListener('change', e => {
   if (!id) return;
   const k = KASUTAJAD.find(x => x.ID === id);
   if (!confirm(`Muudan ${k.Nimi} rolli: ${e.target.value}?`)) { renderKasutajad(); return; }
-  kasTegevus({ tegevus: 'muudaKasutajat', id, roll: e.target.value }, 'Roll muudetud');
+  const uusRoll = e.target.value;
+  kasTegevus({ tegevus: 'muudaKasutajat', id, roll: uusRoll }, 'Roll muudetud', K => { K.kas(id).Roll = uusRoll; });
 });
 $('kasSulge').addEventListener('click', () => $('kasAken').classList.remove('lahti'));
+// INVSEANSS
+$('invNupp').addEventListener('click', () => { if (SEADED) avaInventuur(); });
+$('invSulge').addEventListener('click', () => $('invAken').classList.remove('lahti'));
+$('invUuenda').addEventListener('click', laeInvSeansid);
+$('invOts').addEventListener('input', renderInvRead);
+$('invCsv').addEventListener('click', () => invCsvArvuti(false));
+$('invCsvKoht').addEventListener('click', () => invCsvArvuti(true));
+$('invLoo').addEventListener('click', async () => {
+  const nimi = $('invUusNimi').value.trim();
+  if (!nimi) { $('invUusNimi').focus(); return; }
+  if (await invTegevus({ tegevus: 'muudaInventuuriSeanssi', nimi, loo: true, pime: $('invUusPime').checked }, `Seanss „${nimi}“ loodud – telefonid näevad seda`)) {
+    $('invUusNimi').value = ''; $('invUusPime').checked = false; INV_VALITUD = nimi; laeInvSeansid();
+  }
+});
+$('invAken').addEventListener('change', async e => {
+  if (e.target.dataset.invpime === undefined) return;
+  await invTegevus({ tegevus: 'muudaInventuuriSeanssi', nimi: INV_VALITUD, pime: e.target.checked }, e.target.checked ? 'Pimeloendus sees' : 'Pimeloendus väljas');
+  laeInvSeansid();
+});
+$('invAken').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const d = b.dataset;
+  if (d.invvali) { INV_VALITUD = d.invvali; renderInvSeansid(); laeInvRead(); }
+  else if (d.invvaade) { INV_VAADE = d.invvaade; renderInvRead(); }
+  else if (d.involek) {
+    if (d.involek === 'lukus' && !confirm(`Lukustan seansi „${INV_VALITUD}“? Telefonid ei saa sinna enam loendusi lisada ega muuta.`)) return;
+    await invTegevus({ tegevus: 'muudaInventuuriSeanssi', nimi: INV_VALITUD, olek: d.involek }, d.involek === 'lukus' ? 'Seanss lukustatud' : 'Seanss avatud');
+    laeInvSeansid();
+  } else if (d.invkustuta) {
+    const r = INV_READ.find(x => x.id === d.invkustuta);
+    if (!r || !confirm(`Kustutan loenduse ${r.kood}${r.koht ? ' @ ' + r.koht : ''}: ${fmt(r.kogus)} (${r.kes})?`)) return;
+    if (await invTegevus({ tegevus: 'inventuur', muudatused: [{ op: 'kustuta', id: r.id, kood: r.kood, asukoht: r.koht }] }, 'Loendus kustutatud')) {
+      INV_READ = INV_READ.filter(x => x.id !== r.id); renderInvRead();
+    }
+  }
+});
+// KOGUMINE
+$('kogNupp').addEventListener('click', () => { if (SEADED) avaKogumine(); });
+$('kogSulge').addEventListener('click', () => $('kogAken').classList.remove('lahti'));
+$('kogUuenda').addEventListener('click', laeKogumised);
+$('kogSaada').addEventListener('click', kogSaada);
+$('kogKleebi').addEventListener('input', () => { KOG_MUSTAND = kogParsi($('kogKleebi').value); renderKogMustand(); });
+$('kogAken').addEventListener('change', e => {
+  const i = e.target.dataset.kogvaja;
+  if (i !== undefined && KOG_MUSTAND[i]) { KOG_MUSTAND[i].vaja = nr(e.target.value.replace(/\s/g, '')); renderKogMustand(); }
+});
+$('kogAken').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const d = b.dataset;
+  if (d.kogeemalda !== undefined) { KOG_MUSTAND.splice(+d.kogeemalda, 1); renderKogMustand(); }
+  else if (d.kogvaata) { KOG_VAATA = KOG_VAATA === d.kogvaata ? null : d.kogvaata; renderKogNimekirjad(); }
+  else if (d.kogprindi) kogPrindi(d.kogprindi);
+  else if (d.kogcsv) kogCsv(d.kogcsv);
+  else if (d.kogava) kogMuuda({ id: d.kogava, olek: 'avatud' }, 'Nimekiri avatud, telefonis saab jälle muuta');
+  else if (d.kogkustuta) { const n = KOG.find(x => x.id === d.kogkustuta); if (n && confirm(`Kustutan nimekirja „${n.nimi}“ koos ridadega?`)) kogMuuda({ id: n.id, kustuta: true }, 'Nimekiri kustutatud'); }
+});
 async function lisaKasutaja() {
   const nimi = $('kasNimi').value.trim();
-  if (!nimi || kasTootab) { if (!nimi) teade('Sisesta nimi', true); return; }
+  if (!nimi) { teade('Sisesta nimi', true); return; }
   if (KASUTAJAD.some(k => String(k.Nimi).trim().toLowerCase() === nimi.toLowerCase() && String(k.Aktiivne).toLowerCase() === 'jah')) {
     teade(`Kasutaja „${nimi}“ on juba olemas`, true); return;
   }
-  $('kasLisa').textContent = 'Lisan…';
-  const j = await kasTegevus({ tegevus: 'lisaKasutaja', nimi, roll: $('kasRoll').value });
+  const roll = $('kasRoll').value;
+  $('kasNimi').value = '';                           // KIIRENDUS: rida ilmub kohe („lisan…“), link kopeeritakse, kui server vastab
+  const j = await kasTegevus({ tegevus: 'lisaKasutaja', nimi, roll }, '',
+    () => { KASUTAJAD = KASUTAJAD.concat([{ ID: '_uus' + Date.now(), Nimi: nimi, Roll: roll, Aktiivne: 'jah', _ootel: true }]); });
   if (!j) return;
-  $('kasNimi').value = '';
-  const k = KASUTAJAD.find(x => x.ID === j.id);
+  const k = (j.read || []).find(x => x.ID === j.id);
+  if (!k) { teade(nimi + ' lisatud'); return; }
   try { await navigator.clipboard.writeText(telefoniLink(k)); teade(nimi + ' lisatud – 📱 link on kopeeritud'); }
   catch (e) { teade(nimi + ' lisatud – vajuta tema real „📱 Link“'); }
 }
@@ -1327,6 +1877,7 @@ $('kasNimi').addEventListener('keydown', e => { if (e.key === 'Enter') lisaKasut
 $('peidetudNupp').addEventListener('click', () => { peidVaade = 'peidetud'; renderPeidetud(); $('peidAken').classList.add('lahti'); });
 $('peidSulge').addEventListener('click', () => $('peidAken').classList.remove('lahti'));
 $('peidOts').addEventListener('input', renderPeidetud);
+$('fluidPaevi').addEventListener('input', renderPeidetud);
 $('ots').addEventListener('input', otsi);
 $('ots').addEventListener('keydown', e => {
   if (e.key === 'Enter') { avaTulemus(otsList[otsAkt]); $('ots').blur(); }
@@ -1365,19 +1916,37 @@ $('sSalvesta').addEventListener('click', async () => {
   $('seadistus').classList.remove('lahti');
   saada(); laeAndmed(true);
 });
-// Sisselogimine kasutajanime ja parooliga (arvuti vajab admin-rolli)
+// Sisselogimise päring: Google'i ajutised vead (404/HTML, tühjaks jäänud päring, aegumine) proovitakse vaikselt uuesti
+async function loginParing(url, keha, katseTeade) {
+  let viga;
+  for (let katse = 0; katse < 3; katse++) {
+    if (katse) { katseTeade(katse + 1); await new Promise(r => setTimeout(r, 1500 * katse)); }
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 45000);
+    try {
+      const r = await fetch(url, { method: 'POST', signal: ctl.signal, credentials: 'omit', cache: 'no-store', redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(keha) });
+      const tekst = await r.text();
+      let j = null;
+      try { j = JSON.parse(tekst); } catch (x) { j = null; }
+      if (j && !tuhiParing(j) && !(!j.ok && /hõivatud/.test(j.viga || ''))) return j;
+      viga = new Error(!j ? 'Google vastas HTTP ' + r.status : tuhiParing(j) ? 'Google kaotas päringu teel' : j.viga);
+    } catch (x) {
+      viga = x.name === 'AbortError' ? new Error('Google ei vastanud 45 sekundi jooksul') : x;
+    } finally { clearTimeout(t); }
+  }
+  throw new Error(viga.message + '. Proovisin 3 korda – proovi hetke pärast uuesti.');
+}
+// Sisselogimine kasutajanime ja parooliga (arvuti vajab admin-rolli). Kasutab alati VAIKIMISI_URL-i.
 $('lVorm').addEventListener('submit', async e => {
   e.preventDefault();
-  const url = $('sUrl').value.trim(), nimi = $('lNimi').value.trim().toLowerCase(), parool = $('lParool').value;
-  if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(url)) { teade('Sisesta veebirakenduse URL', true); return; }
+  const url = VAIKIMISI_URL, nimi = $('lNimi').value.trim().toLowerCase(), parool = $('lParool').value;
   if (!nimi || !parool) { teade('Sisesta kasutajanimi ja parool', true); return; }
-  $('lLogi').disabled = true;
+  $('lLogi').disabled = true; $('lLogi').textContent = 'Login…';
   try {
-    const r = await fetch(url, { method: 'POST', credentials: 'omit', cache: 'no-store', redirect: 'follow',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ tegevus: 'login', kasutaja: nimi, parool, seade: 'Arvuti · ' + (/Windows/.test(navigator.userAgent) ? 'Windows' : /Mac/.test(navigator.userAgent) ? 'Mac' : 'muu') }) });
-    let j = null;
-    try { j = JSON.parse(await r.text()); } catch (x) { throw new Error('Google vastas HTTP ' + r.status + ', mitte andmetega. Kontrolli URL-i.'); }
+    const j = await loginParing(url,
+      { tegevus: 'login', kasutaja: nimi, parool, seadeId: seadmeId(),
+        seade: 'Arvuti · ' + (/Windows/.test(navigator.userAgent) ? 'Windows' : /Mac/.test(navigator.userAgent) ? 'Mac' : 'muu') },
+      n => { $('lLogi').textContent = `Login… (katse ${n}/3)`; });
     if (!j.ok) throw new Error(j.viga || 'Sisselogimine ebaõnnestus');
     if (j.roll !== 'admin') {
       // arvutivaade on ainult adminile: seda seanssi pole vaja
@@ -1395,8 +1964,8 @@ $('lVorm').addEventListener('submit', async e => {
     $('seadistus').classList.remove('lahti');
     teade('Sisse logitud: ' + j.nimi);
     saada(); laeAndmed(true);
-  } catch (x) { teade(x.message, true); }
-  finally { $('lLogi').disabled = false; }
+  } catch (x) { teade('Sisselogimine ebaõnnestus: ' + x.message, true); }
+  finally { $('lLogi').disabled = false; $('lLogi').textContent = 'Logi sisse'; }
 });
 window.addEventListener('beforeunload', e => { if (VALJAS.length) { e.preventDefault(); e.returnValue = ''; } });
 setInterval(saada, 15000);
@@ -1419,10 +1988,13 @@ setInterval(() => { if (!VALJAS.length) laeAndmed(false); }, 5 * 60000);
       SEADED = { url: link.u, voti: link.k, kes: link.n || 'arvuti' }; kirjuta(V.seaded, SEADED);
     }
   }
+  // vana salvestatud aadress (nt varasem juurutus) -> alati praegune veebirakendus
+  if (SEADED && SEADED.url !== VAIKIMISI_URL) { SEADED.url = VAIKIMISI_URL; kirjuta(V.seaded, SEADED); }
+  if (loe('ladu_arvuti_url', null) && loe('ladu_arvuti_url', null) !== VAIKIMISI_URL) kirjuta('ladu_arvuti_url', VAIKIMISI_URL);
   ehitaKoik();
   olek();
   if (!SEADED) {
-    $('sUrl').value = loe('ladu_arvuti_url', '') || VAIKIMISI_URL; $('sKes').value = loe('ladu_arvuti_nimi', '') || 'arvuti';
+    $('sUrl').value = VAIKIMISI_URL; $('sKes').value = loe('ladu_arvuti_nimi', '') || 'arvuti';
     $('seadistus').classList.add('lahti');
   } else {
     if (!loe('ladu_arvuti_url', null)) { kirjuta('ladu_arvuti_url', SEADED.url); kirjuta('ladu_arvuti_nimi', SEADED.kes); }

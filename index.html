@@ -83,6 +83,17 @@ nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex;
 nav button { flex: 1; min-height: 60px; background: none; border: 0; font-size: 14px; color: var(--hall); cursor: pointer; }
 nav button.aktiivne { color: var(--roheline); font-weight: 700; }
 nav .ikoon { display: block; font-size: 20px; line-height: 1.1; }
+.rida-pais { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.lyliti { display: flex; gap: 6px; margin: 6px 0; } .lyliti .nupp { flex: 1; }
+.g-kaart .g-suur { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .5px; }
+.g-kaart .g-vaja { font-size: 18px; margin-top: 4px; }
+.g-rida { display: grid; grid-template-columns: 74px 1fr auto; gap: 8px; align-items: center; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--joon); padding: 10px 0; color: inherit; font: inherit; cursor: pointer; }
+.g-rida:first-child { border-top: 0; }
+.g-rida .g-koht { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+.g-rida .g-nimi { display: block; font-size: 13px; }
+.g-rida .g-kogus { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.g-rida.tehtud { background: var(--roh-hele); } .g-rida.puudu { background: var(--kollane); }
+.g-rida.valitud { outline: 2px solid var(--roheline); }
 .inv-rida { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--joon); }
 .inv-rida:first-child { border-top: 0; }
 .inv-rida .kogus { font-size: 20px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
@@ -186,7 +197,9 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
   <!-- INVENTUUR -->
   <section class="vaade" id="v-inventuur">
     <label for="iSeanss">Seanss</label>
-    <input id="iSeanss" type="text" placeholder="nt Inventuur oktoober 2026" autocomplete="off">
+    <input id="iSeanss" type="text" placeholder="nt Inventuur oktoober 2026" autocomplete="off" list="iSeansid">
+    <datalist id="iSeansid"></datalist>
+    <div id="iSeansiInfo" class="hall vaike" style="margin-top:4px"></div>
 
     <div class="kaart">
       <label for="iToode" style="margin-top:0">Toode (kood, EAN või nimi)</label>
@@ -209,6 +222,12 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
       <div class="nupud"><button class="nupp pea" id="iLisa" style="flex:1">Lisa loendus</button></div>
     </div>
 
+    <details id="iReaKaupa" class="kaart">
+      <summary><b>Loenda rea kaupa</b> <span class="hall">– näitab rea kohti järjest ja märgib loetud</span></summary>
+      <select id="iRida" style="width:100%;margin-top:8px;min-height:44px"></select>
+      <div id="iReaKohad"></div>
+    </details>
+
     <h2>Selle telefoni loendused <span class="hall" id="iArv"></span></h2>
     <div id="iNimekiri" class="kaart" style="padding-top:4px;padding-bottom:4px"></div>
 
@@ -221,6 +240,9 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
     </div>
     <div id="iKokku"></div>
   </section>
+
+  <!-- KOGUMINE (komplekteerimine) -->
+  <section class="vaade" id="v-kogumine"><div id="gSisu"></div></section>
 
   <!-- SEADED -->
   <section class="vaade" id="v-seaded">
@@ -245,6 +267,7 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
 
 <nav id="nav">
   <button data-vaade="otsing"><span class="ikoon">⌕</span>Otsing</button>
+  <button data-vaade="kogumine"><span class="ikoon">☑</span>Kogumine</button>
   <button data-vaade="inventuur"><span class="ikoon">▦</span>Inventuur</button>
   <button data-vaade="seaded"><span class="ikoon">⚙</span>Seaded</button>
 </nav>
@@ -278,7 +301,9 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
 const VAIKIMISI_URL = 'https://script.google.com/macros/s/AKfycbz1Dix5_TgtrDUXRHn3n4pFym-oG6XWlFgz-IDXGikdXYE4mykGQT8aZREsTFqZ_Cdi/exec';
 // Diagnostika: kas telefoni mälus oli seadme tunnus juba enne seda avamist (kui ei, siis mälu oli tühi)
 const MALU_OLI = (() => { try { return !!localStorage.getItem('ladu_seade'); } catch (e) { return false; } })();
-const V = { seaded: 'ladu_seaded', andmed: 'ladu_andmed', valjas: 'ladu_valjas', inv: 'ladu_inv', seanss: 'ladu_seanss' };
+const V = { seaded: 'ladu_seaded', andmed: 'ladu_andmed', valjas: 'ladu_valjas', inv: 'ladu_inv', seanss: 'ladu_seanss',
+            kog: 'ladu_kog', kogAvatud: 'ladu_kog_avatud', kogRezhiim: 'ladu_kog_rezhiim',   // kog*: KOGUMINE
+            invSeansid: 'ladu_invseansid' };   // INVSEANSS
 function loe(k, vaikimisi) { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : vaikimisi; } catch (e) { return vaikimisi; } }
 function kirjuta(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { naita('Telefoni mälu on täis: ' + e.message, true); return false; } }
 
@@ -326,7 +351,9 @@ function uuendaRoll(r) {
 function rakendaRoll() {
   const inv = document.querySelector('nav button[data-vaade="inventuur"]');
   if (inv) inv.style.display = voibMuuta() ? '' : 'none';
-  if (!voibMuuta() && typeof aktiivne !== 'undefined' && aktiivne === 'inventuur') mine('otsing');
+  const kog = document.querySelector('nav button[data-vaade="kogumine"]');
+  if (kog) kog.style.display = voibMuuta() ? '' : 'none';
+  if (!voibMuuta() && typeof aktiivne !== 'undefined' && (aktiivne === 'inventuur' || aktiivne === 'kogumine')) mine('otsing');
 }
 
 function kustutaKoik(pohjus) {
@@ -384,7 +411,11 @@ function naitaLogin(teade) {
 // Lühike kirjeldus, mida admin näeb Kasutajad aknas (nt „Android · Chrome · avakuva“)
 function seadmeKirjeldus() {
   const ua = navigator.userAgent;
-  const os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? ((ua.match(/Android[^;]*;\s*([^;)]+?)(?:\sBuild|\))/) || [])[1] || 'Android')
+  // Chrome'i lühendatud kasutajaagent annab mudeli asemel „K“ – siis lihtsalt „Android“
+  const mudel = ((ua.match(/Android[^;]*;\s*([^;)]+?)(?:\sBuild|\))/) || [])[1] || '').trim();
+  const uad = navigator.userAgentData && navigator.userAgentData.platform;
+  const os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad'
+    : (/Android/.test(ua) || uad === 'Android') ? (mudel.length > 1 && mudel !== 'K' ? mudel : 'Android')
     : /Windows/.test(ua) ? 'Windows' : /Mac/.test(ua) ? 'Mac' : 'muu';
   const br = /EdgA?\//.test(ua) ? 'Edge' : /SamsungBrowser/.test(ua) ? 'Samsung' : /CriOS|Chrome\//.test(ua) ? 'Chrome' : /FxiOS|Firefox/.test(ua) ? 'Firefox' : /Safari/.test(ua) ? 'Safari' : '';
   const ak = (window.navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) ? 'avakuva' : '';
@@ -437,20 +468,46 @@ async function laeAndmedEkraaniga() {
   }
 }
 
+// Google suunab POST-i vahel ümber ja päringu sisu (ka võti) kaob teel. Server 2.1 vastab siis tuhiParing,
+// vanem server üldise keeldumisega „Ligipääs puudub või on eemaldatud“. See pole päris keeldumine – proovi uuesti.
+const tuhiParing = j => !!j && (!!j.tuhiParing ||
+  (!!j.ligipaasPuudub && j.pohjus === 'tundmatu' && /^Ligipääs puudub või on eemaldatud/.test(j.viga || '')));
+
+// Sisselogimise päring: Google'i ajutised vead (404/HTML, tühjaks jäänud päring, aegumine) proovitakse vaikselt uuesti
+async function loginParing(url, keha, katseTeade) {
+  let viga;
+  for (let katse = 0; katse < 3; katse++) {
+    if (katse) { katseTeade(katse + 1); await new Promise(r => setTimeout(r, 1500 * katse)); }
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 45000);
+    try {
+      const r = await fetch(url, {
+        method: 'POST', signal: ctl.signal, credentials: 'omit', cache: 'no-store', redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(keha)
+      });
+      const tekst = await r.text();
+      let j = null;
+      try { j = JSON.parse(tekst); } catch (e) { j = null; }
+      if (j && !tuhiParing(j) && !(!j.ok && /hõivatud/.test(j.viga || ''))) return j;
+      viga = new Error(!j ? 'Google vastas HTTP ' + r.status : tuhiParing(j) ? 'Google kaotas päringu teel' : j.viga);
+    } catch (e) {
+      viga = e.name === 'AbortError' ? new Error('Google ei vastanud 45 sekundi jooksul') : e;
+      if (!navigator.onLine) break;
+    } finally { clearTimeout(t); }
+  }
+  throw new Error(viga.message + '. Proovisin 3 korda – kontrolli internetti ja proovi uuesti.');
+}
+
 async function logiSisse() {
   if (logibSisse) return;
   const url = ($('lUrl').value || '').trim(), nimi = $('lNimi').value.trim().toLowerCase(), parool = $('lParool').value;
   if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(url)) { naita('URL peab algama https://script.google.com/', true); $('lUrlRida').style.display = ''; return; }
   if (!nimi || !parool) { naita('Sisesta kasutajanimi ja parool', true); return; }
-  logibSisse = true; $('lLogi').disabled = true; $('lLogi').textContent = 'Login…';
+  logibSisse = true; $('lLogi').disabled = true; clearTimeout(loginNupuTaimer);
+  $('lLogi').style.background = ''; $('lLogi').textContent = 'Login… (võib võtta kuni 30 s)';
   try {
-    const r = await fetch(url, {
-      method: 'POST', credentials: 'omit', cache: 'no-store', redirect: 'follow',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ tegevus: 'login', kasutaja: nimi, parool, seade: seadmeKirjeldus(), diag: await diagnostika() })
-    });
-    let j = null;
-    try { j = JSON.parse(await r.text()); } catch (e) { throw new Error('Google vastas HTTP ' + r.status + ', mitte andmetega. Kontrolli URL-i.'); }
+    const j = await loginParing(url,
+      { tegevus: 'login', kasutaja: nimi, parool, seade: seadmeKirjeldus(), seadeId: seadmeId(), diag: await diagnostika() },
+      n => { $('lLogi').textContent = `Login… (katse ${n}/3)`; });
     if (!j.ok) {
       if (j.katseidJaanud !== undefined && j.katseidJaanud <= 3) throw new Error((j.viga || 'Vale kasutajanimi või parool') + ` (katseid jäänud: ${j.katseidJaanud})`);
       throw new Error(j.viga || 'Sisselogimine ebaõnnestus');
@@ -465,14 +522,25 @@ async function logiSisse() {
     $('sTeade').textContent = 'Kasutajanime ja parooli annab admin.';
     naitaLogiriba(); olek(); rakendaRoll();
     aktiivne = ''; mine('otsing');
-    naita('Tere, ' + j.nimi + '!');
+    naita('✓ Sisse logitud. Tere, ' + j.nimi + '!');
+    loginNupp('✓ Sisse logitud', 'var(--roheline, #2e7d32)');
     if (olidAndmed) laeAndmed(true);           // andmed olemas: uuendus taustal
     else laeAndmedEkraaniga();                 // tühi telefon: laadimisekraan
   } catch (e) {
     naita(e.message, true);
+    $('sTeade').innerHTML = `<b style="color:var(--punane)">Sisselogimine ebaõnnestus:</b> ${esc(e.message)}`;
+    loginNupp('✗ Ei õnnestunud – proovi uuesti', 'var(--punane)');
   } finally {
-    logibSisse = false; $('lLogi').disabled = false; $('lLogi').textContent = 'Logi sisse';
+    logibSisse = false; $('lLogi').disabled = false;
   }
+}
+// Sisselogimise nupp näitab tulemust paar sekundit, siis jälle „Logi sisse“
+let loginNupuTaimer;
+function loginNupp(tekst, varv) {
+  const b = $('lLogi');
+  b.textContent = tekst; b.style.background = varv || '';
+  clearTimeout(loginNupuTaimer);
+  loginNupuTaimer = setTimeout(() => { b.textContent = 'Logi sisse'; b.style.background = ''; }, 4000);
 }
 
 function salvestaAndmed() {
@@ -527,42 +595,63 @@ function juhis(koht, pool) {
    ============================================================ */
 // Google annab vahel ajutiselt 404 / HTML-lehe – proovime paar korda uuesti.
 // Kõik muudatused on korduvsaatmisel ohutud (sama seos / sama loenduse ID).
+// KIIRENDUS: lugemispäringud. Kui Google ei vasta TEINE_PARING_MS jooksul, saadetakse sama päring teist
+// korda ja kasutatakse seda, mis enne vastab (Apps Script jääb vahel rippuma). Kirjutamisi ei korrata.
+const LUGEMISED = new Set(['andmed', 'ping', 'epood', 'epoodLeia', 'inventuurLoe']);
+const TEINE_PARING_MS = 8000;
+function kaksPaaringut(uks, signal) {
+  return new Promise((res, rej) => {
+    let valmis = false, ootel = 1;
+    const ctl2 = new AbortController();
+    signal.addEventListener('abort', () => ctl2.abort(), { once: true });
+    const voit = v => { if (valmis) return; valmis = true; clearTimeout(t); ctl2.abort(); res(v); };
+    const kaotus = e => { if (valmis) return; if (--ootel === 0) { valmis = true; clearTimeout(t); rej(e); } };
+    const t = setTimeout(() => { if (valmis) return; ootel++; uks(ctl2.signal).then(voit, kaotus); }, TEINE_PARING_MS);
+    uks(signal).then(voit, e => { if (ootel === 1) clearTimeout(t); kaotus(e); });   // kiire viga -> tavaline korduskatse
+  });
+}
+
 async function api(p, ms = 25000) {
   if (!SEADED) throw new Error('Telefon on seadistamata');
   if (SEADED.logiSisse) { const x = new Error('Logi uuesti sisse'); x.lopp = true; throw x; }
   const voti = SEADED.voti;         // võti, millega see päring saadeti
-  let viga;
+  let viga, keeldOli = false;
   for (let katse = 0; katse < 3; katse++) {
-    if (katse) await new Promise(r => setTimeout(r, 2000 * katse));
+    if (katse) await new Promise(r => setTimeout(r, 1500 * katse));
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), ms);
     try {
-      const r = await fetch(SEADED.url, {
-        method: 'POST', signal: ctl.signal, credentials: 'omit', cache: 'no-store', redirect: 'follow',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(Object.assign({ voti, kes: SEADED.kes, seade: seadmeId() }, p))
-      });
-      const tekst = await r.text();
-      let j = null;
-      try { j = JSON.parse(tekst); } catch (e) { j = null; }
+      const keha = JSON.stringify(Object.assign({ voti, kes: SEADED.kes, seade: seadmeId() }, p));
+      const uks = async signal => {   // KOOND: 2.1 korduskatse + kiirenduse kaksPaaringut
+        const r = await fetch(SEADED.url, {
+          method: 'POST', signal, credentials: 'omit', cache: 'no-store', redirect: 'follow',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: keha
+        });
+        const tekst = await r.text();
+        try { return JSON.parse(tekst); }
+        catch (e) {
+          // Google saatis HTML-i (nt ajutine 404 või sisselogimisleht) – näita, mis see oli
+          const pealkiri = (tekst.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1] || tekst.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+          throw new Error(`Google vastas HTTP ${r.status}, mitte andmetega: „${pealkiri || 'tühi vastus'}“`);
+        }
+      };
+      const j = await (LUGEMISED.has(p.tegevus) ? kaksPaaringut(uks, ctl.signal) : uks(ctl.signal));
       if (j) {
         j._server = true;           // vastus tuli serverist (ka siis, kui ok:false)
         if (!SEADED || SEADED.voti !== voti) {
           // päringu ajal logiti uuesti sisse: vana võtme vastus ei tohi uut sisselogimist välja logida
           const x = new Error('Vahepeal logiti uuesti sisse'); x.lopp = true; throw x;
         }
+        if (tuhiParing(j)) { viga = new Error('Ühendus Google\'iga katkes, proovin uuesti'); continue; }
         if (j.minuRoll) uuendaRoll(j.minuRoll);
         if (j.ligipaasPuudub) {
+          // ühekordne keeldumine võib olla Google'i juhus: proovi korra uuesti, alles teine keeldumine logib välja
+          if (!keeldOli && j.pohjus !== 'eemaldatud') { keeldOli = true; viga = new Error(j.viga || 'Ligipääs puudub'); continue; }
           // andmed kustutatakse ainult siis, kui admin eemaldas kasutaja; muidu küsitakse uuesti sisselogimist
           if (j.pohjus === 'eemaldatud') kustutaKoik(j.viga); else valjaLogitud(j.viga);
           const x = new Error(j.viga || 'Ligipääs puudub'); x.lopp = true; throw x;
         }
         return j;
-      }
-      {
-        // Google saatis HTML-i (nt ajutine 404 või sisselogimisleht) – näita, mis see oli
-        const pealkiri = (tekst.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1] || tekst.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
-        viga = new Error(`Google vastas HTTP ${r.status}, mitte andmetega: „${pealkiri || 'tühi vastus'}“`);
       }
     } catch (e) {
       if (e.name === 'AbortError' || e.lopp) throw e;
@@ -668,14 +757,26 @@ async function epoodKood(slug) {
 }
 
 // Saadab järjekorras kõik saatmata muudatused. Võrgu vea korral jääb ootele.
-let saadab = false;
+let saadab = false, MITU_TOOTAB = true;
 async function saadaValjas() {
   if (saadab || !VALJAS.length || !navigator.onLine) return;
   saadab = true; olek();
   try {
     while (VALJAS.length) {
       const esimene = VALJAS[0];
-      if (esimene.tegevus === 'inventuur') {
+      if (esimene.tegevus === 'kogumine') {
+        // KOGUMINE: järjestikused muudatused ühe päringuga
+        let n = 0; while (n < VALJAS.length && VALJAS[n].tegevus === 'kogumine' && n < 200) n++;
+        const pakk = VALJAS.slice(0, n);
+        const j = await api({ tegevus: 'kogumine', muudatused: pakk.map(x => x.m) });
+        if (j.ok) {
+          pakk.forEach(x => kogRakenda(GK.nimekirjad = GK.nimekirjad || [], x.m, SEADED.kes));
+          const vead = (j.tulemused || []).filter(t => !t.ok);
+          if (vead.length) { naita('Kogumine: ' + vead[0].viga, true); setTimeout(() => laeKog(true), 500); }
+          kirjuta(V.kog, GK);
+        } else naita('Kogumine: ' + j.viga, true);
+        VALJAS.splice(0, n);
+      } else if (esimene.tegevus === 'inventuur') {
         // kõik järjestikused inventuurimuudatused ühe päringuga
         let n = 0; while (n < VALJAS.length && VALJAS[n].tegevus === 'inventuur' && n < 200) n++;
         const pakk = VALJAS.slice(0, n);
@@ -689,19 +790,33 @@ async function saadaValjas() {
         } else naita('Inventuur: ' + j.viga, true);
         VALJAS.splice(0, n);
       } else {
-        const j = await api(esimene);
-        if (!j.ok) naita(`${esimene.kood} @ ${esimene.asukoht}: ${j.viga}`, true);
-        else if (ANDMED) {  // kanna muudatus telefoni andmetesse, kuni järgmise täisuuenduseni
-          const P = ANDMED.paigutus = ANDMED.paigutus || [];
-          const sama = x => { const o = seosObj(x); return o.kood === esimene.kood && o.koht === esimene.asukoht; };
-          if (esimene.tegevus === 'lisaSeos' && !P.some(sama)) {
-            P.push(ANDMED.lyhike ? [esimene.kood, esimene.asukoht, j.liik || 'ajutine', '']
-                                 : { Kood: esimene.kood, Asukoht: esimene.asukoht, Liik: j.liik || 'ajutine', Pool: '' });
-          }
-          if (esimene.tegevus === 'eemaldaSeos') ANDMED.paigutus = P.filter(x => !sama(x));
-          salvestaAndmed();
+        // KIIRENDUS: järjestikused seose muudatused ühe päringuga (server teeb need järjekorras)
+        let n = 0;
+        const seos = x => x.tegevus === 'lisaSeos' || x.tegevus === 'eemaldaSeos';   // KOOND: kogumist/inventuuri pakki ei panda
+        if (MITU_TOOTAB) while (n < VALJAS.length && seos(VALJAS[n]) && n < 20) n++;
+        const pakk = n > 1 ? VALJAS.slice(0, n) : [esimene];
+        let tulemused;
+        if (pakk.length === 1) tulemused = [await api(esimene)];
+        else {
+          const jm = await api({ tegevus: 'mitu', paringud: pakk }, 60000);
+          if (!jm.tulemused) { MITU_TOOTAB = false; continue; }    // vana server: saada ükshaaval
+          tulemused = jm.tulemused;
         }
-        VALJAS.shift();
+        pakk.forEach((op, i) => {
+          const j = tulemused[i] || { ok: false, viga: 'vastus puudub' };
+          if (!j.ok) naita(`${op.kood} @ ${op.asukoht}: ${j.viga}`, true);
+          else if (ANDMED) {  // kanna muudatus telefoni andmetesse, kuni järgmise täisuuenduseni
+            const P = ANDMED.paigutus = ANDMED.paigutus || [];
+            const sama = x => { const o = seosObj(x); return o.kood === op.kood && o.koht === op.asukoht; };
+            if (op.tegevus === 'lisaSeos' && !P.some(sama)) {
+              P.push(ANDMED.lyhike ? [op.kood, op.asukoht, j.liik || 'ajutine', '']
+                                   : { Kood: op.kood, Asukoht: op.asukoht, Liik: j.liik || 'ajutine', Pool: '' });
+            }
+            if (op.tegevus === 'eemaldaSeos') ANDMED.paigutus = P.filter(x => !sama(x));
+          }
+        });
+        if (ANDMED) salvestaAndmed();
+        VALJAS.splice(0, pakk.length);
       }
       kirjuta(V.valjas, VALJAS);
     }
@@ -812,6 +927,8 @@ function mine(v) {
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('aktiivne', b.dataset.vaade === v || (v === 'koht' && b.dataset.vaade === eelmine)));
   $('nav').style.display = v === 'seadistus' ? 'none' : 'flex';
   renderAktiivne();
+  if (v === 'kogumine') laeKog(true);
+  if (v === 'inventuur') laeInvSeansid();
   window.scrollTo(0, 0);
 }
 
@@ -819,6 +936,7 @@ function renderAktiivne() {
   if (aktiivne === 'otsing') renderOtsing();
   else if (aktiivne === 'koht') renderKoht();
   else if (aktiivne === 'inventuur') renderInventuur();
+  else if (aktiivne === 'kogumine') renderKogumine(true);
   else if (aktiivne === 'seaded') renderSeaded();
 }
 
@@ -896,6 +1014,7 @@ function tooteKaart(t) {
 // Laoseis Buumi ekspordist + hoiatus, et see ei pruugi olla värske
 function laoseis(t) {
   if (t.maardu === undefined) return '';
+  if (pimeloendus()) return '<div class="laoseis hall">Pimeloendus: laoseisu ei näidata</div>';   // INVSEANSS
   const u = esc(t.uhik || '');
   const aeg = ANDMED && ANDMED.laoAndmedUuendatud ? new Date(ANDMED.laoAndmedUuendatud) : null;
   let seisuga, vana = true;
@@ -981,6 +1100,7 @@ function eemaldaSeos(kood, koht) {
 let invToode = null, invMuuda = null;
 
 function renderInventuur() {
+  renderInvSeansiInfo(); renderReaKaupa();
   const seanss = $('iSeanss').value.trim();
   const read = INV.filter(r => r.seanss === seanss).sort((a, b) => b.aeg.localeCompare(a.aeg));
   $('iArv').textContent = read.length ? '(' + read.length + ')' : '';
@@ -1023,6 +1143,8 @@ function valiInvToode(t) {
 function invLisa() {
   const seanss = $('iSeanss').value.trim();
   if (!seanss) { naita('Sisesta seansi nimi', true); $('iSeanss').focus(); return; }
+  const sViga = invSeansiKontroll();
+  if (sViga) { naita(sViga, true); return; }
   const t = invToode || leiaToode($('iToode').value);
   if (!t) { naita('Vali toode', true); $('iToode').focus(); return; }
   const kogusTekst = $('iKogus').value.trim();
@@ -1033,6 +1155,12 @@ function invLisa() {
   const koht = normKoht($('iKoht').value);
   if (koht && IX && !IX.kohad.has(koht)) { naita('Asukohta ' + koht + ' pole', true); return; }
 
+  // INVSEANSS: hoiata kohe, kui see telefon on sama asja juba sisestanud
+  if (!invMuuda) {
+    const sama = INV.find(x => x.seanss === seanss && x.kood === t.kood && (koht ? x.koht === koht : !x.koht && x.kogus === kogus));
+    if (sama && !confirm(koht ? `${t.kood} on kohas ${koht} juba loetud (${fmtNr(sama.kogus)}). Lisan veel ühe loenduse?`
+                              : `${t.kood} kogusega ${fmtNr(kogus)} on juba sisestatud (ilma asukohata). Kas see on uus loendus?`)) return;
+  }
   let r;
   if (invMuuda) {
     r = INV.find(x => x.id === invMuuda);
@@ -1600,6 +1728,334 @@ function skanniKohta() {
     if (confirm(`Lisan ${toode.kood} (${toode.nimi}) kohta ${koht}?`)) lisaSeos(toode.kood, koht);
   }, 'Skänni toote ribakood');
 }
+
+/* ---------- inventuuriseansid + rea kaupa (INVSEANSS) ---------- */
+var INVS = loe(V.invSeansid, []), INV_SERVER_KOHAD = { seanss: '', kohad: [] };   // var: renderInventuur võib käivituda enne seda rida
+function invSeanss() { return $('iSeanss').value.trim(); }
+function invSeansiInfo() { return INVS.find(x => x.nimi === invSeanss()); }
+function pimeloendus() { const s = invSeansiInfo(); return !!(s && s.pime && s.olek !== 'lukus'); }
+async function laeInvSeansid() {
+  if (!SEADED || !navigator.onLine || !voibMuuta()) return;
+  try {
+    const j = await api({ tegevus: 'inventuuriSeansid' }, 15000);
+    if (!j.ok) return;
+    INVS = j.seansid || []; kirjuta(V.invSeansid, INVS);
+    const avatud = INVS.filter(x => x.olek !== 'lukus');
+    if (!invSeanss() && avatud.length === 1) { $('iSeanss').value = avatud[0].nimi; kirjuta(V.seanss, avatud[0].nimi); }
+    if (aktiivne === 'inventuur') renderInventuur();
+  } catch (e) { /* võrguta: vahemälus olev nimekiri */ }
+}
+function invSeansiKontroll() {
+  if (!INVS.length) return '';
+  const s = invSeansiInfo();
+  if (!invSeanss()) return 'Vali seanss';
+  if (!s) return `Seanssi „${invSeanss()}“ pole. Vali nimekirjast (arvutis: Inventuur → Loo seanss).`;
+  if (s.olek === 'lukus') return `Seanss „${s.nimi}“ on lukus. Vali teine seanss.`;
+  return '';
+}
+function renderInvSeansiInfo() {
+  $('iSeansid').innerHTML = INVS.filter(x => x.olek !== 'lukus').map(x => `<option value="${esc(x.nimi)}">`).join('');
+  const viga = invSeansiKontroll(), s = invSeansiInfo();
+  $('iSeansiInfo').innerHTML = viga ? `<span style="color:var(--punane)">${esc(viga)}</span>` + (INVS.some(x => x.olek !== 'lukus') ? '<div class="nupud" style="margin-top:4px">' +
+      INVS.filter(x => x.olek !== 'lukus').map(x => `<button class="nupp vaike" data-invseanss="${esc(x.nimi)}">${esc(x.nimi)}</button>`).join('') + '</div>' : '')
+    : s && s.pime ? 'Pimeloendus: laoseisu ei näidata' : '';
+}
+// rea kaupa: rea asukohad järjekorras, loetud kohad märgitud
+function invRead() {
+  const r = new Set();
+  if (IX) IX.kohad.forEach((x, k) => { const o = k.split('-'); if (o[0] === 'V' && o.length >= 5) r.add('V-' + o[1]); else if (o.length === 4 && o.every(y => /^\d+$/.test(y))) r.add(o[0]); });
+  return [...r].sort((a, b) => (a[0] === 'V') - (b[0] === 'V') || a.localeCompare(b, 'et', { numeric: true }));
+}
+function renderReaKaupa() {
+  if (!$('iReaKaupa').open) return;
+  const valik = $('iRida').value, read = invRead();
+  $('iRida').innerHTML = '<option value="">Vali rida…</option>' + read.map(r => `<option value="${r}"${r === valik ? ' selected' : ''}>${r[0] === 'V' ? 'Väikepakend külg ' + r.slice(2) : 'Rida ' + r}</option>`).join('');
+  if (!valik || !IX) { $('iReaKohad').innerHTML = ''; return; }
+  const kohad = [...IX.kohad.keys()].filter(k => valik[0] === 'V' ? k.startsWith(valik + '-') : k.split('-')[0] === valik && k.split('-').length === 4)
+    .sort((a, b) => vordleVoti(kohtVoti(a), kohtVoti(b)));
+  const loetud = new Set(INV.filter(r => r.seanss === invSeanss() && r.koht).map(r => r.koht));
+  if (INV_SERVER_KOHAD.seanss === invSeanss()) INV_SERVER_KOHAD.kohad.forEach(k => loetud.add(k));
+  const n = kohad.filter(k => loetud.has(k)).length;
+  $('iReaKohad').innerHTML = `<div class="hall" style="margin:6px 0">${n}/${kohad.length} kohta loetud</div>` + kohad.map(k => {
+    const s = (IX.seosKoht.get(k) || []).map(x => x.kood);
+    return `<button class="rida-tulemus g-rida${loetud.has(k) ? ' tehtud' : ''}" data-invkoht="${esc(k)}" style="padding:8px 10px;margin-top:4px">
+      <span class="g-koht">${loetud.has(k) ? '✓ ' : ''}${esc(k)}</span><span class="hall g-nimi">${s.length ? esc(s.slice(0, 3).join(', ')) + (s.length > 3 ? ' +' + (s.length - 3) : '') : 'tühi'}</span><span></span></button>`;
+  }).join('');
+}
+async function laeServeriKohad() {
+  const s = invSeanss();
+  if (!s || !navigator.onLine) return;
+  try {
+    await saadaValjas();
+    const j = await api({ tegevus: 'inventuurLoe', seanss: s }, 15000);
+    if (j.ok) { INV_SERVER_KOHAD = { seanss: s, kohad: [...new Set(j.read.map(r => normKoht(r.Asukoht)).filter(Boolean))] }; renderReaKaupa(); }
+  } catch (e) {}
+}
+$('v-inventuur').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.invkoht) { $('iKoht').value = b.dataset.invkoht; naita('Asukoht ' + b.dataset.invkoht + ' – nüüd toode'); window.scrollTo(0, 0); $('iToode').focus(); }
+  else if (b.dataset.invseanss) { $('iSeanss').value = b.dataset.invseanss; kirjuta(V.seanss, b.dataset.invseanss); $('iKokku').innerHTML = ''; renderInventuur(); }
+});
+$('iRida').addEventListener('change', () => { renderReaKaupa(); laeServeriKohad(); });
+$('iReaKaupa').addEventListener('toggle', () => { renderReaKaupa(); if ($('iReaKaupa').open) laeServeriKohad(); });
+
+/* ============================================================
+   KOGUMINE (komplekteerimine): nimekirjad arvutist, kogumine telefonis
+   ============================================================ */
+let GK = loe(V.kog, { nimekirjad: [], aeg: '' });       // serveri seis
+let gAvatud = loe(V.kogAvatud, null), gRezhiim = loe(V.kogRezhiim, 'jarjest');
+let gRida = null, gUusRida = null, gKontrollitud = null, gVahele = new Set(), laebKog = false, gViga = '';
+
+// asukoha järjestus: väikepakend külg 1 püstakud 1→8, külg 2 püstakud 8→1; siis suur ladu rea kaupa
+function kohtVoti(koht) {
+  const o = String(koht || '').split('-'), n = i => parseInt(o[i], 10) || 0;
+  if (o[0] === 'V') return [0, n(1), n(1) === 2 ? -n(2) : n(2), n(3), n(4)];
+  if (o.length === 4 && o.every(x => /^\d+$/.test(x))) return [1, n(0), n(1), n(2), n(3)];
+  return koht ? [2, 0, 0, 0, 0] : [3, 0, 0, 0, 0];
+}
+const vordleVoti = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] - b[i]; return 0; };
+function reaKoht(kood) {
+  const s = IX && IX.seosKood && IX.seosKood.get(kood) || [];
+  let parim = null;
+  s.forEach(x => { if (!parim || vordleVoti(kohtVoti(x.koht), kohtVoti(parim.koht)) < 0) parim = x; });
+  return { parim, koik: s };
+}
+
+function kogRakenda(L, m, kes) {
+  let n = L.find(x => x.id === m.nimekiri);
+  const aeg = m.aeg || new Date().toISOString();
+  if (m.op === 'uus') { if (!n) L.push({ id: m.nimekiri, nimi: m.nimi, olek: 'kogumisel', koguja: kes, loodud: aeg, markus: 'ilma nimekirjata', read: [] }); return; }
+  if (!n || n.olek === 'valmis') return;
+  if (m.op === 'lopeta') { n.olek = 'valmis'; n.lopetatud = aeg; return; }
+  if (m.op === 'alusta') { n.olek = 'kogumisel'; n.koguja = kes; return; }
+  const i = n.read.findIndex(r => r.id === m.id);
+  if (m.op === 'kustutaRida') {
+    if (i >= 0) { if (n.read[i].lisatud) n.read.splice(i, 1); else Object.assign(n.read[i], { votetud: null, olek: '' }); }
+    return;
+  }
+  if (m.op === 'rida') {
+    if (i >= 0) Object.assign(n.read[i], { votetud: m.votetud, olek: m.olek, aeg, kes });
+    else n.read.push({ id: m.id, kood: m.kood, vaja: m.vaja || 0, votetud: m.votetud, olek: m.olek, aeg, kes, lisatud: true, jrk: n.read.length + 1 });
+    if (n.olek === 'avatud') { n.olek = 'kogumisel'; n.koguja = kes; }
+  }
+}
+// serveri seis + saatmata muudatused
+function kogNimekirjad() {
+  const L = JSON.parse(JSON.stringify(GK.nimekirjad || []));
+  VALJAS.forEach(op => { if (op.tegevus === 'kogumine') kogRakenda(L, op.m, SEADED && SEADED.kes); });
+  return L;
+}
+function kogMuuda(m) {
+  m.aeg = new Date().toISOString();
+  lisaValjas({ tegevus: 'kogumine', m });
+}
+async function laeKog(vaikne) {
+  if (laebKog || !SEADED || !navigator.onLine) return;
+  laebKog = true;
+  if (!vaikne && aktiivne === 'kogumine') renderKogumine(true);
+  try {
+    await saadaValjas();
+    const j = await api({ tegevus: 'kogumised', ainultAvatud: 1 });
+    if (!j.ok) throw new Error(j.viga);
+    GK = { nimekirjad: j.nimekirjad || [], aeg: j.aeg }; kirjuta(V.kog, GK); gViga = '';
+  } catch (e) { gViga = e.message; }
+  finally { laebKog = false; if (aktiivne === 'kogumine') renderKogumine(true); }
+}
+
+const gArv = n => fmtNr(nr(n));
+function gJarjestatud(n) {
+  return n.read.map(r => Object.assign({}, r, { k: reaKoht(r.kood) }))
+    .sort((a, b) => vordleVoti(kohtVoti(a.k.parim && a.k.parim.koht), kohtVoti(b.k.parim && b.k.parim.koht)) || (a.jrk - b.jrk));
+}
+function gKokku(n) {
+  return { tehtud: n.read.filter(r => r.olek).length, puudu: n.read.filter(r => r.olek === 'puudu').length, kokku: n.read.length };
+}
+
+function renderKogumine(taust) {   // taust = uuendus ei tulnud kasutaja tegevusest (KOOND)
+  const L = kogNimekirjad();
+  const n = gAvatud && L.find(x => x.id === gAvatud);
+  if (!n) { gAvatud = null; renderKogNimekirjad(L); return; }
+  const k = gKokku(n), lukus = n.olek === 'valmis';
+  const minu = SEADED && SEADED.kes;
+  const read = gJarjestatud(n);
+  let sisu = `<div class="rida-pais"><button class="nupp vaike" data-gtagasi>← Nimekirjad</button>
+      <span class="hall">${k.tehtud}/${k.kokku}${k.puudu ? ` · <span style="color:var(--punane)">${k.puudu} puudu</span>` : ''}</span></div>
+    <h2 style="margin:10px 0 6px">${esc(n.nimi)}</h2>`;
+  if (lukus) sisu += `<div class="logiriba" style="display:flex">✓ Lõpetatud. Muutmiseks ava see arvutis uuesti.</div>`;
+  else if (n.olek === 'kogumisel' && n.koguja && n.koguja !== minu) sisu += `<div class="logiriba" style="display:flex">⚠ ${esc(n.koguja)} kogub seda nimekirja</div>`;
+  if (!lukus && n.read.length) sisu += `<div class="lyliti"><button class="nupp vaike${gRezhiim === 'nimekiri' ? ' pea' : ''}" data-grezhiim="nimekiri">Kogu nimekiri</button>
+      <button class="nupp vaike${gRezhiim === 'jarjest' ? ' pea' : ''}" data-grezhiim="jarjest">Järjest</button></div>`;
+
+  // aktiivne rida: valitud, uus või järgmine tegemata
+  let rida = gUusRida || (gRida && read.find(r => r.id === gRida));
+  if (!rida && !lukus && gRezhiim === 'jarjest') {
+    rida = read.find(r => !r.olek && !gVahele.has(r.id));
+    if (!rida && read.some(r => !r.olek)) { gVahele.clear(); rida = read.find(r => !r.olek); }
+  }
+  if (rida && !lukus) sisu += gKaart(rida, read);
+  else if (!lukus && gRezhiim === 'jarjest' && n.read.length) sisu += `<div class="kaart" style="text-align:center"><b>Kõik read tehtud</b>${k.puudu ? `<div class="hall">${k.puudu} rida puudu</div>` : ''}</div>`;
+
+  if (gRezhiim === 'nimekiri' || lukus || !n.read.length) {
+    sisu += `<div class="kaart" style="padding:4px 14px">` + (read.length ? read.map(r => {
+      const t = IX && IX.tooted.get(r.kood);
+      const klass = r.olek === 'puudu' ? ' puudu' : r.olek ? ' tehtud' : '';
+      return `<button class="g-rida${klass}${rida && rida.id === r.id ? ' valitud' : ''}" data-grida="${esc(r.id)}"${lukus ? ' disabled' : ''}>
+        <span class="g-koht">${r.k.parim ? esc(r.k.parim.koht) : '–'}</span>
+        <span><b>${esc(r.kood)}</b>${r.lisatud ? ' <span class="hall">lisatud</span>' : ''}<span class="hall g-nimi">${esc(t ? t.nimi : '')}</span></span>
+        <span class="g-kogus">${r.olek ? `${gArv(r.votetud)}${r.vaja ? '<small>/' + gArv(r.vaja) + '</small>' : ''}` : r.vaja ? gArv(r.vaja) : ''}</span></button>`;
+    }).join('') : '<div class="tuhi">Ridu pole. Lisa tooteid allpool.</div>') + '</div>';
+  }
+  if (!lukus) {
+    sisu += `<div class="kaart"><label for="gLisa" style="margin-top:0">Lisa toode, mida nimekirjas pole</label>
+      <div class="otsirida"><input id="gLisa" type="search" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Kood, EAN või nimi">
+      <button class="skann-nupp" data-gskann="lisa" aria-label="Skänni">⌗</button></div><div id="gSoovitused" class="soovitused"></div></div>
+      <div class="nupud"><button class="nupp${k.tehtud === k.kokku && k.kokku ? ' pea' : ''}" data-glopeta style="flex:1">Lõpeta${k.kokku - k.tehtud ? ` (${k.kokku - k.tehtud} tegemata)` : ''}</button></div>`;
+  }
+  // KOOND: taustal uuendamine (saatmine lõppes, nimekiri laeti) ei kustuta poolelioleva sisestuse
+  const vKog = taust && $('gKogus'), vLisa = taust && $('gLisa'), fookus = document.activeElement && document.activeElement.id;
+  const hoiaKog = vKog && vKog.value !== vKog.defaultValue ? { id: vKog.dataset.gid, v: vKog.value } : null;
+  const hoiaLisa = vLisa && vLisa.value ? vLisa.value : '';
+  $('gSisu').innerHTML = sisu;
+  const kog = $('gKogus');
+  if (kog && hoiaKog && kog.dataset.gid === hoiaKog.id) kog.value = hoiaKog.v;
+  if (hoiaLisa && $('gLisa')) $('gLisa').value = hoiaLisa;
+  if (fookus === 'gKogus' && kog && hoiaKog && kog.dataset.gid === hoiaKog.id) kog.focus();
+  else if (fookus === 'gLisa' && $('gLisa')) $('gLisa').focus();
+  if (kog && rida && (gUusRida || gKontrollitud === rida.id)) setTimeout(() => { kog.focus(); kog.select(); }, 50);
+}
+
+function gKaart(r, read) {
+  const t = IX && IX.tooted.get(r.kood);
+  const k = r.k || reaKoht(r.kood);
+  const koht = k.parim;
+  const muud = k.koik.filter(x => x !== koht);
+  const jrk = read.filter(x => !x.olek).length;
+  return `<div class="kaart g-kaart">
+    <div class="g-suur">${koht ? esc(koht.koht) : 'Asukoht puudub'}</div>
+    ${koht ? `<div class="hall">${esc(juhis(koht.koht, koht.pool))}</div>` : ''}
+    ${muud.length ? `<div class="hall vaike">Ka: ${muud.map(x => esc(x.koht)).join(', ')}</div>` : ''}
+    <div style="margin-top:8px"><b>${esc(r.kood)}</b> ${esc(t ? t.nimi : 'Buumi ekspordis pole')}</div>
+    <div class="g-vaja">${r.vaja ? `Vaja <b>${gArv(r.vaja)}</b>` : 'Uus rida'} ${esc(t && t.uhik || '')}
+      ${t ? `<span class="hall"> · laos ${gArv(t.maardu)}</span>` : ''}</div>
+    <div class="hall vaike">${gKontrollitud === r.id ? '<span style="color:var(--roheline)">✓ Õige toode</span>' : 'Skänni toode kontrolliks'}${gRezhiim === 'jarjest' && !gUusRida ? ' · ' + jrk + ' rida jäänud' : ''}</div>
+    <div class="otsirida" style="margin-top:8px">
+      <input id="gKogus" data-gid="${esc(r.id)}" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" value="${r.olek ? String(r.votetud).replace('.', ',') : r.vaja ? String(r.vaja).replace('.', ',') : ''}" aria-label="Võetud kogus" style="font-size:22px;font-weight:700">
+      <button class="skann-nupp" data-gskann="rida" aria-label="Skänni toode">⌗</button>
+    </div>
+    <div class="nupud"><button class="nupp pea" data-gkinnita style="flex:1">Kinnita</button>
+      ${gUusRida ? '<button class="nupp" data-gloobu>Loobu</button>'
+        : gRezhiim === 'jarjest' && !r.olek && !gRida ? `<button class="nupp" data-gvahele="${esc(r.id)}">Jäta vahele</button>`
+        : `<button class="nupp" data-gloobu>Sulge</button>${r.olek ? `<button class="nupp ohtlik" data-gtyhjenda="${esc(r.id)}">${r.lisatud ? 'Kustuta' : 'Tühjenda'}</button>` : ''}`}</div>
+  </div>`;
+}
+
+function renderKogNimekirjad(L) {
+  const jrk = { kogumisel: 0, avatud: 1, valmis: 2 };
+  L = L.slice().sort((a, b) => (jrk[a.olek] - jrk[b.olek]) || String(b.loodud).localeCompare(String(a.loodud)));
+  $('gSisu').innerHTML = `<div class="rida-pais"><h2 style="margin:0">Kogumine</h2>
+      <button class="nupp vaike" data-guuenda>${laebKog ? 'Laen…' : 'Uuenda'}</button></div>
+    ${gViga ? `<div class="hall" style="color:var(--punane)">${esc(gViga)}</div>` : ''}
+    ${L.length ? L.map(n => {
+      const k = gKokku(n);
+      return `<button class="rida-tulemus" data-gava="${esc(n.id)}"><b>${esc(n.nimi)}</b>
+        <div class="hall">${n.olek === 'valmis' ? '✓ valmis' : n.olek === 'kogumisel' ? 'kogumisel' + (n.koguja ? ': ' + esc(n.koguja) : '') : 'ootab'} · ${k.tehtud}/${k.kokku}${k.puudu ? ' · ' + k.puudu + ' puudu' : ''}</div></button>`;
+    }).join('') : `<div class="tuhi">${laebKog ? 'Laen…' : 'Nimekirju pole. Nimekiri tehakse arvutis (Komplekteerimine).'}</div>`}
+    <div class="nupud"><button class="nupp" data-guus style="flex:1">+ Ilma nimekirjata</button></div>`;
+}
+
+function gAva(id) {
+  gAvatud = id; kirjuta(V.kogAvatud, id);
+  gRida = null; gUusRida = null; gKontrollitud = null; gVahele.clear();
+  const n = kogNimekirjad().find(x => x.id === id);
+  if (n && !n.read.length) gRezhiim = 'nimekiri';
+  renderKogumine(); window.scrollTo(0, 0);
+}
+function gAktiivneRida() {
+  if (gUusRida) return gUusRida;
+  const n = kogNimekirjad().find(x => x.id === gAvatud);
+  if (!n) return null;
+  const read = gJarjestatud(n);
+  return (gRida && read.find(r => r.id === gRida)) || (gRezhiim === 'jarjest' ? (read.find(r => !r.olek && !gVahele.has(r.id)) || read.find(r => !r.olek)) : null);
+}
+function gKinnita() {
+  const r = gAktiivneRida();
+  if (!r) return;
+  const tekst = $('gKogus').value.replace(/\s/g, '');
+  if (!/^\d+([.,]\d+)?$/.test(tekst)) { naita('Sisesta kogus numbrina', true); $('gKogus').focus(); return; }
+  const votetud = nr(tekst);
+  const olek = r.vaja && votetud < r.vaja ? 'puudu' : 'tehtud';
+  kogMuuda({ op: 'rida', nimekiri: gAvatud, id: r.id, kood: r.kood, vaja: r.vaja || 0, votetud, olek });
+  naita(`${r.kood}: ${fmtNr(votetud)}` + (olek === 'puudu' ? ` (puudu ${fmtNr(r.vaja - votetud)})` : ''), false);
+  gVahele.delete(r.id); gRida = null; gUusRida = null; gKontrollitud = null;
+  renderKogumine(); window.scrollTo(0, 0);
+}
+function gLisaToode(t) {
+  const n = kogNimekirjad().find(x => x.id === gAvatud);
+  if (!n || !t) return;
+  const olemas = n.read.find(r => r.kood === t.kood);
+  if (olemas) { gRida = olemas.id; gUusRida = null; }
+  else gUusRida = { id: uusId(), kood: t.kood, vaja: 0, k: reaKoht(t.kood) };
+  gKontrollitud = olemas ? olemas.id : gUusRida.id;
+  renderKogumine(); window.scrollTo(0, 0);
+}
+function gSkanni(mis) {
+  avaSkanner(async v => {
+    const t = await tolgendaTaielik(v);
+    if (t.koht) { naita('Asukoht ' + t.koht); return; }
+    if (t.vale) { naita(t.vale, true); return; }
+    const toode = leiaToode(t.kood);
+    if (!toode) { naita('Toodet ei leitud: ' + t.kood, true); return; }
+    const r = gAktiivneRida();
+    if (mis === 'rida' && r && r.kood === toode.kood) { gKontrollitud = r.id; renderKogumine(); return; }
+    const n = kogNimekirjad().find(x => x.id === gAvatud);
+    const teine = n && n.read.find(x => x.kood === toode.kood);
+    if (teine) { if (mis === 'rida') naita('See on teine toode: ' + toode.kood, true); gRida = teine.id; gUusRida = null; gKontrollitud = teine.id; renderKogumine(); return; }
+    if (mis === 'rida' && !confirm(`${toode.kood} (${toode.nimi}) pole nimekirjas. Lisan?`)) return;
+    gLisaToode(toode);
+  }, mis === 'rida' ? 'Skänni toote ribakood' : 'Skänni lisatav toode');
+}
+function gLopeta() {
+  const n = kogNimekirjad().find(x => x.id === gAvatud);
+  if (!n) return;
+  const k = gKokku(n), tegemata = k.kokku - k.tehtud;
+  const kys = [tegemata ? `${tegemata} rida on tegemata (lähevad kirja kui puudu).` : '', k.puudu ? `${k.puudu} rida puudu.` : ''].filter(Boolean).join('\n');
+  if (!confirm((kys ? kys + '\n\n' : '') + `Lõpetan „${n.nimi}“? Pärast seda on nimekiri lukus.`)) return;
+  kogMuuda({ op: 'lopeta', nimekiri: n.id });
+  gAvatud = null; kirjuta(V.kogAvatud, null);
+  naita('Valmis. Arvutis saab printida ja CSV alla laadida.');
+  renderKogumine();
+}
+
+$('v-kogumine').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const d = b.dataset;
+  if ('gtagasi' in d) { gAvatud = null; kirjuta(V.kogAvatud, null); renderKogumine(); laeKog(true); }
+  else if ('guuenda' in d) laeKog();
+  else if (d.gava) gAva(d.gava);
+  else if ('guus' in d) {
+    const nimi = prompt('Nimekirja nimi', 'Broneering ' + new Date().toLocaleString('et-EE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }));
+    if (!nimi || !nimi.trim()) return;
+    const id = uusId();
+    kogMuuda({ op: 'uus', nimekiri: id, nimi: nimi.trim() });
+    gAva(id);
+  }
+  else if (d.grezhiim) { gRezhiim = d.grezhiim; kirjuta(V.kogRezhiim, gRezhiim); gRida = null; gUusRida = null; renderKogumine(); }
+  else if (d.grida) { gRida = d.grida; gUusRida = null; gKontrollitud = null; renderKogumine(); window.scrollTo(0, 0); }
+  else if ('gkinnita' in d) gKinnita();
+  else if (d.gvahele) { gVahele.add(d.gvahele); gKontrollitud = null; renderKogumine(); }
+  else if ('gloobu' in d) { gRida = null; gUusRida = null; gKontrollitud = null; renderKogumine(); }
+  else if (d.gtyhjenda) { kogMuuda({ op: 'kustutaRida', nimekiri: gAvatud, id: d.gtyhjenda }); gRida = null; renderKogumine(); }
+  else if (d.gskann) gSkanni(d.gskann);
+  else if ('glopeta' in d) gLopeta();
+  else if (d.glisavali) { $('gSoovitused').innerHTML = ''; gLisaToode(IX.tooted.get(d.glisavali)); }
+});
+$('v-kogumine').addEventListener('input', e => {
+  if (e.target.id !== 'gLisa') return;
+  const q = e.target.value, tapne = leiaToode(q);
+  if (tapne) { e.target.value = ''; $('gSoovitused').innerHTML = ''; gLisaToode(tapne); return; }
+  $('gSoovitused').innerHTML = otsiTooteid(q, 8).map(t => `<button class="rida-tulemus" data-glisavali="${esc(t.kood)}"><b>${esc(t.kood)}</b> ${esc(t.nimi)}</button>`).join('');
+});
+$('v-kogumine').addEventListener('keydown', e => { if (e.target.id === 'gKogus' && e.key === 'Enter') gKinnita(); });
 
 /* ============================================================
    SÜNDMUSED
