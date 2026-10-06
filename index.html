@@ -89,6 +89,25 @@ label { display: block; font-size: 13px; color: var(--hall); margin: 12px 0 4px;
 #laadimine li.tehtud { color: var(--roheline); }
 #laadimine li.kaib { color: var(--tekst); font-weight: 600; }
 nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; background: var(--kaart); border-top: 1px solid var(--joon); padding-bottom: env(safe-area-inset-bottom); }
+/* PLAAN26 */
+.pl-kast { position: relative; background: var(--kaart, #fff); border-radius: 12px; overflow: hidden; }
+#plSvg { width: 100%; height: 62vh; display: block; touch-action: none; user-select: none; }
+#plSvg rect { vector-effect: non-scaling-stroke; }
+.pl-porand { fill: #f5f4ef; stroke: #b9b6ac; stroke-width: 1.5; }
+.pl-pyst rect { fill: #fff; stroke: #2f5d9b; stroke-width: 1; }
+.pl-pyst .pl-taid { fill: #b98a46; stroke: none; }
+.pl-pyst.valik rect:first-child { fill: #d8efdc; stroke: #2e7d32; stroke-width: 2.5; }
+.pl-pyst.vilgu rect:first-child { fill: #e5484d; stroke: #8d1d21; stroke-width: 2.5; animation: plvilgu 1s ease-in-out 5; }
+@keyframes plvilgu { 50% { opacity: .3; } }
+.pl-vp { fill: #f6d860; stroke: #b9961a; stroke-width: 1; }
+.pl-muu { fill: none; stroke: #8a8a8a; stroke-dasharray: 6 4; stroke-width: 1; }
+.pl-uks { fill: #2f5d9b; }
+.pl-rida rect { fill: #fff; stroke: #777; stroke-width: 1; }
+.pl-rida text { font-size: 620px; font-weight: 700; fill: #222; }
+.pl-markus { font-size: 700px; fill: #777; }
+.pl-nupud { position: absolute; right: 8px; top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.pl-nupud .nupp { min-width: 44px; min-height: 44px; font-size: 20px; }
+.koht.pl-otsitud { border-color: #e5484d; }
 nav button { flex: 1; min-width: 0; min-height: 60px; background: none; border: 0; font-size: 13px; padding: 0 2px; color: var(--hall); cursor: pointer; }
 nav button.aktiivne { color: var(--roheline); font-weight: 700; }
 nav .ikoon { display: block; font-size: 20px; line-height: 1.1; }
@@ -256,6 +275,11 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
   <!-- KOGUMINE (komplekteerimine) -->
   <section class="vaade" id="v-kogumine"><div id="gSisu"></div></section>
 
+  <!-- PLAAN26: laoplaan (ülalt) -->
+  <section class="vaade" id="v-plaan">
+    <div id="plaanSisu"></div>
+  </section>
+
   <!-- SEADED -->
   <section class="vaade" id="v-seaded">
     <div class="kaart">
@@ -282,6 +306,7 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
   <button data-vaade="vastuvott"><span class="ikoon">⇣</span>Vastuvõtt</button>
   <button data-vaade="kogumine"><span class="ikoon">☑</span>Kogumine</button>
   <button data-vaade="inventuur"><span class="ikoon">▦</span>Inventuur</button>
+  <button data-vaade="plaan"><span class="ikoon">◫</span>Plaan</button>
   <button data-vaade="seaded"><span class="ikoon">⚙</span>Seaded</button>
 </nav>
 
@@ -971,6 +996,7 @@ function renderAktiivne() {
   else if (aktiivne === 'kogumine') renderKogumine(true);
   else if (aktiivne === 'vastuvott') renderVastuvott(true);   // VASTUVOTT
   else if (aktiivne === 'seaded') renderSeaded();
+  else if (aktiivne === 'plaan') renderPlaanTel();   // PLAAN26
 }
 
 function olek(tekst) {
@@ -1042,6 +1068,7 @@ function tooteKaart(t) {
       ${voibMuuta() ? `<button class="nupp vaike" data-lisafluid="${esc(t.kood)}">＋ Lisa ajutisse kohta</button>` : ''}
       ${voibMuuta() && s.some(x => !onAjutineKoht(x)) ? `<button class="nupp vaike" data-tyhikaart="${esc(t.kood)}">Koht tühi</button>` : ''}
       ${voibMuuta() && pysi.length ? `<button class="nupp vaike" data-tooraine="${esc(t.kood)}">Pesas on tooraine</button>` : ''}
+      ${s.length && laoMoodud() ? `<button class="nupp vaike" data-plaanil="${esc(s.map(x => x.koht).join(','))}">Näita plaanil</button>` : ''}
       ${otsingValitud ? '<button class="nupp vaike" data-sulge>Sulge</button>' : ''}
     </div>
   </div>`;
@@ -1096,7 +1123,7 @@ function renderKoht() {
   const toorVorm = !info.fluid && voibMuuta() && pakitud.length;
   el.innerHTML = `<div class="kaart">
       <div style="font-size:30px;font-weight:800;letter-spacing:1px">${esc(k)}${info.fluid ? '<span class="silt">ajutine</span>' : ''}</div>
-      <div class="juhis">${esc(juhis(k, ''))}</div>
+      <div class="juhis">${esc(juhis(k, ''))}</div>${laoMoodud() && /^\d+-\d+-\d+-\d+$/.test(k) ? `<div class="nupud" style="margin-top:8px"><button class="nupp vaike" data-plaanil="${esc(k)}">Näita plaanil</button></div>` : ''}
     </div>
     ${read || '<div class="tuhi">Siin pole ühtegi toodet</div>'}
     ${info.fluid && voibMuuta() ? `<div class="kaart">
@@ -2548,6 +2575,98 @@ function renderTaitmine() {
         <span class="g-koht">${esc(x.koht)}</span><span><b>${esc(x.kood)}</b><span class="hall g-nimi">${x.olek === 'pole' ? 'kaupa pole' : 'täidetud'}${x.tegija ? ' · ' + esc(x.tegija) : ''}</span></span><span></span></div>`).join('')}</div>` : ''}`;
 }
 
+/* ---------- PLAAN26: laoplaan telefonis – ainult ülaltvaade (Lao mõõdud), ainult vaatamiseks ----------
+   Sõrmedega suurendus ja liigutamine, puudutus püstakul näitab selle kohti, "Näita plaanil" vilgutab kohti. */
+let plaanVilgu = new Set(), plaanValik = null;
+const PL = { k: 1, cx: null, cy: null, bb: null, sormed: new Map(), algus: null, liikus: false };
+function naitaPlaanil(kohad) {
+  plaanVilgu = new Set(kohad.map(normKoht).filter(Boolean));
+  const s = [...plaanVilgu].map(k => /^(\d+)-(\d+)-/.exec(k)).find(Boolean);
+  plaanValik = s ? { r: +s[1], p: +s[2] } : null;
+  PL.k = 1; PL.cx = PL.cy = null; PL.keskele = plaanVilgu.size > 0;   // suurenda otsitud koha juurde
+  mine('plaan');
+}
+function renderPlaanTel() {
+  const G = laoMoodud(), el = $('plaanSisu');
+  if (!G || !G.read || !G.W) { el.innerHTML = '<div class="tuhi">Laoplaan tuleb, kui arvutis on Komplekteerimine → „Lao mõõdud“ laaditud.</div>'; return; }
+  const H = G.H, post = G.post || 90, Y = (y, s) => H - y - s;   // ekraanil uksed all
+  const kohad = IX ? [...new Set([...IX.kohad.keys(), ...IX.seosKoht.keys()])] : [], maaratud = new Set(IX ? [...IX.seosKoht.keys()].filter(k => (IX.seosKoht.get(k) || []).length) : []);
+  let s = `<rect class="pl-porand" x="0" y="0" width="${G.W}" height="${H}"/>`;
+  const pl = G.plaan || {};
+  Object.keys(pl).forEach(n => {
+    const [x, y, l, d] = pl[n], m = /^rida\s+(\d+)/i.exec(n);
+    if (x == null || y == null || !l || /^ladu/i.test(n) || /^väikepakend/i.test(n) || (m && G.read[m[1]])) return;
+    if (/^uks/i.test(n)) { s += `<rect class="pl-uks" x="${x}" y="${H - 200}" width="${l}" height="400"/><text class="pl-markus" x="${x + l / 2}" y="${H + 900}" text-anchor="middle">${esc(n)}</text>`; return; }
+    s += `<rect class="pl-muu" x="${x}" y="${Y(y, d || 1200)}" width="${l}" height="${d || 1200}"/><text class="pl-markus" x="${x + l / 2}" y="${Y(y, d || 1200) + (d || 1200) / 2 + 200}" text-anchor="middle">${esc(n.replace(/\s*\/.*$/, ''))}</text>`;
+  });
+  if (G.vp) s += `<rect class="pl-vp" x="${G.vp[0]}" y="${Y(G.vp[1], G.vp[3])}" width="${G.vp[2]}" height="${G.vp[3]}"/>`;
+  Object.keys(G.read).forEach(r => {
+    const [x, y, d, w] = G.read[r];
+    let cx = x + post;
+    w.forEach((wi, i) => {
+      const pref = `${r}-${i + 1}-`, kk = kohad.filter(k => k.startsWith(pref));
+      const vilgu = kk.some(k => plaanVilgu.has(k)), valik = plaanValik && plaanValik.r === +r && plaanValik.p === i + 1;
+      const taid = kk.filter(k => maaratud.has(k)).length;
+      if (vilgu && PL.keskele) { PL.keskele = false; PL.k = 2.5; PL.cx = cx + wi / 2; PL.cy = Y(y, d) + d / 2; }
+      s += `<g class="pl-pyst${vilgu ? ' vilgu' : ''}${valik ? ' valik' : ''}" data-plpyst="${r}-${i + 1}"><rect x="${cx}" y="${Y(y, d)}" width="${wi}" height="${d}"/>${taid ? `<rect class="pl-taid" x="${cx}" y="${Y(y, d)}" width="${wi}" height="${d}" style="opacity:${Math.min(0.6, 0.15 + taid / Math.max(1, kk.length) * 0.5).toFixed(2)}"/>` : ''}</g>`;
+      cx += wi + post;
+    });
+    s += `<g class="pl-rida"><rect x="${x - 1500}" y="${Y(y, d) + d / 2 - 450}" width="${r.length > 1 ? 1300 : 1000}" height="900" rx="300"/><text x="${x - 1500 + (r.length > 1 ? 650 : 500)}" y="${Y(y, d) + d / 2 + 230}" text-anchor="middle">${r}</text></g>`;
+  });
+  PL.bb = [-2200, -1200, G.W + 3400, H + 3400];
+  const valik = plaanValik ? kohad.filter(k => k.startsWith(plaanValik.r + '-' + plaanValik.p + '-')).sort((a, b) => vordleVoti(kohtVoti(a), kohtVoti(b))) : [];
+  el.innerHTML = `<div class="pl-kast"><svg id="plSvg" xmlns="http://www.w3.org/2000/svg">${s}</svg>
+      <div class="pl-nupud"><button class="nupp vaike" data-plzoom="1.5">＋</button><button class="nupp vaike" data-plzoom="0.67">−</button><button class="nupp vaike" data-plzoom="0">⤢</button></div></div>
+    <div class="hall vaike" style="margin:6px 2px">Kaks sõrme = suurenda, lohista = liiguta, puuduta riiulit = selle kohad.${plaanVilgu.size ? ' Punane = otsitud koht.' : ''}</div>
+    ${plaanValik ? `<h2>Rida ${plaanValik.r}, püstak ${plaanValik.p}</h2>` + (valik.length ? valik.map(k => {
+      const t = (IX.seosKoht.get(k) || []).map(x => x.kood);
+      return `<button class="koht${plaanVilgu.has(k) ? ' pl-otsitud' : ''}" data-koht="${esc(k)}"><div class="kk">${esc(k)}</div><div class="juhis">${t.length ? esc(t.slice(0, 4).join(', ')) + (t.length > 4 ? ' +' + (t.length - 4) : '') : 'tühi'}</div></button>`;
+    }).join('') : '<div class="tuhi">Selles püstakus pole asukohti</div>') : ''}`;
+  plVaade(); plHiir();
+}
+function plVaade() {
+  const svg = $('plSvg'); if (!svg || !PL.bb) return;
+  const [x, y, w, h] = PL.bb, cx = PL.cx == null ? x + w / 2 : PL.cx, cy = PL.cy == null ? y + h / 2 : PL.cy;
+  svg.setAttribute('viewBox', `${Math.round(cx - w / PL.k / 2)} ${Math.round(cy - h / PL.k / 2)} ${Math.round(w / PL.k)} ${Math.round(h / PL.k)}`);
+}
+function plSuumi(f) {
+  if (!f) { PL.k = 1; PL.cx = PL.cy = null; } else { PL.k = Math.min(10, Math.max(1, PL.k * f)); if (PL.k === 1) PL.cx = PL.cy = null; }
+  plVaade();
+}
+function plHiir() {
+  const svg = $('plSvg');
+  const sk = () => { const r = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal; return Math.max(vb.width / r.width, vb.height / r.height); };
+  const kesk = () => { const vb = svg.viewBox.baseVal; return [vb.x + vb.width / 2, vb.y + vb.height / 2]; };
+  svg.addEventListener('pointerdown', e => {
+    PL.sormed.set(e.pointerId, [e.clientX, e.clientY]);
+    const p = [...PL.sormed.values()], [cx, cy] = kesk();
+    PL.algus = { p, cx, cy, k: PL.k, sk: sk(), kaug: p.length > 1 ? Math.hypot(p[0][0] - p[1][0], p[0][1] - p[1][1]) : 0 };
+    if (p.length === 1) PL.liikus = false;
+  });
+  svg.addEventListener('pointermove', e => {
+    if (!PL.sormed.has(e.pointerId) || !PL.algus) return;
+    PL.sormed.set(e.pointerId, [e.clientX, e.clientY]);
+    const p = [...PL.sormed.values()], A = PL.algus;
+    if (p.length > 1 && A.kaug) {
+      PL.k = Math.min(10, Math.max(1, A.k * Math.hypot(p[0][0] - p[1][0], p[0][1] - p[1][1]) / A.kaug));
+      PL.liikus = true; if (PL.k === 1) { PL.cx = PL.cy = null; } else { PL.cx = PL.cx == null ? A.cx : PL.cx; PL.cy = PL.cy == null ? A.cy : PL.cy; }
+      plVaade(); return;
+    }
+    const dx = e.clientX - A.p[0][0], dy = e.clientY - A.p[0][1];
+    if (!PL.liikus && Math.hypot(dx, dy) < 8) return;
+    PL.liikus = true; PL.cx = A.cx - dx * A.sk; PL.cy = A.cy - dy * A.sk; plVaade();
+  });
+  const lopp = e => { PL.sormed.delete(e.pointerId); const p = [...PL.sormed.values()]; if (p.length === 1) { const [cx, cy] = kesk(); PL.algus = { p, cx, cy, k: PL.k, sk: sk(), kaug: 0 }; } };
+  svg.addEventListener('pointerup', lopp); svg.addEventListener('pointercancel', lopp);
+  svg.addEventListener('click', e => {
+    if (PL.liikus) { PL.liikus = false; return; }
+    const g = e.target.closest('[data-plpyst]'); if (!g) return;
+    const [r, p] = g.dataset.plpyst.split('-').map(Number);
+    plaanValik = { r, p }; renderPlaanTel();
+  });
+}
+/* ---------- /PLAAN26 ---------- */
+
 /* ============================================================
    SÜNDMUSED
    ============================================================ */
@@ -2558,6 +2677,8 @@ document.addEventListener('click', e => {
   if (d.vaade) { if (d.vaade === 'otsing' && aktiivne === 'otsing') { otsingValitud = null; $('otsing').value = ''; } mine(d.vaade); return; }
   if ('tagasi' in d) { mine(eelmine); return; }
   if (d.koht) { avaKoht(d.koht); return; }
+  if (d.plaanil !== undefined) { naitaPlaanil(d.plaanil.split(',')); return; }   // PLAAN26
+  if (d.plzoom !== undefined) { plSuumi(+d.plzoom); return; }
   if (d.toode) {
     const t = IX.tooted.get(d.toode) || { kood: d.toode, nimi: 'Buumi ekspordis pole', ean: '', maardu: 0 };
     otsingValitud = t; mine('otsing'); return;

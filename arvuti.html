@@ -130,6 +130,8 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
 /* VAADE25D */
 #plaanKast.m25 #plaanSvg { max-width: none; max-height: none; height: 52vh; cursor: grab; touch-action: none; user-select: none; }
 #plaanKast.m25 #plaanSvg:active { cursor: grabbing; }
+.v25nupud + .v25nupud { margin-top: -2px; }
+#plaanNupud { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; }
 .v25nupud { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
 #plaanSvg polygon, #plaanSvg polyline { vector-effect: non-scaling-stroke; stroke-linejoin: round; }
 #plaanSvg .porand { fill: var(--tuhi); stroke: var(--joon); stroke-width: 1.5; }
@@ -140,13 +142,23 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
 #plaanSvg .post { fill: none; stroke: #2f5d9b; stroke-width: 2; }
 #plaanSvg .alusk { stroke: #7a5a2c; stroke-width: .7; }
 #plaanSvg .alusk.esi { fill: #c9a066; } #plaanSvg .alusk.kylg { fill: #a9834c; } #plaanSvg .alusk.ylem { fill: #e3c48f; }
-#plaanSvg .alus.tyhi .alusk { fill: none; stroke-dasharray: 4 3; }
+#plaanSvg .alus.tyhi .alusk, #plaanSvg .alus.plaan .alusk { fill: none; stroke: #8a6a3a; stroke-dasharray: 4 3; }
+#plaanSvg .alus.plaan .alusk.ylem { fill: #e3c48f; fill-opacity: .25; }
+#plaanSvg .alus.vana .alusk { fill-opacity: .45; }
+#plaanSvg .alus.null .alusk, #plaanSvg polygon.alus.null { fill: none; stroke: #e5484d; stroke-width: 1.5; }
+#plaanSvg polygon.alus:not(.null):not(.valik) { fill: #c9a066; stroke: #7a5a2c; }
+#plaanSvg polygon.alus.vana { fill-opacity: .45; }
+#plaanSvg .reamark { cursor: pointer; }
+#plaanSvg .reamark rect { fill: var(--paneel); stroke: var(--hall); stroke-width: 1; vector-effect: non-scaling-stroke; }
+#plaanSvg .reamark text { font-size: 580px; font-weight: 700; fill: var(--tekst); pointer-events: none; }
+#plaanSvg .reamark:hover rect, #plaanSvg .reamark.akt rect { fill: var(--roh-hele); stroke: var(--roheline); stroke-width: 2; }
+#plaanSvg.pole-silte text, #plaanSvg.pole-silte .reamark { display: none; }
 #plaanSvg .alus.valik .alusk, #plaanSvg .alus.valik { fill: #e5484d; stroke: #8d1d21; stroke-width: 2; }
 #plaanSvg .v25valgus { animation: v25vilgu 1s ease-in-out 4; }
 @keyframes v25vilgu { 50% { opacity: .25; } }
 #plaanSvg .pyst:hover .raam, #plaanSvg .pyst.akt .raam { fill: var(--roh-hele); fill-opacity: .8; stroke: var(--roheline); stroke-width: 2; }
 #plaanSvg .reasilt { cursor: pointer; }
-#plaanSvg .reasilt text, #plaanSvg .v25silt { pointer-events: auto; font-size: 900px; font-weight: 700; fill: var(--tekst); }
+#plaanSvg .reasilt text, #plaanSvg .v25silt { pointer-events: auto; font-size: 650px; font-weight: 700; fill: var(--tekst); }
 #plaanSvg .reasilt.akt text { fill: var(--roheline); }
 #plaanSvg .v25nr { font-size: 420px; font-weight: 600; fill: var(--hall); }
 #plaanSvg .v25markus { font-size: 600px; fill: var(--hall); font-weight: 400; }
@@ -631,7 +643,8 @@ async function saada() {
       });
       VALJAS.splice(0, pakk.length);
       kirjuta(V.valjas, VALJAS); salvestaAndmed();
-      if (vigu) { ehitaSeosed(); renderKoik(); }
+      if (pakk.some(op => op.paring.tegevus === 'salvestaAsukohad')) ehitaKoik();   // MOODUD-KOHAD: uued read laoplaanile
+      else if (vigu) { ehitaSeosed(); renderKoik(); }
       VIGA = '';
     }
   } catch (e) {
@@ -652,6 +665,9 @@ function rakenda(A, p) {
       if (i >= 0) P[i] = Object.assign({}, P[i], uus); else P.push(uus);
     });
     A.paigutus = P;
+  } else if (p.tegevus === 'salvestaAsukohad') {   // MOODUD-KOHAD: lisa puuduvad (olemasolevaid ei muudeta)
+    const olemas = new Set((A.asukohad || []).map(a => normKoht(a.Asukoht)));
+    A.asukohad = (A.asukohad || []).concat((p.read || []).filter(o => !olemas.has(normKoht(o.Asukoht))).map(o => Object.assign({ 'Ala': '' }, o, { Asukoht: normKoht(o.Asukoht) })));
   } else if (p.tegevus === 'salvestaSeade') {
     A.seaded = Object.assign({}, A.seaded);
     A.seaded[p.seade] = typeof p.vaartus === 'string' ? p.vaartus : JSON.stringify(p.vaartus);
@@ -1036,8 +1052,12 @@ function renderTooala() {
 /* ---------- põrandaplaan (ülalt; mõõdud täpsustuvad) ---------- */
 function renderPlaan() {
   const G = laoMoodud(), on25 = !!(G && G.read && G.W);   // VAADE25D: mõõtude olemasolul täpne plaan
-  $('plaanNupud').innerHTML = v25Nupud(on25 ? G : null);
+  // PLAAN26: plaani saab kokku panna (alles jääb ainult rea vaade)
+  const peidus = UI.plaanPeidus === true;
+  $('plaanNupud').innerHTML = `<div class="v25nupud"><button class="nupp" data-v25="peida" aria-expanded="${!peidus}" title="${peidus ? 'Näita laoplaani' : 'Peida laoplaan, alles jääb rea vaade'}">${peidus ? '▸ Näita plaani' : '▾ Peida plaan'}</button></div>` + (peidus ? '' : v25Nupud(on25 ? G : null));
   $('plaanKast').classList.toggle('m25', on25);
+  $('plaanSvg').style.display = peidus ? 'none' : '';
+  if (peidus) return;
   if (on25) { renderPlaan25(G); return; }
   const W = 1000, H = 300;
   const maxP = Math.max(10, ...[...READ.values()].map(x => x.p));
@@ -2067,7 +2087,7 @@ function moodudTabelist(lehed) {
   const vead = [], arv = v => (v === '' || v == null || isNaN(+v)) ? null : Math.round(+v);
   const T = lehed.Talad, P = lehed.Plaan;
   if (!T || !P) return { vead: ['Failis peavad olema lehed „Talad“ ja „Plaan“'] };
-  const tal = {}, read = {}, kor = {}, alk = {};   // VAADE25D: kor = talade kõrgused, alk = alusekohti talal (püstaku kaupa)
+  const tal = {}, read = {}, kor = {}, alk = {}, kohad = [];   // VAADE25D: kor = talade kõrgused, alk = alusekohti talal (püstaku kaupa)
   T.slice(1).forEach(r => {
     const rida = arv(r[0]), pk = arv(r[1]);
     if (rida == null || pk == null || /näide/i.test(String(r[13] || ''))) return;
@@ -2077,6 +2097,12 @@ function moodudTabelist(lehed) {
     const n = arv(r[4]) || 0;
     (kor[rida] = kor[rida] || [])[pk - 1] = r.slice(5, 12).map(arv).slice(0, n || 7).filter(x => x != null);
     (alk[rida] = alk[rida] || [])[pk - 1] = arv(r[3]) || 1;
+    // MOODUD-KOHAD: iga tala × alusekoht = asukoht; "Ajutised talad" (nt "4,5") -> ajutine; Märkus "Tala N ei kasuta" -> sellele talale kohti ei tule
+    const aj = String(r[12] == null ? '' : r[12]).match(/\d+/g) || [], ei = /tala\s*(\d+)[^,;]*ei\s+kasuta/i.exec(String(r[13] || ''));
+    for (let t = 1; t <= n; t++) {
+      if (ei && +ei[1] === t) continue;
+      for (let a = 1; a <= (arv(r[3]) || 1); a++) kohad.push({ Asukoht: `${rida}-${pk}-${t}-${a}`, 'Tüüp': 'alus', Ajutine: aj.includes(String(t)) ? 'jah' : 'ei', 'Märkus': 'Lao mõõdud' });
+    }
   });
   const obj = {};
   const plaan = {};   // VAADE25D: kõik plaani objektid joonistamiseks: nimi -> [x, y, pikkus X, sügavus Y, kõrgus]
@@ -2094,11 +2120,11 @@ function moodudTabelist(lehed) {
   const vp = vpK && obj[vpK].every(x => x != null) ? obj[vpK] : null;
   const G = { v: 1, W: ladu[2], H: ladu[3], post: 90, uks: [uks[0], uks[2]], vp, read, plaan };
   const pyst = Object.values(read).reduce((a, r) => a + r[3].length, 0);
-  return { G, vead: [], kokkuvote: `${Object.keys(read).length} rida, ${pyst} püstakut · ladu ${(G.W / 1000).toFixed(1)} × ${(G.H / 1000).toFixed(1)} m · uks 2 X ${(uks[0] / 1000).toFixed(1)} m${vp ? '' : ' · väikepakendi riiulit plaanis pole'}` };
+  return { G, kohad, vead: [], kokkuvote: `${Object.keys(read).length} rida, ${pyst} püstakut · ladu ${(G.W / 1000).toFixed(1)} × ${(G.H / 1000).toFixed(1)} m · uks 2 X ${(uks[0] / 1000).toFixed(1)} m${vp ? '' : ' · väikepakendi riiulit plaanis pole'}` };
 }
 // arvutis: Exceli laadimine (SheetJS) ja salvestamine Seadetesse
 const XLSXJS = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
-let MOOD_UUS = null;
+let MOOD_UUS = null, MOOD_KOHAD = [];
 function laeXlsx() {
   if (window.XLSX) return Promise.resolve(window.XLSX);
   return new Promise((ok, viga) => {
@@ -2119,7 +2145,16 @@ async function moodLae(fail) {
     const t = moodudTabelist({ Talad: leht('Talad'), Plaan: leht('Plaan') });
     if (t.vead.length) { $('moodSisu').innerHTML = `<p class="hoiatus">${t.vead.map(esc).join('<br>')}</p>`; return; }
     MOOD_UUS = t.G;
-    $('moodSisu').innerHTML = `<p>${esc(t.kokkuvote)}</p><button class="nupp pea" id="moodSalvesta">Salvesta (telefonid saavad uue järjekorra)</button>`;
+    // MOODUD-KOHAD: puuduvad asukohad luuakse; olemasolevaid ei muudeta ega kustutata
+    const exc = new Set(t.kohad.map(k => k.Asukoht));
+    MOOD_KOHAD = t.kohad.filter(k => !KOHAD.has(k.Asukoht));
+    const reaKaupa = l => { const m = {}; l.forEach(k => { const r = k.split('-')[0]; m[r] = (m[r] || 0) + 1; }); return Object.keys(m).sort((a, b) => a - b).map(r => `rida ${r}: ${m[r]}`).join(', '); };
+    const lisa = MOOD_KOHAD.map(k => k.Asukoht);
+    const yle = [...KOHAD.keys()].filter(k => { const m = /^(\d+)-\d+-\d+-\d+$/.exec(k); return m && t.G.read[m[1]] && !exc.has(k); }).sort(CN.compare);
+    $('moodSisu').innerHTML = `<p>${esc(t.kokkuvote)}</p>
+      <p>${lisa.length ? `<b>Uusi asukohti ${lisa.length}</b> (${esc(reaKaupa(lisa))})` : 'Kõik asukohad on juba olemas.'}</p>
+      ${yle.length ? `<p class="hoiatus">Neid ${yle.length} asukohta Excelis pole – jäävad alles, vaata üle ja kustuta vajadusel käsitsi: ${esc(yle.slice(0, 60).join(', '))}${yle.length > 60 ? ' …' : ''}</p>` : ''}
+      <button class="nupp pea" id="moodSalvesta">Salvesta${lisa.length ? ` + loo ${lisa.length} asukohta` : ''}</button>`;
   } catch (e) { $('moodSisu').innerHTML = `<p class="hoiatus">${esc(e.message)}</p>`; }
 }
 function renderMood() {
@@ -2142,7 +2177,7 @@ function v25Pyst(G, r, i) {   // talade kõrgused ja alusekohad; vanades mõõtu
 function v25Kastid(G) {
   const O = [], post = G.post || 90, poolKohad = new Map();
   SEOSED.forEach(s => { const o = suurOsad(s.koht); if (o) poolKohad.set(o.r + '-' + o.p + '-' + o.t + '-' + o.a, (poolKohad.get(o.r + '-' + o.p + '-' + o.t + '-' + o.a) || 0) + 1); });
-  const valitud = VALITUD && VALITUD.koht;
+  const valitud = VALITUD && VALITUD.koht, teg = UI.v25t === 'tegelik' ? (V25.teg || new Map()) : null;   // PLAAN26: Tegelik = inventuuri viimane lugemine
   Object.keys(G.read).forEach(r => {
     const [x, y, s, w] = G.read[r];
     let cx = x + post;
@@ -2151,10 +2186,10 @@ function v25Kastid(G) {
       P.h.forEach((zt, j) => {
         const korgus = Math.min(1100, (P.h[j + 1] != null ? P.h[j + 1] : zt + 1300) - zt - 150), n = P.alk[j];
         for (let a = 1; a <= n; a++) {
-          const koht = `${r}-${i + 1}-${j + 1}-${a}`, tais = poolKohad.get(koht) || 0;
-          if (!tais && koht !== valitud) continue;
+          const koht = `${r}-${i + 1}-${j + 1}-${a}`, t = teg && teg.get(koht), tais = teg ? (t && t.kogus > 0 ? 1 : 0) : poolKohad.get(koht) || 0;
+          if (!(teg ? t : tais) && koht !== valitud) continue;
           const al = wi / n;
-          sek.alused.push({ koht, x: cx + (a - 1) * al + 40, y: y + 50, l: al - 80, s: s - 100, z: zt + (j ? 60 : 0), h: korgus, tais, valik: koht === valitud });
+          sek.alused.push({ koht, x: cx + (a - 1) * al + 40, y: y + 50, l: al - 80, s: s - 100, z: zt + (j ? 60 : 0), h: korgus, tais, t, plaan: !teg, valik: koht === valitud });
         }
       });
       O.push(sek); cx += wi + post;
@@ -2203,14 +2238,15 @@ function renderPlaan25(G) {
     rs.u0 = Math.min(rs.u0, b.u0); rs.v0 = Math.min(rs.v0, b.v0); rs.u1 = Math.max(rs.u1, b.u1); rs.v1 = Math.max(rs.v1, b.v1);
     let g = `<g class="riul pyst${akt ? ' akt' : ''}" data-rida="${o.rida}" data-rp="${o.p}"><title>Rida ${o.rida} · püstak ${o.p}</title>`;
     if (yl) {
-      const kohti = o.P.alk.reduce((a, n) => a + n, 0), tais = new Set(o.alused.filter(a => a.tais).map(a => a.koht)).size;
-      g += tahud(b, 'raam') + `<polygon class="taitus" style="opacity:${(tais / kohti * 0.85).toFixed(2)}" points="${pts([[b.u0, b.v0, 0], [b.u1, b.v0, 0], [b.u1, b.v1, 0], [b.u0, b.v1, 0]])}"/>`;
+      const kohti = o.P.alk.reduce((a, n) => a + n, 0), tais = UI.v25t === 'tegelik' ? 0 : new Set(o.alused.filter(a => a.tais).map(a => a.koht)).size;
+      g += tahud(b, 'raam') + `<polygon class="taitus" style="opacity:${(tais / kohti * 0.6).toFixed(2)}" points="${pts([[b.u0, b.v0, 0], [b.u1, b.v0, 0], [b.u1, b.v1, 0], [b.u0, b.v1, 0]])}"/>`;
+      if (UI.v25t === 'tegelik') o.alused.filter(a => a.t && !a.valik).forEach(a => { const ab = kast(a); g += `<polygon class="${v25AlusKlass(a)} alusk" points="${pts([[ab.u0, ab.v0, 0], [ab.u1, ab.v0, 0], [ab.u1, ab.v1, 0], [ab.u0, ab.v1, 0]])}"><title>${esc(v25AlusInfo(a))}</title></polygon>`; });
       o.alused.filter(a => a.valik).forEach(a => { const ab = kast(a); g += `<polygon class="alus valik v25valgus" data-koht25="${esc(a.koht)}" points="${pts([[ab.u0, ab.v0, 0], [ab.u1, ab.v0, 0], [ab.u1, ab.v1, 0], [ab.u0, ab.v1, 0]])}"/>`; });
       g += tekst((b.u0 + b.u1) / 2, (b.v0 + b.v1) / 2 - 220, 0, o.p, 'v25nr');
     } else {
       g += `<polygon class="raam taga" points="${pts([[b.u0, b.v1, 0], [b.u1, b.v1, 0], [b.u1, b.v1, b.z1], [b.u0, b.v1, b.z1]])}"/>`;
       o.alused.map(a => Object.assign(a, { b: kast(a) })).sort((p, q) => (p.b.z0 - q.b.z0) || (q.b.v0 - p.b.v0) || (p.b.u0 - q.b.u0))
-        .forEach(a => { g += `<g class="alus${a.valik ? ' valik v25valgus' : ''}${a.tais ? '' : ' tyhi'}" data-koht25="${esc(a.koht)}"><title>${esc(a.koht)}</title>${tahud(a.b, 'alusk')}</g>`; });
+        .forEach(a => { g += `<g class="${v25AlusKlass(a)}" data-koht25="${esc(a.koht)}"><title>${esc(v25AlusInfo(a))}</title>${tahud(a.b, 'alusk')}</g>`; });
       o.P.h.forEach(zt => { if (zt > 0) g += `<polyline class="tala" points="${pts([[b.u0, b.v0, zt], [b.u1, b.v0, zt], [b.u1, b.v1, zt]])}"/>`; });
       [[b.u0, b.v0], [b.u1, b.v0], [b.u1, b.v1]].forEach(([u, v]) => { g += `<polyline class="post" points="${pts([[u, v, 0], [u, v, b.z1]])}"/>`; });
       g += `<polygon class="raam ylem" points="${pts([[b.u0, b.v0, b.z1], [b.u1, b.v0, b.z1], [b.u1, b.v1, b.z1], [b.u0, b.v1, b.z1]])}"/>`;
@@ -2218,36 +2254,82 @@ function renderPlaan25(G) {
     }
     s += g + '</g>';
   });
-  // rea sildid rea algusesse (ekraanil vasakule/alla), klõps avab kogu rea
-  // kui rea alguses on juba teise rea silt lähedal (seljad koos), läheb silt rea teise otsa
-  const pandud = [];
-  Object.keys(reaSilt).sort((p, q) => reaSilt[p].v0 - reaSilt[q].v0 || reaSilt[p].u0 - reaSilt[q].u0).forEach(r => {
-    const b = reaSilt[r], pysti = b.v1 - b.v0 > b.u1 - b.u0, vm = (b.v0 + b.v1) / 2 - (yl ? 250 : 0), um = (b.u0 + b.u1) / 2;
-    const valikud = pysti ? [[um, b.v0 - 900, 'middle'], [um, b.v1 + 500, 'middle']] : [[b.u0 - 350, vm, 'end'], [b.u1 + 350, vm, 'start']];
-    const koht = valikud.find(([u, v]) => { const [x, y] = pr(u, v, 0); return !pandud.some(([x2, y2]) => Math.abs(x - x2) < 3000 && Math.abs(y - y2) < 1000); }) || valikud[0];
-    pandud.push(pr(koht[0], koht[1], 0));
-    s += `<g class="riul reasilt${UI.rida === +r && !UI.rp ? ' akt' : ''}" data-rida="${r}">` + tekst(koht[0], koht[1], 0, 'Rida ' + r, 'v25silt', koht[2]) + '</g>';
+  // PLAAN26: rea sildid = väike numbrimärk rea alguses põrandal (pikk tekst ei jookse riiulitele), nupp Sildid peidab kõik tekstid
+  Object.keys(reaSilt).forEach(r => {
+    const b = reaSilt[r], pysti = b.v1 - b.v0 > b.u1 - b.u0;
+    // seljad koos (teine rida kohe ees): märk nihkub kõrvale, et paari märgid ei kattuks
+    const paar = Object.keys(reaSilt).some(q => q !== r && reaSilt[q].v1 <= b.v0 + 1 && reaSilt[q].v1 > b.v0 - 600 && reaSilt[q].u0 < b.u1 && reaSilt[q].u1 > b.u0);
+    const paarU = Object.keys(reaSilt).some(q => q !== r && reaSilt[q].u1 <= b.u0 + 1 && reaSilt[q].u1 > b.u0 - 600 && reaSilt[q].v0 < b.v1 && reaSilt[q].v1 > b.v0);
+    const nihe = (pysti ? paarU : paar) ? 1150 : 0, w = r.length > 1 ? 1100 : 800;
+    const [x, y] = pysti ? pr((b.u0 + b.u1) / 2, b.v0 - 750 - nihe, 0) : pr(b.u0 - 750 - nihe, (b.v0 + b.v1) / 2, 0);
+    s += `<g class="riul reamark${UI.rida === +r && !UI.rp ? ' akt' : ''}" data-rida="${r}"><title>Rida ${r}</title>
+      <rect x="${Math.round(x - w / 2)}" y="${Math.round(y - 400)}" width="${w}" height="800" rx="240"/><text x="${Math.round(x)}" y="${Math.round(y + 200)}" text-anchor="middle">${r}</text></g>`;
   });
   // vaateala: kogu ladu + varu
   const nurgad = [[0, 0, 0], [pRot[0], 0, 0], [pRot[0], pRot[1], 0], [0, pRot[1], 0], [0, pRot[1], yl ? 0 : 5000], [pRot[0], pRot[1], yl ? 0 : 5000]].map(p => pr(...p));
   const xs = nurgad.map(p => p[0]), ys = nurgad.map(p => p[1]), m = 2600;
   V25.bb = [Math.min(...xs) - m, Math.min(...ys) - m, Math.max(...xs) - Math.min(...xs) + 2 * m, Math.max(...ys) - Math.min(...ys) + 2 * m];
   SVG.innerHTML = s;
+  SVG.classList.toggle('pole-silte', UI.v25sildid === false);
   v25ViewBox();
 }
 function v25ViewBox() {
   const [x, y, w, h] = V25.bb, k = V25.k, cx = V25.cx == null ? x + w / 2 : V25.cx, cy = V25.cy == null ? y + h / 2 : V25.cy;
   $('plaanSvg').setAttribute('viewBox', `${Math.round(cx - w / k / 2)} ${Math.round(cy - h / k / 2)} ${Math.round(w / k)} ${Math.round(h / k)}`);
 }
+// PLAAN26: Tegelik = iga koht+kood viimane inventuuri lugemine (kõik seansid); koha kogus = nende summa
+function v25AlusKlass(a) {
+  if (a.valik) return 'alus valik v25valgus';
+  if (a.plaan) return 'alus plaan';
+  const vana = a.t && Date.now() - a.t.aeg > 30 * 864e5;
+  return 'alus' + (a.t && a.t.kogus > 0 ? (vana ? ' vana' : '') : ' null');
+}
+function v25AlusInfo(a) {
+  if (!a.t) return a.koht + (a.plaan ? ' · määratud: ' + SEOSED.filter(s => s.koht === a.koht).map(s => s.kood).join(', ') : '');
+  return `${a.koht} · loetud ${new Date(a.t.aeg).toLocaleDateString('et-EE')}: ` + a.t.read.map(r => r.kood + ' ' + String(r.kogus).replace('.', ',')).join(', ');
+}
+function v25Legend() {
+  if (UI.v25t !== 'tegelik') return 'katkendjoon = määratud koht (plaan), mitte päris alus';
+  if (V25.tegLaeb) return 'laen inventuuri lugemisi…';
+  if (!V25.teg) return 'inventuuri lugemisi pole laaditud';
+  const n = [...V25.teg.values()], viim = Math.max(0, ...n.map(t => t.aeg));
+  return `${n.filter(t => t.kogus > 0).length} kohas alus · ${n.filter(t => !(t.kogus > 0)).length} tühjaks loetud (punane)` + (viim ? ` · viimane ${new Date(viim).toLocaleDateString('et-EE')}` : '') + ' · hele = üle 30 p vana';
+}
+async function v25LaeTegelik() {
+  V25.tegLaeb = true; if ($('v25Legend')) $('v25Legend').textContent = v25Legend();
+  try {
+    const j = await api({ tegevus: 'inventuurLoe' });
+    if (!j.ok) throw new Error(j.viga || 'viga');
+    const viim = new Map();   // koht|kood -> viimane rida
+    (j.read || []).forEach(r => {
+      const koht = normKoht(r.Asukoht), kood = normKood(r.Kood), aeg = Date.parse(r.Aeg) || 0;
+      if (!koht || !kood) return;
+      const v = viim.get(koht + '|' + kood);
+      if (!v || aeg >= v.aeg) viim.set(koht + '|' + kood, { koht, kood, aeg, kogus: nr(r.Kogus) });
+    });
+    const teg = new Map();
+    viim.forEach(r => { const t = teg.get(r.koht) || { kogus: 0, aeg: 0, read: [] }; t.kogus += r.kogus > 0 ? r.kogus : 0; t.aeg = Math.max(t.aeg, r.aeg); t.read.push(r); teg.set(r.koht, t); });
+    V25.teg = teg;
+  } catch (e) { alert('Inventuuri lugemisi ei saanud laadida: ' + e.message); }
+  V25.tegLaeb = false;
+  if (UI.vaade === 'plaan') renderPlaan();
+}
 function v25Nupud(G) {
   return G ? `<div class="v25nupud">
     <div class="nupurida"><button class="nupp" data-v25="25d" aria-pressed="${UI.p25 !== 'ylalt'}">2.5D</button><button class="nupp" data-v25="ylalt" aria-pressed="${UI.p25 === 'ylalt'}">Ülalt</button></div>
     <button class="nupp" data-v25="vasak" title="Pööra vasakule">⟲</button><button class="nupp" data-v25="parem" title="Pööra paremale">⟳</button>
     <button class="nupp" data-v25="algne" title="Kogu ladu">⤢</button>
-    <span class="hall vaike">rull = suurenda · lohista = liiguta · klõps riiulil = ava püstak, rea nimel = kogu rida</span></div>`
+    <div class="nupurida"><button class="nupp" data-v25="plaan" aria-pressed="${UI.v25t !== 'tegelik'}" title="Kuhu tooted on määratud (Paigutus)">Plaan</button><button class="nupp" data-v25="tegelik" aria-pressed="${UI.v25t === 'tegelik'}" title="Mis on inventuuris päriselt loetud">Tegelik</button></div>
+    ${UI.v25t === 'tegelik' ? '<button class="nupp" data-v25="laetegelik" title="Lae inventuuri lugemised uuesti">↻</button>' : ''}
+    <button class="nupp" data-v25="sildid" aria-pressed="${UI.v25sildid !== false}" title="Näita või peida plaanil tekstid">Sildid</button>
+    <span class="hall vaike" id="v25Legend">${v25Legend()}</span></div>`
     : `<div class="v25nupud"><span class="hall vaike">Täpne 2.5D plaan tuleb, kui Komplekteerimine → „Lao mõõdud“ on laaditud.</span></div>`;
 }
 function v25Tegevus(t) {
+  if (t === 'plaan' || t === 'tegelik') { UI.v25t = t; salvestaUI(); renderPlaan(); if (t === 'tegelik' && !V25.teg) v25LaeTegelik(); return; }
+  if (t === 'laetegelik') { v25LaeTegelik(); return; }
+  if (t === 'peida') { UI.plaanPeidus = !(UI.plaanPeidus === true); salvestaUI(); renderPlaan(); return; }
+  if (t === 'sildid') { UI.v25sildid = UI.v25sildid === false; salvestaUI(); renderPlaan(); return; }
   if (t === '25d' || t === 'ylalt') UI.p25 = t;
   if (t === 'vasak') UI.poore = ((UI.poore || 0) + 3) & 3;
   if (t === 'parem') UI.poore = ((UI.poore || 0) + 1) & 3;
@@ -2794,8 +2876,11 @@ $('buumFail').addEventListener('change', e => { buumLae(e.target.files[0]); e.ta
 $('moodFail').addEventListener('change', e => { moodLae(e.target.files[0]); e.target.value = ''; });
 $('moodSisu').addEventListener('click', e => {
   if (e.target.id !== 'moodSalvesta' || !MOOD_UUS) return;
-  muuda({ tegevus: 'salvestaSeade', seade: 'Lao mõõdud', vaartus: JSON.stringify(MOOD_UUS) });
-  MOOD_UUS = null; $('moodSisu').innerHTML = '<p class="hall">Salvestatud. Telefonid saavad uue järjekorra järgmisel andmete uuendamisel.</p>';
+  const p = [{ tegevus: 'salvestaSeade', seade: 'Lao mõõdud', vaartus: JSON.stringify(MOOD_UUS) }];
+  if (MOOD_KOHAD.length) p.push({ tegevus: 'salvestaAsukohad', read: MOOD_KOHAD });   // MOODUD-KOHAD
+  muuda(...p);
+  $('moodSisu').innerHTML = `<p class="hall">Salvestatud${MOOD_KOHAD.length ? `, ${MOOD_KOHAD.length} uut asukohta` : ''}. Telefonid saavad muudatused järgmisel andmete uuendamisel.</p>`;
+  MOOD_UUS = null; MOOD_KOHAD = [];
   if (BUUM) renderBuum();
   renderMood();
 });
