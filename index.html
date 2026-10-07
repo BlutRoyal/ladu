@@ -89,6 +89,7 @@ label { display: block; font-size: 13px; color: var(--hall); margin: 12px 0 4px;
 #laadimine li.tehtud { color: var(--roheline); }
 #laadimine li.kaib { color: var(--tekst); font-weight: 600; }
 nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; background: var(--kaart); border-top: 1px solid var(--joon); padding-bottom: env(safe-area-inset-bottom); }
+#rolliRiba { position: sticky; top: 0; z-index: 50; background: #fde68a; color: #222; padding: 6px 12px; display: flex; gap: 8px; align-items: center; justify-content: space-between; font-weight: 600; }
 /* PLAAN26 */
 .pl-kast { position: relative; background: var(--kaart, #fff); border-radius: 12px; overflow: hidden; }
 #plSvg { width: 100%; height: 62vh; display: block; touch-action: none; user-select: none; }
@@ -155,6 +156,7 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
 </head>
 <body>
 
+<div id="rolliRiba" style="display:none"></div>
 <header>
   <div class="olek">
     <span class="tapp" id="olekTapp"></span>
@@ -284,6 +286,7 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
   <section class="vaade" id="v-seaded">
     <div class="kaart">
       <div><b>Kasutaja:</b> <span id="aKes"></span></div>
+      <div id="aVaataKui" style="display:none;margin:8px 0"></div>
       <div class="hall" id="aAndmed"></div>
       <div class="hall" id="aOotel"></div>
       <div class="hall" id="aKaamera"></div>
@@ -380,14 +383,23 @@ function seadmeId() {
   return id;
 }
 // Roll: admin / ladu (ajutised kohad, inventuur) / pood (ainult vaatamine)
-const voibMuuta = () => !(SEADED && SEADED.roll === 'pood');
+// ROLLIVAADE: admin saab telefonis vaadata nagu teine roll (ainult ekraan; server kontrollib ikka päris rolli)
+const vaateRoll = () => SEADED && SEADED.roll === 'admin' && SEADED.vaataKui ? SEADED.vaataKui : SEADED && SEADED.roll;
+const voibMuuta = () => vaateRoll() !== 'pood';
+function vaataKui(r) {
+  if (!SEADED || SEADED.roll !== 'admin') return;
+  SEADED.vaataKui = r && r !== 'admin' ? r : ''; kirjuta(V.seaded, SEADED);
+  rakendaRoll(); renderAktiivne();
+}
 function uuendaRoll(r) {
   if (!r || !SEADED || SEADED.roll === r) return;
-  SEADED.roll = r; kirjuta(V.seaded, SEADED);
+  SEADED.roll = r; if (r !== 'admin') SEADED.vaataKui = ''; kirjuta(V.seaded, SEADED);
   rakendaRoll();
   if (typeof renderAktiivne === 'function') renderAktiivne();
 }
 function rakendaRoll() {
+  const riba = $('rolliRiba'), vk = SEADED && SEADED.roll === 'admin' && SEADED.vaataKui;
+  if (riba) { riba.style.display = vk ? '' : 'none'; riba.innerHTML = vk ? `Vaatad nagu roll „${esc(vk)}“ <button class="nupp vaike" data-vaatakui="admin">Tagasi adminiks</button>` : ''; }
   const inv = document.querySelector('nav button[data-vaade="inventuur"]');
   if (inv) inv.style.display = voibMuuta() ? '' : 'none';
   const kog = document.querySelector('nav button[data-vaade="kogumine"]');
@@ -1411,6 +1423,10 @@ function renderSeaded() {
   $('aSeadista').style.display = SEADED && SEADED.sisselogitud ? 'none' : '';
   $('aLogiValja').style.display = SEADED && SEADED.sisselogitud ? '' : 'none';
   if (SEADED && SEADED.sisselogitud) $('aKes').textContent = SEADED.kes + ' (kasutajanimi ' + SEADED.kasutaja + (SEADED.roll ? ', ' + (rolliNimi[SEADED.roll] || SEADED.roll) : '') + ')';
+  const ad = SEADED && SEADED.roll === 'admin';   // ROLLIVAADE
+  $('aVaataKui').style.display = ad ? '' : 'none';
+  if (ad) $('aVaataKui').innerHTML = '<b>Vaata nagu:</b> <div class="nupud" style="margin-top:4px">' + [['admin', 'Admin'], ['ladu', 'Ladu'], ['pood', 'Pood']]
+    .map(([r, n]) => `<button class="nupp vaike${vaateRoll() === r ? ' pea' : ''}" data-vaatakui="${r}">${n}</button>`).join('') + '</div><div class="hall vaike">Muudab ainult seda, mida see telefon näitab.</div>';
   $('aAndmed').textContent = (IX ? `${IX.tooted.size} toodet, ${IX.kohad.size} asukohta telefonis` : 'Andmed puuduvad') +
     (EPOOD_MAP.size ? ` · e-poe QR: ${EPOOD_MAP.size} toodet` : '') +
     (VIIMANE_AEG ? ` · viimane laadimine ${VIIMANE_AEG}` : '') + (VIIMANE_VIGA ? ` · viimane viga: ${VIIMANE_VIGA}` : '');
@@ -2677,6 +2693,7 @@ document.addEventListener('click', e => {
   if (d.vaade) { if (d.vaade === 'otsing' && aktiivne === 'otsing') { otsingValitud = null; $('otsing').value = ''; } mine(d.vaade); return; }
   if ('tagasi' in d) { mine(eelmine); return; }
   if (d.koht) { avaKoht(d.koht); return; }
+  if (d.vaatakui) { vaataKui(d.vaatakui); return; }   // ROLLIVAADE
   if (d.plaanil !== undefined) { naitaPlaanil(d.plaanil.split(',')); return; }   // PLAAN26
   if (d.plzoom !== undefined) { plSuumi(+d.plzoom); return; }
   if (d.toode) {

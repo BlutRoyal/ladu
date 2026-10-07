@@ -373,6 +373,7 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
       <button class="nupp" id="inv_kokku" data-invvaade="kokku">Kokkuvõte</button>
       <button class="nupp" id="inv_read" data-invvaade="read">Kõik read</button>
       <button class="nupp" id="inv_kahtlased" data-invvaade="kahtlased">Kahtlased</button>
+      <button class="nupp" id="inv_vales" data-invvaade="vales" title="Loetud kohas, kuhu toode pole Paigutuses määratud">Vales kohas</button>
       <input id="invOts" type="search" placeholder="Filtreeri (kood, nimi, koht, kes)…" style="flex:1;min-width:160px">
       <button class="nupp" id="invUuenda">Uuenda</button>
       <button class="nupp" id="invCsv">CSV</button>
@@ -1606,7 +1607,9 @@ function renderInvRead() {
   const kahtl = invKahtlased();
   const q = $('invOts').value.trim().toLowerCase();
   const sobib = (kood, lisa) => !q || (kood + ' ' + ((T.get(kood) || {}).nimi || '') + ' ' + (lisa || '')).toLowerCase().includes(q);
-  ['kokku', 'read', 'kahtlased'].forEach(x => $('inv_' + x).setAttribute('aria-pressed', INV_VAADE === x));
+  ['kokku', 'read', 'kahtlased', 'vales'].forEach(x => $('inv_' + x).setAttribute('aria-pressed', INV_VAADE === x));
+  const vales = invVales();
+  $('inv_vales').textContent = `Vales kohas (${vales.length})`;
   $('inv_read').textContent = `Kõik read (${INV_READ.length})`;
   $('inv_kahtlased').textContent = `Kahtlased (${kahtl.size})`;
   const aeg = v => v ? new Date(v).toLocaleString('et-EE', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
@@ -1618,6 +1621,16 @@ function renderInvRead() {
   if (!INV_READ.length) { $('invSisu').innerHTML = '<p class="hall">Selles seansis pole veel loendusi.</p>'; return; }
   if (INV_VAADE === 'read') {
     $('invSisu').innerHTML = reaHtml(INV_READ.filter(r => sobib(r.kood, r.koht + ' ' + r.kes)).sort((a, b) => String(b.aeg).localeCompare(String(a.aeg))));
+  } else if (INV_VAADE === 'vales') {   // VALESKOHAS
+    const l = vales.filter(x => sobib(x.kood, x.koht + ' ' + x.kes));
+    $('invSisu').innerHTML = l.length ? `<p class="hall vaike">Toode loeti kohas, kuhu see pole Paigutuses määratud. <b>Teisalda plaan siia</b> = toote püsikoht muutub loetud kohaks.
+      <b>Lisa siia</b> = vana koht jääb ka alles. <b>Jäta</b> = plaan õige, toode viiakse tagasi (rida kaob nimekirjast).</p>
+      <table class="tabel"><tr><th>Loetud kohas</th><th>Kood</th><th>Nimetus</th><th>Kogus</th><th>Kes</th><th>Plaanis</th><th></th></tr>` +
+      l.map(x => `<tr><td><b>${esc(x.koht)}</b></td><td><b>${esc(x.kood)}</b></td><td>${esc((T.get(x.kood) || {}).nimi || '')}</td><td>${fmt(x.kogus)}</td><td>${esc(x.kes)}</td>
+        <td class="hall">${x.plaan.length ? x.plaan.map(k => esc(k.koht) + (k.liik && k.liik !== 'püsiv' ? ' (' + esc(k.liik) + ')' : '')).join(', ') : 'koht puudub'}</td>
+        <td style="white-space:nowrap">${x.pysi.length === 1 ? `<button class="nupp pea" data-vkteisalda="${esc(x.kood)}|${esc(x.koht)}">Teisalda plaan siia</button> ` : ''}<button class="nupp" data-vklisa="${esc(x.kood)}|${esc(x.koht)}">Lisa siia</button>
+          <button class="nupp" data-vkjata="${esc(x.kood)}|${esc(x.koht)}">Jäta</button></td></tr>`).join('') + '</table>'
+      : '<p class="hall">Kõik selle seansi asukohaga loendused on plaanijärgsetes kohtades.</p>';
   } else if (INV_VAADE === 'kahtlased') {
     const l = INV_READ.filter(r => kahtl.has(r.id) && sobib(r.kood, r.koht + ' ' + r.kes)).sort((a, b) => CN.compare(a.kood, b.kood) || CN.compare(a.koht, b.koht));
     $('invSisu').innerHTML = l.length ? '<p class="hall vaike">Kontrolli üle: kas sama kohta loeti kogemata kaks korda või sisestati sama arv topelt. Vale rea saad ✕-ga kustutada.</p>' + reaHtml(l)
@@ -1633,6 +1646,25 @@ function renderInvRead() {
           <td${vahe ? ` style="color:${vahe < 0 ? 'var(--punane,#b3261e)' : '#b26a00'};font-weight:600"` : ''}>${vahe == null ? '' : (vahe > 0 ? '+' : '') + fmt(vahe)}</td>
           <td>${x.n}${x.kahtl ? ' <span style="color:#b26a00">⚠</span>' : ''}</td><td class="hall">${[...x.kohad].sort(CN.compare).map(esc).join(', ')}</td></tr>`; }).join('') + '</table>';
   }
+}
+// VALESKOHAS: seansi loendused (kogus > 0, asukohaga), mille koht pole selle toote Paigutuses
+const VK_JAETUD = 'ladu_arvuti_vales_jaetud';
+function invVales() {
+  const jaetud = new Set(loe(VK_JAETUD, [])), viim = new Map();
+  INV_READ.forEach(r => { if (!r.koht || !r.kood) return; const k = r.kood + '|' + r.koht, v = viim.get(k); if (!v || String(r.aeg) >= String(v.aeg)) viim.set(k, r); });
+  return [...viim.values()].filter(r => r.kogus > 0 && !jaetud.has(INV_VALITUD + '|' + r.kood + '|' + r.koht) && !SEOSED.some(s => s.kood === r.kood && s.koht === r.koht))
+    .map(r => { const plaan = SEOSED.filter(s => s.kood === r.kood); return { kood: r.kood, koht: r.koht, kogus: r.kogus, kes: r.kes, plaan, pysi: plaan.filter(s => !s.liik || s.liik === 'püsiv') }; })
+    .sort((a, b) => CN.compare(a.koht, b.koht) || CN.compare(a.kood, b.kood));
+}
+function invVkTegevus(mis, vaartus) {
+  const [kood, koht] = vaartus.split('|'), x = invVales().find(v => v.kood === kood && v.koht === koht);
+  if (mis === 'jata') { const j = loe(VK_JAETUD, []); j.push(INV_VALITUD + '|' + kood + '|' + koht); kirjuta(VK_JAETUD, j.slice(-2000)); renderInvRead(); return; }
+  if (!x) return;
+  const kl = KOHAD.get(koht), lisa = [{ Kood: kood, Asukoht: koht, Liik: kl && kl.fluid ? 'ajutine' : 'püsiv', Pool: 'terve' }];
+  const eemalda = mis === 'teisalda' && x.pysi.length === 1 ? [{ Kood: kood, Asukoht: x.pysi[0].koht }] : [];
+  muuda({ tegevus: 'muudaPaigutust', eemalda, lisa });
+  teade(`${kood}: ${eemalda.length ? eemalda[0].Asukoht + ' → ' : 'lisatud '}${koht}`);
+  renderInvRead();
 }
 function invCsvArvuti(kohtadega) {
   if (!INV_READ.length) { teade('Loendusi pole', true); return; }
@@ -2846,6 +2878,9 @@ $('invAken').addEventListener('click', async e => {
   const d = b.dataset;
   if (d.invvali) { INV_VALITUD = d.invvali; renderInvSeansid(); laeInvRead(); }
   else if (d.invvaade) { INV_VAADE = d.invvaade; renderInvRead(); }
+  else if (d.vkteisalda) invVkTegevus('teisalda', d.vkteisalda);   // VALESKOHAS
+  else if (d.vklisa) invVkTegevus('lisa', d.vklisa);
+  else if (d.vkjata) invVkTegevus('jata', d.vkjata);
   else if (d.involek) {
     if (d.involek === 'lukus' && !confirm(`Lukustan seansi „${INV_VALITUD}“? Telefonid ei saa sinna enam loendusi lisada ega muuta.`)) return;
     await invTegevus({ tegevus: 'muudaInventuuriSeanssi', nimi: INV_VALITUD, olek: d.involek }, d.involek === 'lukus' ? 'Seanss lukustatud' : 'Seanss avatud');
