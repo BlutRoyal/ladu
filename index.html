@@ -78,6 +78,25 @@ label { display: block; font-size: 13px; color: var(--hall); margin: 12px 0 4px;
 #laadimine.lahti { display: flex; }
 #laadimine .ratas { width: 44px; height: 44px; border-radius: 50%; border: 4px solid var(--roh-joon); border-top-color: var(--roheline); animation: keera 0.9s linear infinite; }
 @keyframes keera { to { transform: rotate(360deg); } }
+/* PAIGALDUS: teavitus "Lisa avakuvale" (avalehel, nav-riba kohal) */
+#paigRiba { position: fixed; left: 10px; right: 10px; bottom: calc(68px + env(safe-area-inset-bottom)); z-index: 9; display: none; align-items: center; gap: 10px; padding: 10px 10px 10px 12px; border-radius: 14px; background: var(--roh-hele); border: 1px solid var(--roh-joon); box-shadow: 0 4px 16px rgba(0,0,0,.12); max-width: 620px; margin: 0 auto; }
+#paigRiba.lahti { display: flex; }
+#paigRiba img { width: 36px; height: 36px; border-radius: 9px; flex: none; }
+#paigRiba .tekst { flex: 1; min-width: 0; font-size: 14px; line-height: 1.3; }
+#paigRiba .tekst b { display: block; font-size: 15px; }
+#paigRiba .nupp { flex: none; }
+#paigRiba .sulge { flex: none; width: 34px; height: 34px; border: 0; background: none; font-size: 18px; color: var(--hall); cursor: pointer; border-radius: 8px; }
+body.paig-lahti { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
+#paigJuhis { position: fixed; inset: 0; z-index: 30; display: none; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.45); }
+#paigJuhis.lahti { display: flex; }
+#paigJuhis .leht { width: 100%; max-width: 520px; background: var(--kaart); color: var(--tekst); border-radius: 18px 18px 0 0; padding: 18px 18px calc(18px + env(safe-area-inset-bottom)); }
+#paigJuhis h3 { margin: 0 0 4px; font-size: 19px; }
+#paigJuhis ol { margin: 12px 0 0; padding: 0; list-style: none; counter-reset: s; }
+#paigJuhis li { counter-increment: s; display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--joon); }
+#paigJuhis li::before { content: counter(s); flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--roheline); color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+@media (prefers-color-scheme: dark) { #paigJuhis li::before { color: #10200f; } }
+#paigJuhis .ik { display: inline-flex; vertical-align: -5px; padding: 2px 5px; border: 1px solid var(--joon); border-radius: 6px; color: #0a84ff; }
+#paigJuhis .ik svg { width: 18px; height: 18px; }
 .laadriba { display: none; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; overflow: hidden; background: var(--roh-joon); }
 .laadriba.lahti { display: block; }
 .laadriba::before { content: ""; position: absolute; top: 0; bottom: 0; width: 35%; background: var(--roheline); animation: laadliugur 1.2s ease-in-out infinite; }
@@ -315,6 +334,22 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
 
 <div class="teade" id="teade"></div>
 
+<!-- PAIGALDUS: teavitus ja iPhone'i juhis -->
+<div id="paigRiba" role="region" aria-label="Paigalda äpp">
+  <img src="ikoon-192.png" alt="">
+  <div class="tekst"><b>Lisa Ladu avakuvale</b>Siis avaneb see nagu äpp.</div>
+  <button class="nupp vaike pea" id="paigNupp">Paigalda</button>
+  <button class="sulge" id="paigSulge" aria-label="Sulge" title="Mitte praegu">✕</button>
+</div>
+<div id="paigJuhis" role="dialog" aria-label="Kuidas lisada avakuvale">
+  <div class="leht">
+    <h3>Lisa Ladu avakuvale</h3>
+    <div class="hall" id="paigJuhisAlam">iPhone'is käib see brauseri menüü kaudu.</div>
+    <ol id="paigSammud"></ol>
+    <div class="nupud"><button class="nupp pea" id="paigJuhisSulge" style="flex:1">Selge</button></div>
+  </div>
+</div>
+
 <div id="skanner" role="dialog" aria-label="Skänner">
   <video id="skannVideo" playsinline muted autoplay></video>
   <div class="raam"></div>
@@ -444,6 +479,7 @@ function naitaLogiriba() {
   const lahti = !!(SEADED && SEADED.logiSisse);
   $('logiriba').classList.toggle('lahti', lahti);
   if (lahti) { $('logiribaTekst').textContent = 'Logi uuesti sisse. Otsing töötab telefoni andmetega.'; $('logiribaTekst').title = SEADED.logiSisse; }
+  if (typeof naitaPaigRiba === 'function') naitaPaigRiba();   // PAIGALDUS
 }
 function avaLogin() {
   $('lTagasi').style.display = SEADED && IX ? '' : 'none';
@@ -998,6 +1034,7 @@ function mine(v) {
   renderAktiivne();
   if (v === 'kogumine') { laeKog(true); laeTait(true); }   // VASTUVOTT: + täitmine
   if (v === 'inventuur') laeInvSeansid();
+  naitaPaigRiba();   // PAIGALDUS
   window.scrollTo(0, 0);
 }
 
@@ -2780,6 +2817,70 @@ setInterval(saadaValjas, 30000);
 /* ============================================================
    KÄIVITUS
    ============================================================ */
+
+/* ============================================================
+   PAIGALDUS: "Lisa avakuvale" teavitus
+   Android: brauseri enda paigaldusaken (beforeinstallprompt).
+   iPhone: nuppu pole lubatud, näitame juhist (Jaga -> Lisa avakuvale).
+   Avakuvalt avatud äpis ei näidata. Ristiga sulgemisel 14 päeva peidus.
+   ============================================================ */
+const PAIG_PEIDA = 'ladu_paig_peidus';
+const PAIG_PAEVI = 14;
+let paigSyndmus = null;   // Androidi paigaldusaken, kui brauser seda pakub
+const PAIG_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function paigAvakuval() {
+  return !!(window.navigator.standalone || (window.matchMedia && (matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches)));
+}
+function paigPeidus() {
+  try { const t = Number(localStorage.getItem(PAIG_PEIDA) || 0); return t && Date.now() - t < PAIG_PAEVI * 864e5; } catch (e) { return false; }
+}
+function naitaPaigRiba() {
+  const riba = $('paigRiba');
+  if (!riba) return;
+  const voib = !!SEADED && !SEADED.logiSisse && aktiivne === 'otsing' && !paigAvakuval() && !paigPeidus() && (PAIG_IOS || !!paigSyndmus);
+  riba.classList.toggle('lahti', voib);
+  document.body.classList.toggle('paig-lahti', voib);
+  if (voib) $('paigNupp').textContent = PAIG_IOS ? 'Kuidas?' : 'Paigalda';
+}
+const PAIG_JAGA = '<span class="ik"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M8 7l4-4 4 4"/><path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg></span>';
+const PAIG_LISA = '<span class="ik"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8M8 12h8"/></svg></span>';
+function avaPaigJuhis() {
+  const ua = navigator.userAgent;
+  const kus = /CriOS/.test(ua) ? `Vajuta aadressiriba paremas servas ${PAIG_JAGA} (Jaga).`
+    : /FxiOS|EdgiOS/.test(ua) ? `Ava brauseri menüü (☰ või ⋯) ja vali ${PAIG_JAGA} Jaga.`
+    : `Vajuta ekraani allservas ${PAIG_JAGA} (Jaga). Uuemas iPhone'is vajuta enne all paremal ⋯. Kui riba pole näha, keri lehte veidi üles.`;
+  $('paigSammud').innerHTML =
+    `<li><span>${kus}</span></li>` +
+    `<li><span>Keri nimekirjas alla ja vali ${PAIG_LISA} <b>Lisa avakuvale</b>.</span></li>` +
+    `<li><span>Vajuta paremal üleval <b>Lisa</b>.</span></li>` +
+    `<li><span>Ava Ladu avakuvalt ja logi sisse sama nime ja parooliga.</span></li>`;
+  $('paigJuhis').classList.add('lahti');
+}
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();   // Chrome'i oma väike riba ei tule, meie riba asemel
+  paigSyndmus = e;
+  naitaPaigRiba();
+});
+window.addEventListener('appinstalled', () => {
+  paigSyndmus = null;
+  try { localStorage.setItem(PAIG_PEIDA, String(Date.now() + 3650 * 864e5)); } catch (e) {}
+  naitaPaigRiba();
+  naita('Ladu on avakuval');
+});
+$('paigNupp').addEventListener('click', async () => {
+  if (PAIG_IOS) { avaPaigJuhis(); return; }
+  if (!paigSyndmus) { naitaPaigRiba(); return; }
+  const s = paigSyndmus; paigSyndmus = null;
+  try { s.prompt(); const v = await s.userChoice; if (v && v.outcome !== 'accepted') { try { localStorage.setItem(PAIG_PEIDA, String(Date.now())); } catch (e) {} } } catch (e) {}
+  naitaPaigRiba();
+});
+$('paigSulge').addEventListener('click', () => {
+  try { localStorage.setItem(PAIG_PEIDA, String(Date.now())); } catch (e) {}
+  naitaPaigRiba();
+});
+$('paigJuhisSulge').addEventListener('click', () => $('paigJuhis').classList.remove('lahti'));
+$('paigJuhis').addEventListener('click', e => { if (e.target === $('paigJuhis')) $('paigJuhis').classList.remove('lahti'); });
+
 (async function kaivita() {
   // palu püsivat salvestust, et Chrome ei kustutaks mälu vabastamiseks lehe andmeid
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) {}
