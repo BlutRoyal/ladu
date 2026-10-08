@@ -1971,7 +1971,7 @@ function renderKogMustand() {
   if (!tk.length) { $('kogEelvaade').innerHTML = '<p class="hall vaike">Vajuta <b>Arvuta</b>: poodi saadetavad PAKK ja KOTT tooted tulevad Lao Andmetest ja käibekiirusest. Või märgi Sheetsis read koos päisega (Kood … Saata poodi), Ctrl+C ja kleebi kasti. Kogust saad enne saatmist muuta.</p>'; return; }
   let puudu = 0, kohata = 0;
   const soo = tk.some(r => r.s);   // SOOVITUS: lisaveerud
-  $('kogEelvaade').innerHTML = (soo ? `<p class="vaike hall">${tk.length} toodet poodi · ${SOO_PERIOOD[KOG_SOOV.periood]} · varu ${fmt(KOG_SOOV.kuud)} k · poes alla ${fmt(KOG_SOOV.piir)} alati · Buumi seis ${ANDMED && ANDMED.laoAndmedUuendatud ? aeg(ANDMED.laoAndmedUuendatud) : '?'}. Kogust saad muuta, ✕ eemaldab rea.</p>` : '') +
+  $('kogEelvaade').innerHTML = (soo ? `<p class="vaike hall">${tk.length} toodet poodi · ${SOO_PERIOOD[KOG_SOOV.periood]} · varu ${fmt(KOG_SOOV.kuud)} k · poes alla ${fmt(KOG_SOOV.piir)} alati · Buumi seis ${ANDMED && ANDMED.laoAndmedUuendatud ? kogAeg(ANDMED.laoAndmedUuendatud) : '?'}. Kogust saad muuta, ✕ eemaldab rea.</p>` : '') +
     `<table class="tabel"><tr><th>Kood</th><th>Nimetus</th>${soo ? `<th>Poes</th><th>Kiirus kuus (${SOO_PERIOOD[KOG_SOOV.periood]})</th><th>Põhjus</th>` : ''}<th>Asukoht</th><th>Maardu</th><th style="width:90px">Saata</th><th></th></tr>` +
     tk.map((r, i) => {
       const t = T.get(r.kood), s = seosed(r.kood);
