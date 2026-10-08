@@ -422,7 +422,9 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
       <label class="vaike" title="Käibekiiruse periood (samad lehed, mida Sheetsi raportid kasutavad)">Käibekiirus <select id="sooPeriood"><option value="yld">Üldine</option><option value="suvi">Suvi (apr–sept)</option><option value="talv">Talv (okt–apr)</option></select></label>
       <label class="vaike" title="Mitme kuu müük peab poes olemas olema (käibekiiruse järgi)">Varu <input id="sooKuud" type="text" inputmode="decimal" value="1" style="width:44px"> kuud</label>
       <label class="vaike" title="Kui poes on vähem kui see, tuleb toode nimekirja ka siis, kui käibekiirust pole (uus toode, vähe müügiajalugu)">Poes alla <input id="sooPiir" type="text" inputmode="decimal" value="10" style="width:44px"> → alati</label>
+      <label class="vaike" title="Kui poe mahutavus (müügisaal + poe ladu) on Sheetsis kirjas: toode tuleb, kui poes on alla selle osa mahust, ja pood täidetakse mahuni">Mahuga: täida alla <input id="sooTaide" type="text" inputmode="decimal" value="50" style="width:40px"> %</label>
       <button class="nupp" id="sooArvuta">Arvuta</button>
+      <button class="nupp" id="sooMahuLeht" title="Loob Sheetsi lehe „Poe mahutavus“ või lisab sinna puuduvad KOTT tooted. Pood kirjutab Müügisaal ja Poe ladu.">Poe mahutavuse leht</button>
     </div>
     <textarea id="kogKleebi" rows="2" placeholder="…või kleebi siia Sheetsist (Ctrl+V)" style="width:100%;margin-top:8px;font:13px ui-monospace,monospace"></textarea>
     <div id="kogEelvaade"></div>
@@ -1891,7 +1893,9 @@ function kogParsi(tekst) {
 // Välja jäävad tooted, mille nimes on "@" (nagu Sheetsi raportis).
 const sooTyyp = t => t.uhik === 'PAKK' || /KP$/.test(t.kood) ? 'PAKK' : t.uhik === 'KOTT' || /PP$/.test(t.kood) ? 'KOTT' : '';
 // kiirus: Map kood -> kiirus kuus (Suvi/Talv leht); puudumisel toote enda (üldine) käibekiirus
-function kogSoovitus({ pakk = true, kott = true, kuud = 1, piir = 10, kiirus = null } = {}) {
+// mahutavus: Map kood -> [müügisaal, poe ladu] (Sheetsi leht "Poe mahutavus"). Kui toote mahutavus on kirjas, tuleb toode
+// ka siis, kui poes on alla taide (0–1) osa mahust, ja kogus = täita pood mahuni (mitte üle, ka siis kui käive tahaks rohkem).
+function kogSoovitus({ pakk = true, kott = true, kuud = 1, piir = 10, kiirus = null, mahutavus = null, taide = 0.5 } = {}) {
   const L = [];
   T.forEach(t => {
     const tyyp = sooTyyp(t);
@@ -1900,10 +1904,11 @@ function kogSoovitus({ pakk = true, kott = true, kuud = 1, piir = 10, kiirus = n
     if (!(maardu > 0)) return;
     const vajadus = Math.ceil(kuus * kuud);
     const kaive = vajadus > 0 && poes < vajadus, kaitse = poes < piir;
-    if (!kaive && !kaitse) return;
-    const vaja = Math.min(Math.max(kaive ? vajadus : 0, kaitse ? piir : 0) - poes, maardu);
+    const mm = mahutavus && mahutavus.get(t.kood), mahub = mm ? mm[0] + mm[1] : 0, mahuAlla = mahub > 0 && poes < mahub * taide;
+    if (!kaive && !kaitse && !mahuAlla) return;
+    const vaja = Math.min(mahub > 0 ? mahub - poes : Math.max(kaive ? vajadus : 0, kaitse ? piir : 0) - poes, maardu);
     if (!(vaja > 0)) return;
-    L.push({ kood: t.kood, vaja, s: { tyyp, k3, kuus, vajadus, kaitse: kaitse && !kaive, piir,
+    L.push({ kood: t.kood, vaja, s: { tyyp, k3, kuus, vajadus, kaitse: kaitse && !kaive, piir, mm, mahub, mahuPohjus: mahuAlla && !kaive && !kaitse,
                                      paevi: kuus > 0 ? poes / kuus * 30 : (poes <= 0 ? 0 : Infinity) } });
   });
   return L.sort(sooVordle);
@@ -1913,7 +1918,7 @@ const sooVordle = (a, b) => (a.s.paevi - b.s.paevi) || (b.s.kuus - a.s.kuus) || 
 let KOG_SORT = null;   // {v, suund}
 const KOG_SORT_VOTI = {
   kood: r => r.kood, nimi: r => (T.get(r.kood) || {}).nimi || '', poes: r => r.s ? r.s.k3 : 0,
-  kiirus: r => r.s ? r.s.kuus : 0, maardu: r => nr((T.get(r.kood) || {}).maardu), vaja: r => r.vaja
+  kiirus: r => r.s ? r.s.kuus : 0, mahub: r => r.s ? r.s.mahub : 0, maardu: r => nr((T.get(r.kood) || {}).maardu), vaja: r => r.vaja
 };
 function kogSordi(v) {
   KOG_SORT = KOG_SORT && KOG_SORT.v === v ? { v, suund: -KOG_SORT.suund } : { v, suund: 1 };
@@ -1924,6 +1929,7 @@ function kogSordi(v) {
 }
 function sooPohjus(s) {
   if (s.k3 <= 0) return '<b class="hoiatus">poes otsas</b>';
+  if (s.mahuPohjus) return `alla ${Math.round(s.k3 / s.mahub * 100)}% mahust`;
   if (s.kaitse) return `poes alla ${fmt(s.piir)}${s.kuus > 0 ? '' : ' <span class="hall">(müügiajalugu pole)</span>'}`;
   return `jätkub ${Math.round(s.paevi)} p`;
 }
@@ -1954,11 +1960,31 @@ async function sooArvuta() {
     }
     kiirus = SOO_KIIRUS[periood];
   }
-  KOG_MUSTAND = kogSoovitus({ pakk: $('sooPakk').checked, kott: $('sooKott').checked, kuud, piir: Math.max(0, piir), kiirus });
-  KOG_SOOV = { kuud, piir, periood }; KOG_SORT = null;
+  // poe mahutavus loetakse igal Arvuta vajutusel (pood võib Sheetsis vahepeal kirjutada)
+  let mahutavus = null;
+  const nupp = $('sooArvuta'); nupp.disabled = true; nupp.textContent = 'Loen poe mahutavust…';
+  try {
+    const j = await api({ tegevus: 'poeMahutavus' });
+    if (!j.ok) throw new Error(j.viga);
+    mahutavus = new Map(Object.entries(j.mahutavus || {}).map(([k, v]) => [normKood(k), [nr(v[0]), nr(v[1])]]));
+  } catch (e) { teade('Poe mahutavust ei saanud lugeda, arvutan ilma: ' + e.message, true); }
+  finally { nupp.disabled = false; nupp.textContent = 'Arvuta'; }
+  const taide = Math.min(100, Math.max(0, nr($('sooTaide').value.replace(/\s/g, '')))) / 100;
+  KOG_MUSTAND = kogSoovitus({ pakk: $('sooPakk').checked, kott: $('sooKott').checked, kuud, piir: Math.max(0, piir), kiirus, mahutavus, taide });
+  KOG_SOOV = { kuud, piir, periood, mahuga: mahutavus ? mahutavus.size : 0, taide }; KOG_SORT = null;
   $('kogKleebi').value = '';
   renderKogMustand();
   if (!KOG_MUSTAND.length) teade('Ühtegi toodet ei pea poodi saatma');
+}
+
+async function sooMahuLeht() {
+  const nupp = $('sooMahuLeht'); nupp.disabled = true;
+  try {
+    const j = await api({ tegevus: 'poeMahutavus', loo: true });
+    if (!j.ok) throw new Error(j.viga);
+    teade(`${j.uus ? 'Leht „Poe mahutavus“ loodud' : 'Leht „Poe mahutavus“ olemas'}: lisati ${j.lisatud} KOTT toodet (kokku ${j.ridu}). Pood kirjutab Sheetsis Müügisaal ja Poe ladu.`);
+  } catch (e) { teade('Ei saanud lehte teha: ' + e.message, true); }
+  nupp.disabled = false;
 }
 
 async function avaKogumine() {
@@ -1986,15 +2012,15 @@ function renderKogMustand() {
   let puudu = 0, kohata = 0;
   const soo = tk.some(r => r.s);   // SOOVITUS: lisaveerud
   const th = (v, silt, lisa = '') => `<th data-kogsort="${v}" style="cursor:pointer;white-space:nowrap" title="Sordi"${lisa}>${silt}${KOG_SORT && KOG_SORT.v === v ? (KOG_SORT.suund > 0 ? ' ▲' : ' ▼') : ''}</th>`;
-  $('kogEelvaade').innerHTML = (soo ? `<p class="vaike hall">${tk.length} toodet poodi · ${SOO_PERIOOD[KOG_SOOV.periood]} · varu ${fmt(KOG_SOOV.kuud)} k · poes alla ${fmt(KOG_SOOV.piir)} alati · Buumi seis ${ANDMED && ANDMED.laoAndmedUuendatud ? kogAeg(ANDMED.laoAndmedUuendatud) : '?'}. Kogust saad muuta, ✕ eemaldab rea.</p>` : '') +
-    `<table class="tabel"><tr>${th('kood', 'Kood')}${th('nimi', 'Nimetus')}${soo ? th('poes', 'Poes') + th('kiirus', `Kiirus kuus (${SOO_PERIOOD[KOG_SOOV.periood]})`) + th('pohjus', 'Põhjus') : ''}<th>Asukoht</th>${th('maardu', 'Maardu')}${th('vaja', 'Saata', ' style="width:90px"')}<th></th></tr>` +
+  $('kogEelvaade').innerHTML = (soo ? `<p class="vaike hall">${tk.length} toodet poodi · ${SOO_PERIOOD[KOG_SOOV.periood]} · varu ${fmt(KOG_SOOV.kuud)} k · poes alla ${fmt(KOG_SOOV.piir)} alati · ${KOG_SOOV.mahuga ? `mahutavus ${KOG_SOOV.mahuga} tootel (täida alla ${Math.round(KOG_SOOV.taide * 100)}%)` : 'poe mahutavust pole kirjas'} · Buumi seis ${ANDMED && ANDMED.laoAndmedUuendatud ? kogAeg(ANDMED.laoAndmedUuendatud) : '?'}. Kogust saad muuta, ✕ eemaldab rea.</p>` : '') +
+    `<table class="tabel"><tr>${th('kood', 'Kood')}${th('nimi', 'Nimetus')}${soo ? th('poes', 'Poes') + th('kiirus', `Kiirus kuus (${SOO_PERIOOD[KOG_SOOV.periood]})`) + th('pohjus', 'Põhjus') + th('mahub', 'Mahub') : ''}<th>Asukoht</th>${th('maardu', 'Maardu')}${th('vaja', 'Saata', ' style="width:90px"')}<th></th></tr>` +
     tk.map((r, i) => {
       const t = T.get(r.kood), s = seosed(r.kood);
       if (!t) puudu++; else if (!s.length) kohata++;
       const vahe = t && r.vaja > nr(t.maardu);
       return `<tr><td><b>${esc(r.kood)}</b></td>
         <td>${t ? esc(t.nimi) : '<span class="hoiatus">Buumi ekspordis pole</span>'}</td>
-        ${soo ? (r.s ? `<td${r.s.k3 < 20 ? ' class="hoiatus"' : ''}>${fmt(r.s.k3)}</td><td>${r.s.kuus ? fmt(r.s.kuus) : '<span class="hall">–</span>'}</td><td>${sooPohjus(r.s)}</td>` : '<td></td><td></td><td></td>') : ''}
+        ${soo ? (r.s ? `<td${r.s.k3 < 20 ? ' class="hoiatus"' : ''}>${fmt(r.s.k3)}</td><td>${r.s.kuus ? fmt(r.s.kuus) : '<span class="hall">–</span>'}</td><td>${sooPohjus(r.s)}</td><td${r.s.mm ? ` title="müügisaal ${fmt(r.s.mm[0])} + poe ladu ${fmt(r.s.mm[1])}"` : ''}>${r.s.mahub ? fmt(r.s.mahub) : '<span class="hall">–</span>'}</td>` : '<td></td><td></td><td></td><td></td>') : ''}
         <td>${s.length ? s.map(x => esc(x.koht)).join(', ') : '<span style="color:#b26a00">asukoht puudub</span>'}</td>
         <td${vahe ? ' style="color:#b26a00;font-weight:600" title="Saata rohkem kui laos"' : ''}>${t ? fmt(nr(t.maardu)) : '–'}</td>
         <td><input type="text" inputmode="decimal" data-kogvaja="${i}" value="${String(r.vaja).replace('.', ',')}" style="width:80px"></td>
@@ -3000,6 +3026,7 @@ $('mdkAken').addEventListener('click', e => {
 $('kogUuenda').addEventListener('click', laeKogumised);
 $('kogSaada').addEventListener('click', kogSaada);
 $('sooArvuta').addEventListener('click', sooArvuta);   // SOOVITUS
+$('sooMahuLeht').addEventListener('click', sooMahuLeht);
 $('uuenda').addEventListener('click', () => Object.keys(SOO_KIIRUS).forEach(k => delete SOO_KIIRUS[k]));   // hooaja kiirus loetakse uuesti
 // BUUM
 $('buumFail').addEventListener('change', e => { buumLae(e.target.files[0]); e.target.value = ''; });
