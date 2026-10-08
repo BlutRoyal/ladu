@@ -158,6 +158,15 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
 .laoseis { margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: var(--bg); font-size: 16px; }
 .laoseis-markus { font-size: 12px; color: var(--hall); margin-top: 2px; }
 .laoseis-markus.vana { color: var(--punane); }
+.laoseis-teised { font-size: 13px; color: var(--hall); margin-top: 3px; }
+.ean { font-size: 15px; margin-top: 2px; }
+.hind { margin-top: 8px; font-size: 17px; }
+.hind b { font-size: 19px; }
+.hind s { color: var(--hall); font-size: 15px; margin-right: 4px; }
+.hind .soodus { color: var(--punane); }
+.hind .silt.soodus { font-weight: 600; background: var(--pun-hele); }
+.hind-uhik { color: var(--hall); font-size: 15px; margin-left: 3px; }
+.hind-markus { font-size: 12px; color: var(--hall); margin-top: 2px; }
 .otsirida { display: flex; gap: 8px; align-items: stretch; }
 .otsirida input { flex: 1; min-width: 0; }
 .skann-nupp { flex: none; width: 52px; border-radius: 12px; border: 1px solid var(--roheline); background: var(--roheline); color: #fff; font-size: 22px; cursor: pointer; }
@@ -779,7 +788,8 @@ async function laeAndmed(vaikne, samm = () => {}) {
     await saadaValjas();
     samm(2);
     let j, katse = 0;
-    const versioon = ANDMED && ANDMED.tooted && ANDMED.lyhike ? ANDMED.versioon : undefined;
+    // HIND: vana vorminguga andmed (ilma hinnata) laetakse üks kord täies mahus uuesti
+    const versioon = ANDMED && ANDMED.tooted && ANDMED.lyhike && ANDMED.vorming >= 2 ? ANDMED.versioon : undefined;
     while (true) {
       try { j = await api({ tegevus: 'andmed', osad: 'tooted,asukohad,paigutus', lyhike: true, versioon }, 60000); break; }
       catch (e) { if (++katse >= 2) throw e; await new Promise(r => setTimeout(r, 1500)); }  // võrguviga: proovi korra uuesti
@@ -948,11 +958,14 @@ function ehitaIndeks() {
     return;
   }
   const tooted = new Map(), ean = new Map(), otsi = [];
-  const L = !!ANDMED.lyhike, G = ANDMED.grupid || [], U = ANDMED.uhikud || [];
+  const L = !!ANDMED.lyhike, G = ANDMED.grupid || [], U = ANDMED.uhikud || [], M = ANDMED.metad;
   ANDMED.tooted.read.forEach(r => {
     const t = L
       ? { kood: normKood(r[0]), nimi: r[1], ean: String(r[2] || '').trim(), k3: r[3], maardu: r[4], uhik: U[r[5]], grupp: G[r[6]] }
       : { kood: normKood(r[0]), nimi: r[1], ean: String(r[2] || '').trim(), k3: r[4], maardu: r[5], uhik: r[6], grupp: r[7] };
+    if (L && M) {   // HIND: [.., meta, hind, erihind, haapsalu, keila], lõpust tühjad ära jäetud
+      t.meta = M[r[7]] || ''; t.hind = r[8] || 0; t.erihind = r[9] || 0; t.haapsalu = r[10] || 0; t.keila = r[11] || 0;
+    }
     tooted.set(t.kood, t);
     if (t.ean && t.ean !== t.kood) {
       ean.set(t.ean.toUpperCase(), t.kood);
@@ -1110,8 +1123,10 @@ function tooteKaart(t) {
   return `<div class="kaart">
     <div class="toode-kood">${esc(t.kood)}${IX.peidetud.has(t.kood) ? '<span class="silt">valikust väljas</span>' : ''}</div>
     <div>${esc(t.nimi)}</div>
-    <div class="hall">${t.ean && t.ean !== t.kood ? 'EAN ' + esc(t.ean) + ' · ' : ''}${esc(t.grupp || '')}</div>
+    ${t.ean && t.ean !== t.kood ? `<div class="ean"><span class="hall">EAN</span> <b>${esc(t.ean)}</b></div>` : ''}
+    <div class="hall">${t.meta ? esc(t.meta) + ' › ' : ''}${esc(t.grupp || '')}</div>
     ${laoseis(t)}
+    ${hinnaRida(t)}
     ${kohad || '<div class="tuhi" style="padding:14px 0 4px">Asukoht puudub</div>'}
     <div class="nupud">
       ${voibMuuta() ? `<button class="nupp vaike" data-lisafluid="${esc(t.kood)}">＋ Lisa ajutisse kohta</button>` : ''}
@@ -1139,8 +1154,20 @@ function laoseis(t) {
   } else seisuga = 'teadmata ajal';
   return `<div class="laoseis">
     <div><span class="hall">Maardu</span> <b>${fmtNr(nr(t.maardu))}</b> ${u} &nbsp; <span class="hall">Kauplus 3</span> <b>${fmtNr(nr(t.k3))}</b> ${u}</div>
+    ${t.haapsalu !== undefined ? `<div class="laoseis-teised">Haapsalu ${fmtNr(nr(t.haapsalu))} · Keila ${fmtNr(nr(t.keila))} ${u}</div>` : ''}
     <div class="laoseis-markus${vana ? ' vana' : ''}">Buumi seis ${esc(seisuga)}. Võib olla vananenud; pakkimata/konverteerimata kaup ja tegemata vahekanded ei kajastu.</div>
   </div>`;
+}
+
+// HIND: müügihind käibemaksuga; erihinna korral vana hind läbi kriipsutatud ja silt "Soodus"
+const fmtHind = n => n.toLocaleString('et-EE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+function hinnaRida(t) {
+  const h = nr(t.hind), e = nr(t.erihind);
+  if (!h && !e) return '';
+  const u = t.uhik ? `<span class="hind-uhik">/${esc(t.uhik)}</span>` : '';
+  if (!e) return `<div class="hind"><span class="hall">Hind</span> <b>${fmtHind(h)}</b>${u}</div>`;
+  return `<div class="hind"><span class="hall">Hind</span> ${h ? `<s>${fmtHind(h)}</s>` : ''}<b class="soodus">${fmtHind(e)}</b>${u}<span class="silt soodus">Soodus</span></div>
+    <div class="hind-markus">* −20% soodus ei kehti soodushinnale</div>`;
 }
 
 /* ---------- Asukoht ---------- */
