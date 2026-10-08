@@ -48,6 +48,9 @@ label { display: block; font-size: 13px; color: var(--hall); margin: 12px 0 4px;
 .nupud { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .kaart { background: var(--kaart); border: 1px solid var(--joon); border-radius: 14px; padding: 14px; margin: 12px 0; }
 .toode-kood { font-weight: 700; font-size: 18px; letter-spacing: .3px; }
+.kaart-pais { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.kaart-pais .toode-kood { min-width: 0; overflow-wrap: anywhere; }
+.plaanil-nupp { flex: none; margin: -4px -4px 0 0; font-weight: 600; }
 .hall { color: var(--hall); font-size: 14px; }
 .koht { display: block; width: 100%; text-align: left; margin-top: 10px; padding: 12px 14px; border-radius: 12px; background: var(--roh-hele); border: 1px solid var(--roh-joon); cursor: pointer; }
 .koht.fluid { background: var(--kollane); border-color: var(--kol-joon); }
@@ -1121,7 +1124,10 @@ function tooteKaart(t) {
   }).join('');
   const pysi = s.filter(x => !onAjutineKoht(x) && !onTooraineLiik(x.liik));
   return `<div class="kaart">
-    <div class="toode-kood">${esc(t.kood)}${IX.peidetud.has(t.kood) ? '<span class="silt">valikust väljas</span>' : ''}</div>
+    <div class="kaart-pais">
+      <div class="toode-kood">${esc(t.kood)}${IX.peidetud.has(t.kood) ? '<span class="silt">valikust väljas</span>' : ''}</div>
+      ${s.length && laoMoodud() ? `<button class="nupp vaike pea plaanil-nupp" data-plaanil="${esc(s.map(x => x.koht).join(','))}">◫ Näita plaanil</button>` : ''}
+    </div>
     <div>${esc(t.nimi)}</div>
     ${t.ean && t.ean !== t.kood ? `<div class="ean"><span class="hall">EAN</span> <b>${esc(t.ean)}</b></div>` : ''}
     <div class="hall">${t.meta ? esc(t.meta) + ' › ' : ''}${esc(t.grupp || '')}</div>
@@ -1132,7 +1138,6 @@ function tooteKaart(t) {
       ${voibMuuta() ? `<button class="nupp vaike" data-lisafluid="${esc(t.kood)}">＋ Lisa ajutisse kohta</button>` : ''}
       ${voibMuuta() && s.some(x => !onAjutineKoht(x)) ? `<button class="nupp vaike" data-tyhikaart="${esc(t.kood)}">Koht tühi</button>` : ''}
       ${voibMuuta() && pysi.length ? `<button class="nupp vaike" data-tooraine="${esc(t.kood)}">Pesas on tooraine</button>` : ''}
-      ${s.length && laoMoodud() ? `<button class="nupp vaike" data-plaanil="${esc(s.map(x => x.koht).join(','))}">Näita plaanil</button>` : ''}
       ${otsingValitud ? '<button class="nupp vaike" data-sulge>Sulge</button>' : ''}
     </div>
   </div>`;
