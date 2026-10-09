@@ -2309,9 +2309,10 @@ function renderKogumine(taust) {   // taust = uuendus ei tulnud kasutaja tegevus
   if (kog && rida && (gUusRida || gKontrollitud === rida.id)) setTimeout(() => { kog.focus(); kog.select(); }, 50);
 }
 
-// SKANN: kas tootel on skännitav ribakood (Buumi Ribakood olemas ja erineb koodist; tooraine alusel pole)
+// SKANN: kas tootel on skännitav ribakood (Buumi Ribakood täidetud; ka siis, kui see on sama mis kood, nt hulgipakendid).
+// Tooraine alusel ribakoodi pole.
 function gOnRibakood(t, koht) {
-  if (!t || !t.ean || t.ean === t.kood) return false;
+  if (!t || !t.ean) return false;
   return !(koht && onTooraineLiik(koht.liik));
 }
 // kinnituse kastike: skänn = roheline linnuke, vale ribakood = !, nupp (ribakood oli) = ✋, ribakoodita = –
