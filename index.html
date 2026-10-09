@@ -138,6 +138,9 @@ nav .ikoon { display: block; font-size: 20px; line-height: 1.1; }
 .lyliti { display: flex; gap: 6px; margin: 6px 0; } .lyliti .nupp { flex: 1; }
 .g-kaart .g-suur { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .5px; }
 .g-kaart .g-vaja { font-size: 18px; margin-top: 4px; }
+.g-osad { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }   /* OSAD */
+.g-osa { border: 1px solid var(--joon); border-radius: 10px; padding: 5px 9px; font-size: 14px; background: var(--kaart); }
+.g-osa.minu { border-color: var(--roheline, #2e6b3e); font-weight: 700; }
 .g-rida { display: grid; grid-template-columns: 74px 1fr auto; gap: 8px; align-items: center; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--joon); padding: 10px 0; color: inherit; font: inherit; cursor: pointer; }
 .g-rida:first-child { border-top: 0; }
 .g-rida .g-koht { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
@@ -2193,13 +2196,71 @@ function reaKoht(kood) {
   return { parim, koik: s };
 }
 
+// YLEANDMINE: aktiivsed korjajad nimekirja ajaloost (sama loogika mis serveris kogAktiivsed)
+// OSAD: -> Map kes -> [osad]; tühi massiiv = korjab kõike, mida teised osana võtnud pole
+function kogAktOsad(n) {
+  const aj = n.ajalugu || [];
+  let a = new Map();
+  if (!aj.length) { if (n.olek === 'kogumisel' && n.koguja) String(n.koguja).split(/\s*[,+]\s*/).filter(Boolean).forEach(k => a.set(k, [])); return a; }
+  aj.forEach(e => {
+    const l = e[2], kes = e[1], o = a.get(kes);
+    if (l === 'alustas' || l === 'jätkas') { if (!o) a.set(kes, []); }
+    else if (l === 'liitus') { if (!e[3]) a.set(kes, []); else if (!o) a.set(kes, [e[3]]); else if (o.length) a.set(kes, o.concat([e[3]])); }
+    else if (l === 'võttis üle') a = new Map([[kes, []]]);
+    else if (l === 'paus') a.delete(kes);
+    else if (l === 'vabastas' || l === 'lõpetas' || l === 'avas uuesti') a = new Map();
+  });
+  return a;
+}
+function kogAkt(n) { return [...kogAktOsad(n).keys()]; }
+// OSAD: rea osa toote järgi (Kinnitusvahendid jaguneb neljaks, iga teine metagrupp on üks osa; väikepakend alati eraldi)
+function gOsa(kood) {
+  const t = IX && IX.tooted.get(kood);
+  if (!t) return 'Muu';
+  const u = String(t.uhik || '').toUpperCase();
+  if (u === 'KOTT') return 'Väikepakend';
+  if (/kinnitus/i.test(t.meta || '')) return /^(AKNA)?NURK\b/i.test(String(t.nimi || '').trim()) ? 'Nurgad' : u === 'PAKK' ? 'Kruvikarbid' : 'Muu kinnitusvahendid';
+  return t.meta || 'Muu';
+}
+// osad korjejärjekorras: [{osa, read, tehtud, kokku, hoidja ('' = vaba), alustanud (kes on osas ridu võtnud)}]
+function gOsad(n, read) {
+  const akt = kogAktOsad(n), M = new Map();
+  read.forEach(r => { const o = gOsa(r.kood); (M.get(o) || M.set(o, []).get(o)).push(r); });
+  const koik = [...akt].filter(([, o]) => !o.length).map(([k]) => k);
+  return [...M].map(([osa, rr]) => {
+    const oma = [...akt].find(([, o]) => o.indexOf(osa) >= 0);
+    return { osa, read: rr, tehtud: rr.filter(r => r.olek).length, kokku: rr.length, hoidja: oma ? oma[0] : koik.join(', '),
+      selgelt: !!oma, alustanud: [...new Set(rr.filter(r => r.olek).map(r => r.kes).filter(Boolean))] };
+  });
+}
+// minu korjatavad read: oma osad; "kõik" korral kõik peale teiste võetud osade
+function gMinuRida(n, minu) {
+  const akt = kogAktOsad(n), oma = akt.get(minu);
+  if (!oma || ![...akt.keys()].some(k => k !== minu)) return () => true;   // üksi -> kõik ülejäänud read
+  const teiste = new Set([].concat(...[...akt].filter(([k]) => k !== minu).map(([, o]) => o)));
+  return oma.length ? r => oma.indexOf(gOsa(r.kood)) >= 0 : r => !teiste.has(gOsa(r.kood));
+}
+function kogSyndmus(n, aeg, kes, liik, lisa) {
+  if (!(n.ajalugu || []).length && n.olek === 'kogumisel' && n.koguja) n.ajalugu = String(n.koguja).split(/\s*[,+]\s*/).filter(Boolean).map(k => ['', k, 'alustas', '']);
+  n.ajalugu = (n.ajalugu || []).concat([[aeg, kes, liik, lisa || '']]);
+  if (liik === 'lõpetas') return;
+  const a = kogAkt(n);
+  n.olek = a.length ? 'kogumisel' : n.read.some(r => r.olek) ? 'pooleli' : 'avatud';
+  if (a.length) n.koguja = a.join(', ');
+}
 function kogRakenda(L, m, kes) {
   let n = L.find(x => x.id === m.nimekiri);
   const aeg = m.aeg || new Date().toISOString();
-  if (m.op === 'uus') { if (!n) L.push({ id: m.nimekiri, nimi: m.nimi, olek: 'kogumisel', koguja: kes, loodud: aeg, markus: 'ilma nimekirjata', read: [] }); return; }
+  if (m.op === 'uus') { if (!n) L.push({ id: m.nimekiri, nimi: m.nimi, olek: 'kogumisel', koguja: kes, loodud: aeg, markus: 'ilma nimekirjata', read: [], ajalugu: [[aeg, kes, 'alustas', '']] }); return; }
   if (!n || n.olek === 'valmis') return;
-  if (m.op === 'lopeta') { n.olek = 'valmis'; n.lopetatud = aeg; return; }
+  if (m.op === 'lopeta') { kogSyndmus(n, aeg, kes, 'lõpetas'); n.olek = 'valmis'; n.lopetatud = aeg; return; }
   if (m.op === 'alusta') { n.olek = 'kogumisel'; n.koguja = kes; return; }
+  if (m.op === 'sundmus') {   // YLEANDMINE
+    const enne = kogAkt(n), lk = { paus: 'paus', yle: 'võttis üle', liitu: 'liitus' }[m.liik];
+    if (!lk || (lk === 'paus' && enne.indexOf(kes) < 0)) return;
+    kogSyndmus(n, aeg, kes, lk, lk === 'võttis üle' ? enne.filter(k => k !== kes).join(', ') : lk === 'liitus' ? m.osa || '' : m.lisa || '');
+    return;
+  }
   const i = n.read.findIndex(r => r.id === m.id);
   if (m.op === 'kustutaRida') {
     if (i >= 0) { if (n.read[i].lisatud) n.read.splice(i, 1); else Object.assign(n.read[i], { votetud: null, olek: '', kinnitus: '', skann: '' }); }
@@ -2208,7 +2269,9 @@ function kogRakenda(L, m, kes) {
   if (m.op === 'rida') {
     if (i >= 0) Object.assign(n.read[i], { votetud: m.votetud, olek: m.olek, aeg, kes, kinnitus: m.kinnitus || '', skann: m.skann || '' });
     else n.read.push({ id: m.id, kood: m.kood, vaja: m.vaja || 0, votetud: m.votetud, olek: m.olek, aeg, kes, lisatud: true, jrk: n.read.length + 1, kinnitus: m.kinnitus || '', skann: m.skann || '' });
-    if (n.olek === 'avatud') { n.olek = 'kogumisel'; n.koguja = kes; }
+    // YLEANDMINE: kes polnud aktiivne korjaja, saab selleks
+    const a = kogAkt(n);
+    if (a.indexOf(kes) < 0) kogSyndmus(n, aeg, kes, a.length ? 'liitus' : n.olek === 'avatud' && n.read.filter(r => r.olek).length <= 1 ? 'alustas' : 'jätkas');
   }
 }
 // serveri seis + saatmata muudatused
@@ -2267,34 +2330,54 @@ function renderKogumine(taust) {   // taust = uuendus ei tulnud kasutaja tegevus
       <span class="hall">${k.tehtud}/${k.kokku}${k.puudu ? ` · <span style="color:var(--punane)">${k.puudu} puudu</span>` : ''}</span></div>
     <h2 style="margin:10px 0 6px">${esc(n.nimi)}</h2>`;
   if (lukus) sisu += `<div class="logiriba" style="display:flex">✓ Lõpetatud. Muutmiseks ava see arvutis uuesti.</div>`;
-  else if (n.olek === 'kogumisel' && n.koguja && n.koguja !== minu) sisu += `<div class="logiriba" style="display:flex">⚠ ${esc(n.koguja)} kogub seda nimekirja</div>`;
+  // YLEANDMINE: keegi teine korjab -> enne korjamist küsi, kas võtad üle; pausil nimekiri -> info, jätkamiseks lihtsalt korja
+  const akt = kogAkt(n), teised = akt.filter(k => k !== minu), mina = akt.indexOf(minu) >= 0;
+  const yleKysi = !lukus && !mina && teised.length > 0;
+  // OSAD: mitu korjajat korraga; abiline võtab osa, mida keegi pole alustanud (server lukustab)
+  const osad = !lukus && n.read.length ? gOsad(n, read) : [], minuOsad = kogAktOsad(n).get(minu);
+  const vabaOsa = o => o.tehtud < o.kokku && !o.selgelt && !o.alustanud.some(k => k !== minu) && !(minuOsad && !minuOsad.length);
+  const osaNupud = osad.length > 1 ? osad.map(o => vabaOsa(o)
+      ? `<button class="nupp vaike" data-gosa="${esc(o.osa)}">+ ${esc(o.osa)} <span class="hall">${o.kokku - o.tehtud}</span></button>`
+      : `<span class="g-osa${o.hoidja === minu || (o.selgelt && minuOsad && minuOsad.indexOf(o.osa) >= 0) ? ' minu' : ''}">${esc(o.osa)} <span class="hall">${o.tehtud}/${o.kokku}${o.tehtud === o.kokku ? ' ✓' : o.hoidja ? ' · ' + esc(o.hoidja) : ''}</span></span>`).join('') : '';
+  if (yleKysi) sisu += `<div class="kaart g-yle"><b>⚠ ${esc(teised.join(', '))} korjab seda nimekirja</b>
+      ${osaNupud && osad.some(vabaOsa) ? `<div class="hall" style="margin:4px 0 6px">Aita kaasa: võta osa, mida keegi pole alustanud. See lukustub sulle.</div><div class="g-osad">${osaNupud}</div>` : osaNupud ? `<div class="g-osad">${osaNupud}</div>` : ''}
+      <div class="hall" style="margin:10px 0 10px">Kui ${teised.length > 1 ? 'nad ei jõua' : 'tema ei jõua'} lõpetada (vahetus läbi, haigeks jäänud), võta nimekiri üle. Tehtud read jäävad alles.</div>
+      <div class="nupud"><button class="nupp${osaNupud && osad.some(vabaOsa) ? '' : ' pea'}" data-gyle style="flex:1">Võtan kogu nimekirja üle</button></div></div>`;
+  else if (mina && osaNupud && (teised.length || osad.some(vabaOsa))) sisu += `<div class="g-osad">${osaNupud}</div>`;
+  else if (!lukus && n.olek === 'pooleli') sisu += `<div class="logiriba" style="display:flex">⏸ Pooleli${n.koguja ? ', viimati korjas ' + esc(n.koguja) : ''}. Jätkamiseks kinnita järgmine rida.</div>`;
   if (!lukus && n.read.length) sisu += `<div class="lyliti"><button class="nupp vaike${gRezhiim === 'nimekiri' ? ' pea' : ''}" data-grezhiim="nimekiri">Kogu nimekiri</button>
       <button class="nupp vaike${gRezhiim === 'jarjest' ? ' pea' : ''}" data-grezhiim="jarjest">Järjest</button></div>`;
 
-  // aktiivne rida: valitud, uus või järgmine tegemata
+  // aktiivne rida: valitud, uus või järgmine tegemata (OSAD: Järjest ainult minu osa read)
+  const minuRead = read.filter(gMinuRida(n, minu)), teisteJaanud = read.filter(r => !r.olek).length - minuRead.filter(r => !r.olek).length;
   let rida = gUusRida || (gRida && read.find(r => r.id === gRida));
   if (!rida && !lukus && gRezhiim === 'jarjest') {
-    rida = read.find(r => !r.olek && !gVahele.has(r.id));
-    if (!rida && read.some(r => !r.olek)) { gVahele.clear(); rida = read.find(r => !r.olek); }
+    rida = minuRead.find(r => !r.olek && !gVahele.has(r.id));
+    if (!rida && minuRead.some(r => !r.olek)) { gVahele.clear(); rida = minuRead.find(r => !r.olek); }
   }
-  if (rida && !lukus) sisu += gKaart(rida, read);
+  if (yleKysi) { /* YLEANDMINE: enne ülevõtmist ridu korjata ei saa */ }
+  else if (rida && !lukus) sisu += gKaart(rida, minuRead);
+  else if (!lukus && gRezhiim === 'jarjest' && n.read.length && teisteJaanud > 0 && mina && teised.length) sisu += `<div class="kaart" style="text-align:center"><b>Sinu osa on tehtud</b>
+      <div class="hall">${teisteJaanud} rida on teistel pooleli${teised.length ? ' (' + esc(teised.join(', ')) + ')' : ''}.</div>
+      <div class="nupud" style="margin-top:8px"><button class="nupp pea" data-gpooleli style="flex:1">✓ Minu osa valmis</button></div></div>`;
   else if (!lukus && gRezhiim === 'jarjest' && n.read.length) sisu += `<div class="kaart" style="text-align:center"><b>Kõik read tehtud</b>${k.puudu ? `<div class="hall">${k.puudu} rida puudu</div>` : ''}</div>`;
 
-  if (gRezhiim === 'nimekiri' || lukus || !n.read.length) {
+  if (gRezhiim === 'nimekiri' || lukus || !n.read.length || yleKysi) {
     sisu += `<div class="kaart" style="padding:4px 14px">` + (read.length ? read.map(r => {
       const t = IX && IX.tooted.get(r.kood);
       const klass = r.olek === 'puudu' ? ' puudu' : r.olek ? ' tehtud' : '';
-      return `<button class="g-rida${klass}${rida && rida.id === r.id ? ' valitud' : ''}" data-grida="${esc(r.id)}"${lukus ? ' disabled' : ''}>
+      return `<button class="g-rida${klass}${rida && rida.id === r.id ? ' valitud' : ''}" data-grida="${esc(r.id)}"${lukus || yleKysi ? ' disabled' : ''}>
         <span class="g-koht">${r.k.parim ? esc(r.k.parim.koht) : '–'}</span>
         <span>${gKast(r.olek ? r.kinnitus : '', 'g-kast')}<b>${esc(r.kood)}</b>${r.lisatud ? ' <span class="hall">lisatud</span>' : ''}<span class="hall g-nimi">${esc(t ? t.nimi : '')}</span></span>
         <span class="g-kogus">${r.olek ? `${gArv(r.votetud)}${r.vaja ? '<small>/' + gArv(r.vaja) + '</small>' : ''}` : r.vaja ? gArv(r.vaja) : ''}</span></button>`;
     }).join('') : '<div class="tuhi">Ridu pole. Lisa tooteid allpool.</div>') + '</div>';
   }
-  if (!lukus) {
+  if (!lukus && !yleKysi) {
     sisu += `<div class="kaart"><label for="gLisa" style="margin-top:0">Lisa toode, mida nimekirjas pole</label>
       <div class="otsirida"><input id="gLisa" type="search" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Kood, EAN või nimi">
       <button class="skann-nupp" data-gskann="lisa" aria-label="Skänni">⌗</button></div><div id="gSoovitused" class="soovitused"></div></div>
-      <div class="nupud"><button class="nupp${k.tehtud === k.kokku && k.kokku ? ' pea' : ''}" data-glopeta style="flex:1">Lõpeta${k.kokku - k.tehtud ? ` (${k.kokku - k.tehtud} tegemata)` : ''}</button></div>`;
+      <div class="nupud"><button class="nupp${k.tehtud === k.kokku && k.kokku ? ' pea' : ''}" data-glopeta style="flex:1">Lõpeta${k.kokku - k.tehtud ? ` (${k.kokku - k.tehtud} tegemata)` : ''}</button>
+        ${mina && k.tehtud < k.kokku ? `<button class="nupp" data-gpooleli title="Aeg peatub, keegi teine (või sina hiljem) saab jätkata">${teised.length ? '✓ Minu osa valmis' : '⏸ Jätan pooleli'}</button>` : ''}</div>`;
   }
   // KOOND: taustal uuendamine (saatmine lõppes, nimekiri laeti) ei kustuta poolelioleva sisestuse
   const vKog = taust && $('gKogus'), vLisa = taust && $('gLisa'), fookus = document.activeElement && document.activeElement.id;
@@ -2378,7 +2461,7 @@ function gKaart(r, read) {
 }
 
 function renderKogNimekirjad(L) {
-  const jrk = { kogumisel: 0, avatud: 1, valmis: 2 };
+  const jrk = { kogumisel: 0, pooleli: 0, avatud: 1, valmis: 2 };
   L = L.slice().sort((a, b) => (jrk[a.olek] - jrk[b.olek]) || String(b.loodud).localeCompare(String(a.loodud)));
   $('gSisu').innerHTML = `<div class="rida-pais"><h2 style="margin:0">Kogumine</h2>
       <button class="nupp vaike" data-guuenda>${laebKog ? 'Laen…' : 'Uuenda'}</button></div>
@@ -2387,9 +2470,12 @@ function renderKogNimekirjad(L) {
     ${L.length ? L.map(n => {
       const k = gKokku(n);
       return `<button class="rida-tulemus" data-gava="${esc(n.id)}"><b>${esc(n.nimi)}</b>
-        <div class="hall">${n.olek === 'valmis' ? '✓ valmis' : n.olek === 'kogumisel' ? 'kogumisel' + (n.koguja ? ': ' + esc(n.koguja) : '') : 'ootab'} · ${k.tehtud}/${k.kokku}${k.puudu ? ' · ' + k.puudu + ' puudu' : ''}</div></button>`;
+        <div class="hall">${n.olek === 'valmis' ? '✓ valmis' : n.olek === 'kogumisel' ? 'kogumisel' + (kogAkt(n).length ? ': ' + esc(kogAkt(n).join(', ')) : n.koguja ? ': ' + esc(n.koguja) : '')
+          : n.olek === 'pooleli' ? '<b style="color:#b26a00">⏸ pooleli</b>' + (n.koguja ? ', viimati ' + esc(n.koguja) : '') : 'ootab'} · ${k.tehtud}/${k.kokku}${k.puudu ? ' · ' + k.puudu + ' puudu' : ''}</div></button>`;
     }).join('') : `<div class="tuhi">${laebKog ? 'Laen…' : 'Nimekirju pole. Nimekiri tehakse arvutis (Komplekteerimine).'}</div>`}
-    <div class="nupud"><button class="nupp" data-guus style="flex:1">+ Ilma nimekirjata</button></div>`;
+    <div class="nupud"><button class="nupp" data-guus style="flex:1">+ Ilma nimekirjata</button></div>
+    ${minuPooleli(L).length ? `<div class="nupud"><button class="nupp" data-gpaevlopp style="flex:1">🏁 Lõpetan päeva</button></div>
+      <div class="hall vaike" style="text-align:center">Paneb su pooleli nimekirjad (${minuPooleli(L).length}) pausile, aeg peatub. Homme või teine töötaja saab jätkata.</div>` : ''}`;
 }
 
 function gAva(id) {
@@ -2403,8 +2489,8 @@ function gAktiivneRida() {
   if (gUusRida) return gUusRida;
   const n = kogNimekirjad().find(x => x.id === gAvatud);
   if (!n) return null;
-  const read = gJarjestatud(n);
-  return (gRida && read.find(r => r.id === gRida)) || (gRezhiim === 'jarjest' ? (read.find(r => !r.olek && !gVahele.has(r.id)) || read.find(r => !r.olek)) : null);
+  const read = gJarjestatud(n), minu = read.filter(gMinuRida(n, SEADED && SEADED.kes));   // OSAD: sama rida, mis ekraanil
+  return (gRida && read.find(r => r.id === gRida)) || (gRezhiim === 'jarjest' ? (minu.find(r => !r.olek && !gVahele.has(r.id)) || minu.find(r => !r.olek)) : null);
 }
 function gKinnita() {
   const r = gAktiivneRida();
@@ -2484,12 +2570,67 @@ document.addEventListener('keydown', e => {
   }
   KS.buf += e.key; KS.viim = nyyd;
 }, true);
+// YLEANDMINE: nimekirjad, mida mina praegu korjan
+function minuPooleli(L) { const minu = SEADED && SEADED.kes; return (L || kogNimekirjad()).filter(n => n.olek === 'kogumisel' && kogAkt(n).indexOf(minu) >= 0); }
+function gYle() {
+  const n = kogNimekirjad().find(x => x.id === gAvatud);
+  if (!n) return;
+  const teised = kogAkt(n).filter(k => k !== (SEADED && SEADED.kes));
+  if (!confirm(`Võtan nimekirja „${n.nimi}“ üle${teised.length ? ' (' + teised.join(', ') + ' aeg peatub)' : ''}?`)) return;
+  kogMuuda({ op: 'sundmus', liik: 'yle', nimekiri: n.id });
+  naita('Võtsid üle. Jätka korjamist.');
+  renderKogumine(); window.scrollTo(0, 0);
+}
+function gPooleli() {
+  const n = kogNimekirjad().find(x => x.id === gAvatud);
+  if (!n) return;
+  const teised = kogAkt(n).filter(k => k !== (SEADED && SEADED.kes));   // OSAD: teised korjavad edasi -> minu osa valmis
+  if (!confirm(teised.length ? `Minu osa „${n.nimi}“ nimekirjas on valmis? Sinu aeg peatub, ${teised.join(', ')} korjab edasi.`
+    : `Jätan „${n.nimi}“ pooleli? Aeg peatub. Tehtud read jäävad alles ja keegi teine (või sina hiljem) saab jätkata.`)) return;
+  kogMuuda({ op: 'sundmus', liik: 'paus', lisa: teised.length ? 'osa valmis' : 'pooleli', nimekiri: n.id });
+  gAvatud = null; kirjuta(V.kogAvatud, null);
+  naita(teised.length ? 'Aitäh! Sinu aeg peatatud.' : 'Pooleli. Aeg peatatud.');
+  renderKogumine();
+}
+function gPaevLopp() {
+  const l = minuPooleli();
+  if (!l.length) return;
+  if (!confirm(`Lõpetan tööpäeva? Panen pausile:\n${l.map(n => '• ' + n.nimi).join('\n')}\n\nAeg peatub. Tehtud read jäävad alles.`)) return;
+  l.forEach(n => kogMuuda({ op: 'sundmus', liik: 'paus', lisa: 'päeva lõpp', nimekiri: n.id }));
+  gAvatud = null; kirjuta(V.kogAvatud, null);
+  naita('Head aega! ' + l.length + ' nimekirja pausil.');
+  renderKogumine();
+}
+// OSAD: osa võtmine käib kohe serveri kaudu (lukk), mitte saatmisjärjekorras
+let gOsaLaeb = false;
+async function gVotaOsa(osa) {
+  const n = kogNimekirjad().find(x => x.id === gAvatud);
+  if (!n || gOsaLaeb) return;
+  if (!navigator.onLine) { naita('Osa võtmiseks on vaja võrku', true); return; }
+  const o = gOsad(n, gJarjestatud(n)).find(x => x.osa === osa);
+  if (!o) return;
+  gOsaLaeb = true; naita('Lukustan osa ' + osa + '…');
+  try {
+    await saadaValjas();
+    const j = await api({ tegevus: 'kogumine', muudatused: [{ op: 'sundmus', liik: 'liitu', nimekiri: n.id, osa, read: o.read.map(r => r.id), aeg: new Date().toISOString() }] }, 60000);
+    const t = j && j.tulemused && j.tulemused[0];
+    if (!j.ok || !t || !t.ok) throw new Error((t && t.viga) || j.viga || 'Ei õnnestunud');
+    while (laebKog) await new Promise(r => setTimeout(r, 200));
+    await laeKog(true);
+    gRezhiim = 'jarjest'; kirjuta(V.kogRezhiim, gRezhiim); gRida = null; gUusRida = null; gVahele.clear();
+    naita(osa + ' on sinu. Korja järjest.');
+  } catch (e) { naita(e.message, true); laeKog(true); }
+  finally { gOsaLaeb = false; renderKogumine(); window.scrollTo(0, 0); }
+}
+// OSAD: avatud nimekiri uueneb iga 30 s (teiste read ja lukud)
+setInterval(() => { if (aktiivne === 'kogumine' && gAvatud && !tVaade && !document.hidden && navigator.onLine && SEADED) laeKog(true); }, 30000);
 function gLopeta() {
   const n = kogNimekirjad().find(x => x.id === gAvatud);
   if (!n) return;
   const k = gKokku(n), tegemata = k.kokku - k.tehtud;
   const kys = [tegemata ? `${tegemata} rida on tegemata (lähevad kirja kui puudu).` : '', k.puudu ? `${k.puudu} rida puudu.` : ''].filter(Boolean).join('\n');
-  if (!confirm((kys ? kys + '\n\n' : '') + `Lõpetan „${n.nimi}“? Pärast seda on nimekiri lukus.`)) return;
+  const teised = kogAkt(n).filter(x => x !== (SEADED && SEADED.kes));   // OSAD
+  if (!confirm((kys ? kys + '\n\n' : '') + (teised.length ? `${teised.join(', ')} korjab veel!\n` : '') + `Lõpetan „${n.nimi}“? Pärast seda on nimekiri lukus.`)) return;
   kogMuuda({ op: 'lopeta', nimekiri: n.id });
   gAvatud = null; kirjuta(V.kogAvatud, null);
   naita('Valmis. Arvutis saab printida ja CSV alla laadida.');
@@ -2527,6 +2668,10 @@ $('v-kogumine').addEventListener('click', e => {
   else if ('glisavale' in d) { const t = gVale && gVale.toode; gVale = null; if (t) gLisaToode(t, true); }
   else if ('gvaleok' in d) { const r = gAktiivneRida(); if (r && gVale) { gKontrollitud = r.id; gKontrollViis = 'vale ribakood'; gKontrollSkann = gVale.kood; gVale = null; renderKogumine(); } }
   else if ('glopeta' in d) gLopeta();
+  else if ('gyle' in d) gYle();   // YLEANDMINE
+  else if (d.gosa) gVotaOsa(d.gosa);   // OSAD
+  else if ('gpooleli' in d) gPooleli();
+  else if ('gpaevlopp' in d) gPaevLopp();
   else if (d.glisavali) { $('gSoovitused').innerHTML = ''; gLisaToode(IX.tooted.get(d.glisavali)); }
 });
 $('v-kogumine').addEventListener('input', e => {

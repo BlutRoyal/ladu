@@ -1730,8 +1730,9 @@ function mdkArvuta(j) {
       kinnitus: r[6] || '', skann: r[7] || '' }));   // SKANN
     read.forEach(r => kogRead.push(r));
     const puudu = read.filter(r => r.olek === 'puudu' || (r.votetud != null && r.votetud < r.vaja)).length;
-    nimekirjad.push({ nimi: n.nimi, olek: n.olek, koguja: n.koguja || [...new Set(read.map(r => r.kes))].join(', '), ridu: n.ridu, tehtud: read.length, puudu,
-      kestus: mdkKestus(n, read), lopetatud: n.lopetatud, ...mdkSkann(read) });
+    const ta = kogTooajad(n.olek, n.lopetatud, read.filter(r => r.aeg).map(r => ({ aeg: r.aeg, kes: r.kes })), n.ajalugu);   // YLEANDMINE
+    nimekirjad.push({ nimi: n.nimi, olek: n.olek, koguja: ta.korjajad.length ? ta.korjajad.join(', ') : n.koguja || [...new Set(read.map(r => r.kes))].join(', '), ridu: n.ridu, tehtud: read.length, puudu,
+      kestus: mdkKestus(n, read, ta), tootunnid: ta.korjajad.length > 1 && n.lopetatud ? ta.tootunnid / 60000 : null, lopetatud: n.lopetatud, ...mdkSkann(read) });
   });
   // inimeste kaupa (kiirus arvutatakse iga inimese enda märgete pealt)
   const kesM = new Map();
@@ -1812,7 +1813,9 @@ function mdkSkann(read) {
 }
 const mdkSkannimata = r => r.skannimata ? `<b style="color:#b26a00">${r.skannimata}</b>` : '0';
 // KUBJAS: algus = esimene võetud rida (nagu komplekteerimise aknas); kui ridu pole, siis serveri „Alustatud“
-function mdkKestus(n, read) {
+// YLEANDMINE: kui ajalugu on, siis kestvus pausideta (kogTooajad); vana nimekiri: esimesest reast lõpetamiseni
+function mdkKestus(n, read, ta) {
+  if (ta && n.lopetatud && (n.ajalugu || []).length) return ta.kestvus / 60000;
   const ajad = read.map(r => r.aeg).filter(Boolean), alg = ajad.length ? Math.min(...ajad) : (n.alustatud || Infinity);
   return n.lopetatud && isFinite(alg) && n.lopetatud >= alg ? (n.lopetatud - alg) / 60000 : null;
 }
@@ -1873,8 +1876,8 @@ function renderMoodikud() {
   ], a.paevad));
   h += mdkPlokk('Nimekirjad', 'nimekirjad', mdkTabel('nimekirjad', [
     ['Nimekiri', r => r.nimi, r => `<b>${esc(r.nimi)}</b>`], ['Olek', r => r.olek], ['Koguja', r => r.koguja], ['Ridu', r => r.ridu], ['Märgitud', r => r.tehtud],
-    ['Puudu', r => r.puudu], ['Skännimata', r => r.skannimata, mdkSkannimata], ['Kestus', r => mdkMin(r.kestus)], ['Lõpetatud', r => aeg(r.lopetatud)]
-  ], a.nimekirjad), 'Kestus = esimesest võetud reast lõpetamiseni (koos pausidega).');
+    ['Puudu', r => r.puudu], ['Skännimata', r => r.skannimata, mdkSkannimata], ['Kestvus', r => mdkMin(r.kestus)], ['Töötunnid', r => r.tootunnid == null ? '' : mdkMin(r.tootunnid)], ['Lõpetatud', r => aeg(r.lopetatud)]
+  ], a.nimekirjad), 'Kestvus = aeg, mil keegi korjas (pausid ja ööd välja). Töötunnid = mitme korjaja aeg kokku. Enne 2.10 tehtud nimekirjadel esimesest reast lõpetamiseni.');
   h += mdkPlokk('Valed ribakoodid', 'valeean', mdkTabel('valeean', [
     ['Kood', r => r.kood, r => `<b>${esc(r.kood)}</b>`], ['Nimetus', r => (T.get(r.kood) || {}).nimi || ''], ['Ribakood Buumis', r => (T.get(r.kood) || {}).ean || ''],
     ['Skänniti', r => r.skann, r => `<b>${esc(r.skann)}</b>`], ['Kordi', r => r.korda], ['Kes', r => [...r.kes].join(', ')], ['Viimati', r => aeg(r.viimati)]
@@ -2114,39 +2117,95 @@ const kubTana = t => { const d = new Date(); d.setHours(0, 0, 0, 0); return t >=
 const kubKell = t => !t ? '' : kubTana(t) ? new Date(t).toLocaleTimeString('et-EE', { hour: '2-digit', minute: '2-digit' }) : kogAeg(t);
 const kubKestus = ms => { if (ms == null || ms < 0) return '–'; const m = Math.round(ms / 60000); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0') + ' min'; };
 function kubNimekiri(n, nyyd = Date.now()) {
-  const read = n.read.filter(r => r.olek).map(r => ({ aeg: kubMs(r.aeg) })).filter(r => r.aeg);
+  const read = n.read.filter(r => r.olek).map(r => ({ aeg: kubMs(r.aeg), kes: r.kes || '?' })).filter(r => r.aeg);
   const ajad = read.map(r => r.aeg).sort((a, b) => a - b);
-  const algus = ajad[0] || 0, viimati = ajad[ajad.length - 1] || 0;
+  const viimati = ajad[ajad.length - 1] || 0;
   const lopp = n.olek === 'valmis' ? kubMs(n.lopetatud) : 0;
-  const kiirus = mdkKiirus(read);
-  const kestus = algus ? (lopp || nyyd) - algus : null;
-  return { algus, viimati, lopp, kestus, aktiivne: kiirus.minutid, tunnis: kiirus.tunnis,
-    tunnisKokku: algus && kestus > 0 && read.length > 1 ? read.length / (kestus / 3600000) : null,
+  // YLEANDMINE: kestvus = aeg, kui keegi korjas (pausid ja ööd välja); töötunnid = kõigi korjajate aeg kokku
+  const ta = kogTooajad(n.olek, kubMs(n.lopetatud), read, n.ajalugu, nyyd);
+  const kiirus = mdkKiirusInimesteKaupa(read);
+  const algus = ta.algus || ajad[0] || 0;
+  return { algus, viimati, lopp, kestus: algus ? ta.kestvus : null, tootunnid: ta.tootunnid, korjajad: ta.korjajad, aktiivsed: ta.aktiivsed,
+    aktiivne: kiirus.minutid, tunnis: kiirus.tunnis,
+    tunnisKokku: algus && ta.tootunnid > 0 && read.length > 1 ? read.length / (ta.tootunnid / 3600000) : null,
     vaikus: n.olek === 'kogumisel' && viimati ? nyyd - viimati : null, ridu: read.length };
+}
+// YLEANDMINE: korjajate tööajad ridade ja ajaloo järgi. Iga inimese tööaeg algab esimesest reast (või ülevõtmisest/liitumisest)
+// ja lõpeb pausil (Jätan pooleli, Lõpetan päeva, Minu osa valmis), vabastamisel, ülevõtmisel või lõpetamisel.
+// Kui pausi ei vajutatud ja järgmine tegevus on alles teisel päeval, lõpeb aeg eelmise päeva viimase rea juures.
+// read: [{aeg (ms), kes}], ajalugu: [[aeg ISO, kes, sündmus, lisa]]
+function kogTooajad(olek, lopetatud, read, ajalugu, nyyd = Date.now()) {
+  const paev = t => { const d = new Date(t); return d.getFullYear() * 400 + d.getMonth() * 32 + d.getDate(); };
+  const ev = read.map(r => ({ t: r.aeg, kes: r.kes, l: 'rida' }));
+  (ajalugu || []).forEach(e => { const t = kubMs(e[0]); if (t) ev.push({ t, kes: e[1], l: e[2] }); });
+  if (olek === 'valmis' && lopetatud) ev.push({ t: lopetatud, kes: '', l: 'lõpetas' });
+  ev.sort((a, b) => a.t - b.t || (a.l === 'rida' ? -1 : 0) - (b.l === 'rida' ? -1 : 0));
+  const lahti = new Map(), lood = [], korjajad = [];
+  const sulge = (kes, t) => { const s = lahti.get(kes); if (!s) return; lahti.delete(kes); lood.push({ kes, alg: s.alg, lopp: paev(t) === paev(s.viim) ? Math.max(t, s.viim) : s.viim }); };
+  const ava = (kes, t) => {
+    if (!kes) return;
+    if (korjajad.indexOf(kes) < 0) korjajad.push(kes);
+    const s = lahti.get(kes);
+    if (s && paev(t) !== paev(s.viim)) sulge(kes, s.viim);
+    if (lahti.has(kes)) lahti.get(kes).viim = t; else lahti.set(kes, { alg: t, viim: t });
+  };
+  ev.forEach(e => {
+    if (e.l === 'rida' || e.l === 'alustas' || e.l === 'jätkas' || e.l === 'liitus') ava(e.kes, e.t);
+    // ülevõtmine ja admini vabastamine: eelmise korjaja aeg lõpeb tema viimase tegevuse juures (ta võis ammu ära minna)
+    else if (e.l === 'võttis üle') { [...lahti.keys()].filter(k => k !== e.kes).forEach(k => sulge(k, lahti.get(k).viim)); ava(e.kes, e.t); }
+    else if (e.l === 'vabastas') [...lahti.keys()].forEach(k => sulge(k, lahti.get(k).viim));
+    else if (e.l === 'paus') sulge(e.kes, e.t);
+    else if (e.l === 'lõpetas' || e.l === 'avas uuesti') [...lahti.keys()].forEach(k => sulge(k, e.t));
+  });
+  const aktiivsed = olek === 'kogumisel' ? [...lahti.keys()] : [];
+  [...lahti.keys()].forEach(k => { const s = lahti.get(k); sulge(k, olek === 'kogumisel' && paev(nyyd) === paev(s.viim) ? nyyd : s.viim); });
+  // kestvus = lõikude ühend (kaks korjajat korraga ei lähe topelt)
+  const jr = lood.slice().sort((a, b) => a.alg - b.alg);
+  let kestvus = 0, a0 = null, l0 = null;
+  jr.forEach(x => { if (a0 == null || x.alg > l0) { if (a0 != null) kestvus += l0 - a0; a0 = x.alg; l0 = x.lopp; } else l0 = Math.max(l0, x.lopp); });
+  if (a0 != null) kestvus += l0 - a0;
+  return { kestvus, tootunnid: lood.reduce((s, x) => s + x.lopp - x.alg, 0), algus: jr.length ? jr[0].alg : 0, korjajad, aktiivsed, lood };
+}
+// aktiivne aeg ja ridu tunnis iga korjaja enda ridade pealt (kaks korraga korjajat ei sega teineteise vahesid)
+function mdkKiirusInimesteKaupa(read) {
+  const m = new Map();
+  read.forEach(r => (m.get(r.kes) || m.set(r.kes, []).get(r.kes)).push(r));
+  let min = 0, vahesid = 0;
+  m.forEach(l => { const k = mdkKiirus(l); min += k.minutid; vahesid += k.vahesid; });
+  return { minutid: min, vahesid, tunnis: min > 0 ? vahesid / (min / 60) : null };
+}
+// YLEANDMINE: korjajad järjekorras; praegu korjavad paksult, teised hallilt
+function kubKorjajad(x) {
+  const l = x.korjajad.length ? x.korjajad : x.n.koguja ? [x.n.koguja] : [];
+  if (!l.length) return '<span class="hall">–</span>';
+  const osad = new Map();   // OSAD: mis osa(d) keegi võttis (telefonis „+ Nurgad“)
+  (x.n.ajalugu || []).forEach(e => { if (e[2] === 'liitus' && e[3]) (osad.get(e[1]) || osad.set(e[1], []).get(e[1])).push(e[3]); });
+  const nimi = k => esc(k) + (osad.has(k) ? ` <span class="hall vaike">(${esc(osad.get(k).join(', '))})</span>` : '');
+  return l.map(k => x.n.olek === 'kogumisel' && x.aktiivsed.indexOf(k) >= 0 ? `<b>${nimi(k)}</b>` : `<span${x.n.olek === 'valmis' ? '' : ' class="hall"'}>${nimi(k)}</span>`).join(', ');
 }
 function renderKubjas() {
   if (!$('kubSisu')) return;
   const nyyd = Date.now();
-  const l = KOG.filter(n => n.olek === 'kogumisel' || (n.olek === 'valmis' && kubTana(kubMs(n.lopetatud))))
+  const l = KOG.filter(n => n.olek === 'kogumisel' || n.olek === 'pooleli' || (n.olek === 'valmis' && kubTana(kubMs(n.lopetatud))))   // YLEANDMINE: ka pausil
     .map(n => Object.assign({ n }, kubNimekiri(n, nyyd)))
     .sort((a, b) => ((a.n.olek === 'valmis') - (b.n.olek === 'valmis')) || (b.lopp || b.viimati || 0) - (a.lopp || a.viimati || 0));
   $('kubInfo').textContent = KUB_AEG ? '· uuendatud ' + new Date(KUB_AEG).toLocaleTimeString('et-EE', { hour: '2-digit', minute: '2-digit' }) + ', uueneb ise iga minut' : '';
   if (!l.length) { $('kubSisu').innerHTML = '<p class="hall vaike">Täna pole veel midagi komplekteeritud ega pooleli.</p>'; return; }
   const paus = MDK_PAUS_MIN * 60000;
-  $('kubSisu').innerHTML = `<table class="tabel kub"><tr><th>Nimekiri</th><th>Koguja</th><th>Read</th><th title="Tootel oli ribakood, aga rida kinnitati nupuga">Skännimata</th><th>Algus</th><th>Viimati võetud</th><th>Lõpp</th><th>Kestus</th><th title="Ridu tunnis aktiivse aja järgi (üle ${MDK_PAUS_MIN} min pausid välja). Hallilt: kogu kestuse järgi koos pausidega.">Ridu tunnis</th></tr>` +
+  $('kubSisu').innerHTML = `<table class="tabel kub"><tr><th>Nimekiri</th><th>Koguja</th><th>Read</th><th title="Tootel oli ribakood, aga rida kinnitati nupuga">Skännimata</th><th>Algus</th><th>Viimati võetud</th><th>Lõpp</th><th title="Aeg, mil keegi seda nimekirja korjas. Pausid (Jätan pooleli, Lõpetan päeva) ja ööd ei lähe arvesse.">Kestvus</th><th title="Ridu tunnis aktiivse aja järgi (üle ${MDK_PAUS_MIN} min pausid välja). Hallilt: kogu tööaja järgi koos lühikeste pausidega.">Ridu tunnis</th></tr>` +
     l.map(x => {
       const k = kogKokku(x.n), pikk = x.vaikus != null && x.vaikus > paus;
       return `<tr><td><b>${esc(x.n.nimi)}</b></td>
-        <td>${esc(x.n.koguja)}</td>
+        <td>${kubKorjajad(x)}</td>
         <td>${k.tehtud}/${k.kokku}${k.puudu ? ` <span style="color:#b26a00">· ${k.puudu} puudu</span>` : ''}</td>
         <td>${mdkSkannimata(mdkSkann(x.n.read))}</td>
         <td>${x.algus ? kubKell(x.algus) : '<span class="hall">–</span>'}</td>
         <td>${x.viimati ? kubKell(x.viimati) : '<span class="hall">–</span>'}${x.vaikus != null ? ` <span${pikk ? ' style="color:#b26a00;font-weight:700"' : ' class="hall"'} title="Aeg viimasest võetud reast">· ${kubKestus(x.vaikus)} tagasi</span>` : ''}</td>
-        <td>${x.lopp ? `<b style="color:var(--roheline,#1a7f37)">${kubKell(x.lopp)}</b>` : '<span class="hall">pooleli</span>'}</td>
-        <td>${kubKestus(x.kestus)}${x.aktiivne ? ` <span class="hall vaike" title="Aktiivne aeg (pausid välja)">(aktiivne ${mdkMin(x.aktiivne)})</span>` : ''}</td>
+        <td>${x.lopp ? `<b style="color:var(--roheline,#1a7f37)">${kubKell(x.lopp)}</b>` : x.n.olek === 'pooleli' ? '<b style="color:#b26a00" title="Keegi ei korja: jäeti pooleli või päev lõpetati">⏸ pausil</b>' : '<span class="hall">pooleli</span>'}</td>
+        <td>${kubKestus(x.kestus)}${x.aktiivne ? ` <span class="hall vaike" title="Aktiivne aeg (üle ${MDK_PAUS_MIN} min pausid välja)">(aktiivne ${mdkMin(x.aktiivne)})</span>` : ''}${x.korjajad.length > 1 ? `<div class="hall vaike" title="Kõigi korjajate aeg kokku">töötunnid ${kubKestus(x.tootunnid)}</div>` : ''}</td>
         <td><b>${x.tunnis == null ? '–' : fmt(x.tunnis)}</b>${x.tunnisKokku == null ? '' : ` <span class="hall">/ ${fmt(x.tunnisKokku)}</span>`}</td></tr>`;
     }).join('') + '</table>' +
-    `<p class="hall vaike" style="margin:2px 0 0">Algus = esimene võetud rida. Oranž = pooleli ja üle ${MDK_PAUS_MIN} min midagi võetud pole. Ridu tunnis: paks = aktiivne aeg (üle ${MDK_PAUS_MIN} min pausid välja), hall = kogu kestus koos pausidega.</p>`;
+    `<p class="hall vaike" style="margin:2px 0 0">Algus = esimene võetud rida. Oranž = pooleli ja üle ${MDK_PAUS_MIN} min midagi võetud pole. Kestvus = aeg, mil keegi korjas: pausid (Jätan pooleli, Lõpetan päeva) ja ööd ei lähe arvesse. Mitme korjaja korral töötunnid = kõigi aeg kokku. Ridu tunnis: paks = aktiivne aeg (üle ${MDK_PAUS_MIN} min pausid välja), hall = kogu tööaja järgi.</p>`;
 }
 // Kuni aken on lahti: andmed iga minut (vaikselt), „min tagasi“ iga 20 s ilma päringuta
 setInterval(() => { if ($('kogAken').classList.contains('lahti') && !document.hidden) renderKubjas(); }, 20000);
@@ -2159,11 +2218,12 @@ function kogKokku(n) {
 function kogOlek(n) {
   if (n.olek === 'valmis') return `<b style="color:var(--roheline,#1a7f37)">valmis</b> <span class="hall">${kogAeg(n.lopetatud)}${n.koguja ? ' · ' + esc(n.koguja) : ''}</span>`;
   if (n.olek === 'kogumisel') return `kogumisel <span class="hall">${esc(n.koguja)}</span>`;
+  if (n.olek === 'pooleli') return `<b style="color:#b26a00">⏸ pooleli</b> <span class="hall">ootab jätkajat${n.koguja ? ' · viimati ' + esc(n.koguja) : ''}</span>`;   // YLEANDMINE
   if (n.olek === 'arhiiv') return '<span class="hall">arhiivis</span>';
   return 'ootab';
 }
 function renderKogNimekirjad() {
-  const jrk = { kogumisel: 0, avatud: 1, valmis: 2, arhiiv: 3 };
+  const jrk = { kogumisel: 0, pooleli: 0, avatud: 1, valmis: 2, arhiiv: 3 };
   const l = KOG.slice().sort((a, b) => (jrk[a.olek] - jrk[b.olek]) || String(b.loodud).localeCompare(String(a.loodud)));
   $('kogNimekirjad').innerHTML = l.length ? `<table class="tabel"><tr><th>Nimekiri</th><th>Loodud</th><th>Olek</th><th>Read</th><th></th></tr>` +
     l.map(n => {
@@ -2176,6 +2236,7 @@ function renderKogNimekirjad() {
           <button class="nupp" data-kogprindi="${esc(n.id)}">Prindi</button>
           <button class="nupp" data-kogcsv="${esc(n.id)}">CSV</button>
           ${n.olek === 'valmis' ? `<button class="nupp" data-kogava="${esc(n.id)}" title="Telefonis saab jälle muuta">Ava uuesti</button>` : ''}
+          ${n.olek === 'kogumisel' ? `<button class="nupp" data-kogvabasta="${esc(n.id)}" title="Nt korjaja jäi haigeks: nimekiri jääb pooleli ja keegi teine saab telefonis jätkata">Vabasta</button>` : ''}
           <button class="nupp ohtlik" data-kogkustuta="${esc(n.id)}">Kustuta</button></td></tr>` +
         (KOG_VAATA === n.id ? `<tr><td colspan="5">${kogTabel(n)}</td></tr>` : '');
     }).join('') + '</table>' : '<p class="hall">Nimekirju pole.</p>';
@@ -3195,6 +3256,7 @@ $('kogAken').addEventListener('click', e => {
   else if (d.kogvaata) { KOG_VAATA = KOG_VAATA === d.kogvaata ? null : d.kogvaata; renderKogNimekirjad(); }
   else if (d.kogprindi) kogPrindi(d.kogprindi);
   else if (d.kogcsv) kogCsv(d.kogcsv);
+  else if (d.kogvabasta) { const n = KOG.find(x => x.id === d.kogvabasta); if (n && confirm(`Vabastan „${n.nimi}“ (korjab ${n.koguja || '?'})? Tehtud read jäävad alles, nimekiri jääb pooleli ja keegi teine saab telefonis jätkata.`)) kogMuuda({ id: n.id, vabasta: true }, 'Nimekiri vabastatud, ootab jätkajat'); }   // YLEANDMINE
   else if (d.kogava) kogMuuda({ id: d.kogava, olek: 'avatud' }, 'Nimekiri avatud, telefonis saab jälle muuta');
   else if (d.kogkustuta) { const n = KOG.find(x => x.id === d.kogkustuta); if (n && confirm(`Kustutan nimekirja „${n.nimi}“ koos ridadega?`)) kogMuuda({ id: n.id, kustuta: true }, 'Nimekiri kustutatud'); }
 });
