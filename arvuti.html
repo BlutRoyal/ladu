@@ -424,7 +424,6 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
       <label class="vaike" title="Kui poes on vähem kui see, tuleb toode nimekirja ka siis, kui käibekiirust pole (uus toode, vähe müügiajalugu)">Poes alla <input id="sooPiir" type="text" inputmode="decimal" value="10" style="width:44px"> → alati</label>
       <label class="vaike" title="Kui poe mahutavus (müügisaal + poe ladu) on Sheetsis kirjas: toode tuleb, kui poes on alla selle osa mahust, ja pood täidetakse mahuni">Mahuga: täida alla <input id="sooTaide" type="text" inputmode="decimal" value="50" style="width:40px"> %</label>
       <button class="nupp" id="sooArvuta">Arvuta</button>
-      <button class="nupp" id="sooMahuLeht" title="Loob Sheetsi lehe „Poe mahutavus“ või lisab sinna puuduvad KOTT tooted. Pood kirjutab Müügisaal ja Poe ladu.">Poe mahutavuse leht</button>
     </div>
     <textarea id="kogKleebi" rows="2" placeholder="…või kleebi siia Sheetsist (Ctrl+V)" style="width:100%;margin-top:8px;font:13px ui-monospace,monospace"></textarea>
     <div id="kogEelvaade"></div>
@@ -1906,9 +1905,12 @@ function kogSoovitus({ pakk = true, kott = true, kuud = 1, piir = 10, kiirus = n
     const kaive = vajadus > 0 && poes < vajadus, kaitse = poes < piir;
     const mm = mahutavus && mahutavus.get(t.kood), mahub = mm ? mm[0] + mm[1] : 0, mahuAlla = mahub > 0 && poes < mahub * taide;
     if (!kaive && !kaitse && !mahuAlla) return;
-    const vaja = Math.min(mahub > 0 ? mahub - poes : Math.max(kaive ? vajadus : 0, kaitse ? piir : 0) - poes, maardu);
+    let vaja = Math.min(mahub > 0 ? mahub - poes : Math.max(kaive ? vajadus : 0, kaitse ? piir : 0) - poes, maardu);
     if (!(vaja > 0)) return;
-    L.push({ kood: t.kood, vaja, s: { tyyp, k3, kuus, vajadus, kaitse: kaitse && !kaive, piir, mm, mahub, mahuPohjus: mahuAlla && !kaive && !kaitse,
+    // KOTT on pundis: üles täis punt (10, üle 200 mm pikkused 5), aga mitte üle Maardu koguse
+    const punt = tyyp === 'KOTT' ? sooPunt(t.nimi) : 0;
+    if (punt) vaja = Math.min(Math.ceil(vaja / punt) * punt, maardu);
+    L.push({ kood: t.kood, vaja, s: { tyyp, k3, kuus, vajadus, kaitse: kaitse && !kaive, piir, mm, mahub, punt, mahuPohjus: mahuAlla && !kaive && !kaitse,
                                      paevi: kuus > 0 ? poes / kuus * 30 : (poes <= 0 ? 0 : Infinity) } });
   });
   return L.sort(sooVordle);
@@ -1926,6 +1928,11 @@ function kogSordi(v) {
   KOG_MUSTAND.sort((a, b) => suund * (v === 'pohjus' ? (a.s && b.s ? sooVordle(a, b) : 0)
     : typeof f(a) === 'number' ? f(a) - f(b) : CN.compare(f(a), f(b))) || CN.compare(a.kood, b.kood));
   renderKogMustand();
+}
+// Väikepakendi punt nimetusest: "8x120", "6,0 x180", "10,5x240" -> pikkus = teine arv. Üle 200 mm: 5 kaupa, muidu 10.
+function sooPunt(nimi) {
+  const m = /(\d+(?:[,.]\d+)?)\s*[xX×*]\s*(\d+(?:[,.]\d+)?)/.exec(String(nimi || ''));
+  return m && nr(m[2]) > 200 ? 5 : 10;
 }
 function sooPohjus(s) {
   if (s.k3 <= 0) return '<b class="hoiatus">poes otsas</b>';
@@ -1977,16 +1984,6 @@ async function sooArvuta() {
   if (!KOG_MUSTAND.length) teade('Ühtegi toodet ei pea poodi saatma');
 }
 
-async function sooMahuLeht() {
-  const nupp = $('sooMahuLeht'); nupp.disabled = true;
-  try {
-    const j = await api({ tegevus: 'poeMahutavus', loo: true });
-    if (!j.ok) throw new Error(j.viga);
-    teade(`${j.uus ? 'Leht „Poe mahutavus“ loodud' : 'Leht „Poe mahutavus“ olemas'}: lisati ${j.lisatud} KOTT toodet (kokku ${j.ridu}). Pood kirjutab Sheetsis Müügisaal ja Poe ladu.`);
-  } catch (e) { teade('Ei saanud lehte teha: ' + e.message, true); }
-  nupp.disabled = false;
-}
-
 async function avaKogumine() {
   $('kogAken').classList.add('lahti');
   if (!$('kogNimi').value) $('kogNimi').value = 'Pood ' + kogTana();
@@ -2023,8 +2020,8 @@ function renderKogMustand() {
         ${soo ? (r.s ? `<td${r.s.k3 < 20 ? ' class="hoiatus"' : ''}>${fmt(r.s.k3)}</td><td>${r.s.kuus ? fmt(r.s.kuus) : '<span class="hall">–</span>'}</td><td>${sooPohjus(r.s)}</td><td${r.s.mm ? ` title="müügisaal ${fmt(r.s.mm[0])} + poe ladu ${fmt(r.s.mm[1])}"` : ''}>${r.s.mahub ? fmt(r.s.mahub) : '<span class="hall">–</span>'}</td>` : '<td></td><td></td><td></td><td></td>') : ''}
         <td>${s.length ? s.map(x => esc(x.koht)).join(', ') : '<span style="color:#b26a00">asukoht puudub</span>'}</td>
         <td${vahe ? ' style="color:#b26a00;font-weight:600" title="Saata rohkem kui laos"' : ''}>${t ? fmt(nr(t.maardu)) : '–'}</td>
-        <td><input type="text" inputmode="decimal" data-kogvaja="${i}" value="${String(r.vaja).replace('.', ',')}" style="width:80px"></td>
-        <td><button class="nupp" data-kogeemalda="${i}" title="Eemalda rida">✕</button></td></tr>`;
+        <td><input type="text" inputmode="decimal" data-kogvaja="${i}" value="${String(r.vaja).replace('.', ',')}" style="width:80px"${r.s && r.s.punt ? ` title="Ümardatud üles ${r.s.punt} kaupa (pundid), mitte üle Maardu koguse"` : ''}>${r.s && r.s.punt === 5 ? ' <span class="hall vaike" title="Üle 200 mm: pundis 5">×5</span>' : ''}</td>
+        <td><button class="nupp" data-kogeemalda="${i}" title="Eemalda rida" tabindex="-1">✕</button></td></tr>`;
     }).join('') + '</table>' +
     (puudu || kohata ? `<p class="vaike" style="color:#b26a00">${puudu ? puudu + ' koodi pole Buumi ekspordis. ' : ''}${kohata ? kohata + ' tootel pole asukohta (telefon näitab neid lõpus).' : ''}</p>` : '');
 }
@@ -3026,7 +3023,6 @@ $('mdkAken').addEventListener('click', e => {
 $('kogUuenda').addEventListener('click', laeKogumised);
 $('kogSaada').addEventListener('click', kogSaada);
 $('sooArvuta').addEventListener('click', sooArvuta);   // SOOVITUS
-$('sooMahuLeht').addEventListener('click', sooMahuLeht);
 $('uuenda').addEventListener('click', () => Object.keys(SOO_KIIRUS).forEach(k => delete SOO_KIIRUS[k]));   // hooaja kiirus loetakse uuesti
 // BUUM
 $('buumFail').addEventListener('change', e => { buumLae(e.target.files[0]); e.target.value = ''; });
@@ -3057,10 +3053,24 @@ $('buumSisu').addEventListener('click', e => {
   else if (d.buumsulge) { BUUM = null; renderBuum(); }
 });
 $('kogKleebi').addEventListener('input', () => { KOG_MUSTAND = kogParsi($('kogKleebi').value); KOG_SORT = null; renderKogMustand(); });
+// Kogus muutub ilma tabelit uuesti joonistamata, et fookus jääks alles (Tab / nooled liiguvad edasi)
 $('kogAken').addEventListener('change', e => {
   const i = e.target.dataset.kogvaja;
-  if (i !== undefined && KOG_MUSTAND[i]) { KOG_MUSTAND[i].vaja = nr(e.target.value.replace(/\s/g, '')); renderKogMustand(); }
+  if (i === undefined || !KOG_MUSTAND[i]) return;
+  const r = KOG_MUSTAND[i], t = T.get(r.kood), md = e.target.closest('td').previousElementSibling;
+  r.vaja = nr(e.target.value.replace(/\s/g, ''));
+  if (md && t) { const vahe = r.vaja > nr(t.maardu); md.style.color = vahe ? '#b26a00' : ''; md.style.fontWeight = vahe ? '600' : ''; md.title = vahe ? 'Saata rohkem kui laos' : ''; }
 });
+// Nooled üles/alla ja Enter: eelmise/järgmise rea kogus (tekst märgitakse, saab kohe üle kirjutada)
+$('kogEelvaade').addEventListener('keydown', e => {
+  if (e.target.dataset.kogvaja === undefined || !['ArrowDown', 'ArrowUp', 'Enter'].includes(e.key)) return;
+  const l = [...$('kogEelvaade').querySelectorAll('input[data-kogvaja]')], i = l.indexOf(e.target);
+  const j = e.key === 'ArrowUp' ? i - 1 : i + 1;
+  e.preventDefault();
+  e.target.dispatchEvent(new Event('change', { bubbles: true }));
+  if (l[j]) { l[j].focus(); l[j].select(); }
+});
+$('kogEelvaade').addEventListener('focusin', e => { if (e.target.dataset.kogvaja !== undefined) e.target.select(); });
 $('kogAken').addEventListener('click', e => {
   const so = e.target.closest('[data-kogsort]'); if (so) { kogSordi(so.dataset.kogsort); return; }   // SOOVITUS
   const b = e.target.closest('button'); if (!b) return;
