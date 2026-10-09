@@ -145,6 +145,19 @@ nav .ikoon { display: block; font-size: 20px; line-height: 1.1; }
 .g-rida .g-kogus { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .g-rida.tehtud { background: var(--roh-hele); } .g-rida.puudu { background: var(--kollane); }
 .g-rida.valitud { outline: 2px solid var(--roheline); }
+/* SKANN: kinnituse kastike, suur skänninupp, vale toote teade */
+.g-toode { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; }
+.g-kast { flex: none; box-sizing: border-box; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 2px solid var(--hall); border-radius: 7px; font-weight: 800; font-size: 17px; line-height: 1; }
+.g-kast.ok { background: var(--roheline); border-color: var(--roheline); color: #fff; }
+.g-kast.vale { border-color: var(--punane); color: var(--punane); }
+.g-kast.nupp { border-color: #c77700; color: #c77700; font-size: 14px; }
+.g-kast.riba { color: var(--hall); }
+.g-rida .g-kast { width: 20px; height: 20px; font-size: 13px; border-width: 2px; border-radius: 5px; vertical-align: -4px; margin-right: 6px; box-sizing: border-box; overflow: hidden; }
+.g-rida .g-kast.nupp { font-size: 10px; }
+.g-skann-suur { width: 100%; min-height: 64px; margin-top: 10px; border: 0; border-radius: 14px; background: var(--roheline); color: #fff; font-size: 21px; font-weight: 800; cursor: pointer; }
+@media (prefers-color-scheme: dark) { .g-skann-suur, .g-kast.ok { color: #10200f; } }
+.g-vale { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: var(--pun-hele); border: 2px solid var(--punane); }
+.g-vale b.pea { color: var(--punane); font-size: 19px; }
 .inv-rida { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--joon); }
 .inv-rida:first-child { border-top: 0; }
 .inv-rida .kogus { font-size: 20px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
@@ -2039,6 +2052,7 @@ $('iReaKaupa').addEventListener('toggle', () => { renderReaKaupa(); if ($('iReaK
 let GK = loe(V.kog, { nimekirjad: [], aeg: '' });       // serveri seis
 let gAvatud = loe(V.kogAvatud, null), gRezhiim = loe(V.kogRezhiim, 'jarjest');
 let gRida = null, gUusRida = null, gKontrollitud = null, gVahele = new Set(), laebKog = false, gViga = '';
+let gKontrollViis = 'skänn', gKontrollSkann = '', gVale = null;   // SKANN: kuidas õige toode tuvastati; viimane vale skänn
 
 /* ---------- MARSRUUT: korjejärjekord uksest 2 (Lao mõõdud, mm) ----------
    G = { W, H, post, uks: [x, laius], vp: [x, y, pikkus X, pikkus Y], read: { rida: [x, y, sügavus, [tala laiused]] } }
@@ -2188,12 +2202,12 @@ function kogRakenda(L, m, kes) {
   if (m.op === 'alusta') { n.olek = 'kogumisel'; n.koguja = kes; return; }
   const i = n.read.findIndex(r => r.id === m.id);
   if (m.op === 'kustutaRida') {
-    if (i >= 0) { if (n.read[i].lisatud) n.read.splice(i, 1); else Object.assign(n.read[i], { votetud: null, olek: '' }); }
+    if (i >= 0) { if (n.read[i].lisatud) n.read.splice(i, 1); else Object.assign(n.read[i], { votetud: null, olek: '', kinnitus: '', skann: '' }); }
     return;
   }
   if (m.op === 'rida') {
-    if (i >= 0) Object.assign(n.read[i], { votetud: m.votetud, olek: m.olek, aeg, kes });
-    else n.read.push({ id: m.id, kood: m.kood, vaja: m.vaja || 0, votetud: m.votetud, olek: m.olek, aeg, kes, lisatud: true, jrk: n.read.length + 1 });
+    if (i >= 0) Object.assign(n.read[i], { votetud: m.votetud, olek: m.olek, aeg, kes, kinnitus: m.kinnitus || '', skann: m.skann || '' });
+    else n.read.push({ id: m.id, kood: m.kood, vaja: m.vaja || 0, votetud: m.votetud, olek: m.olek, aeg, kes, lisatud: true, jrk: n.read.length + 1, kinnitus: m.kinnitus || '', skann: m.skann || '' });
     if (n.olek === 'avatud') { n.olek = 'kogumisel'; n.koguja = kes; }
   }
 }
@@ -2272,7 +2286,7 @@ function renderKogumine(taust) {   // taust = uuendus ei tulnud kasutaja tegevus
       const klass = r.olek === 'puudu' ? ' puudu' : r.olek ? ' tehtud' : '';
       return `<button class="g-rida${klass}${rida && rida.id === r.id ? ' valitud' : ''}" data-grida="${esc(r.id)}"${lukus ? ' disabled' : ''}>
         <span class="g-koht">${r.k.parim ? esc(r.k.parim.koht) : '–'}</span>
-        <span><b>${esc(r.kood)}</b>${r.lisatud ? ' <span class="hall">lisatud</span>' : ''}<span class="hall g-nimi">${esc(t ? t.nimi : '')}</span></span>
+        <span>${gKast(r.olek ? r.kinnitus : '', 'g-kast')}<b>${esc(r.kood)}</b>${r.lisatud ? ' <span class="hall">lisatud</span>' : ''}<span class="hall g-nimi">${esc(t ? t.nimi : '')}</span></span>
         <span class="g-kogus">${r.olek ? `${gArv(r.votetud)}${r.vaja ? '<small>/' + gArv(r.vaja) + '</small>' : ''}` : r.vaja ? gArv(r.vaja) : ''}</span></button>`;
     }).join('') : '<div class="tuhi">Ridu pole. Lisa tooteid allpool.</div>') + '</div>';
   }
@@ -2295,28 +2309,67 @@ function renderKogumine(taust) {   // taust = uuendus ei tulnud kasutaja tegevus
   if (kog && rida && (gUusRida || gKontrollitud === rida.id)) setTimeout(() => { kog.focus(); kog.select(); }, 50);
 }
 
+// SKANN: kas tootel on skännitav ribakood (Buumi Ribakood olemas ja erineb koodist; tooraine alusel pole)
+function gOnRibakood(t, koht) {
+  if (!t || !t.ean || t.ean === t.kood) return false;
+  return !(koht && onTooraineLiik(koht.liik));
+}
+// kinnituse kastike: skänn = roheline linnuke, vale ribakood = !, nupp (ribakood oli) = ✋, ribakoodita = –
+function gKast(kin, klass = 'g-kast') {
+  const m = { 'skänn': ['ok', '✓'], 'vale ribakood': ['vale', '!'], 'nupp': ['nupp', '✋'], 'ribakoodita': ['riba', '–'] }[kin] || ['', ''];
+  return `<span class="${klass} ${m[0]}" title="${esc(kin || 'kinnitamata')}">${m[1]}</span>`;
+}
+function gValeKast(v) {
+  return `<div class="g-vale"><b class="pea">✕ Vale toode!</b>
+    <div>Skänniti <b>${esc(v.kood)}</b>${v.toode ? ` = ${esc(v.toode.kood)} ${esc(v.toode.nimi)}` : ' (seda koodi pole Buumi andmetes)'}</div>
+    <div class="nupud" style="margin-top:8px">${v.teine ? `<button class="nupp vaike" data-gavateine="${esc(v.teine)}">Ava see rida</button>`
+      : v.toode ? '<button class="nupp vaike" data-glisavale>Lisa nimekirja</button>' : ''}
+      <button class="nupp vaike" data-gvaleok>Toode on õige, ribakood vale</button></div></div>`;
+}
+// SKANN: lühike piiks (õige) või madal pikk toon + värin (vale). iPhone ei värise, seal ainult heli.
+let HELI = null;
+function heliValmis() {
+  try { HELI = HELI || new (window.AudioContext || window.webkitAudioContext)(); if (HELI.state === 'suspended') HELI.resume(); } catch (e) {}
+}
+document.addEventListener('pointerdown', heliValmis, { passive: true });
+function piiks(ok) {
+  if (!ok) try { if (navigator.vibrate) navigator.vibrate([250, 100, 250]); } catch (e) {}
+  try {
+    heliValmis(); if (!HELI) return;
+    const o = HELI.createOscillator(), g = HELI.createGain(), t0 = HELI.currentTime, kestus = ok ? .12 : .5;
+    o.type = ok ? 'sine' : 'square'; o.frequency.value = ok ? 1760 : 196;
+    g.gain.setValueAtTime(ok ? .2 : .3, t0); g.gain.exponentialRampToValueAtTime(.001, t0 + kestus);
+    o.connect(g); g.connect(HELI.destination); o.start(t0); o.stop(t0 + kestus);
+  } catch (e) {}
+}
+
 function gKaart(r, read) {
   const t = IX && IX.tooted.get(r.kood);
   const k = r.k || reaKoht(r.kood);
   const koht = k.parim;
   const muud = k.koik.filter(x => x !== koht);
   const jrk = read.filter(x => !x.olek).length;
+  const ean = gOnRibakood(t, koht), ok = gKontrollitud === r.id;   // SKANN
+  const kin = ok ? gKontrollViis : r.olek ? r.kinnitus : '';
   return `<div class="kaart g-kaart">
     <div class="g-suur">${koht ? esc(koht.koht) : 'Asukoht puudub'}</div>
     ${koht ? `<div class="hall">${esc(juhis(koht.koht, koht.pool))}</div>` : ''}
     ${koht && onTooraineLiik(koht.liik) ? `<div class="tooraine-info">Tooraine alus ${esc((IX.seosKoht.get(koht.koht) || []).filter(s => !onTooraineLiik(s.liik) && !onAjutineLiik(s.liik)).map(s => s.kood).join(', '))} kohal</div>` : ''}
     ${koht && kohaTooraine(koht.koht, r.kood).length ? `<div class="tooraine-info">Pesas on tooraine ${esc(kohaTooraine(koht.koht, r.kood).map(s => s.kood).join(', '))}; pakitud kaupa ei pruugi olla</div>` : ''}
     ${muud.length ? `<div class="hall vaike">Ka: ${muud.map(x => esc(x.koht)).join(', ')}</div>` : ''}
-    <div style="margin-top:8px"><b>${esc(r.kood)}</b> ${esc(t ? t.nimi : 'Buumi ekspordis pole')}</div>
+    <div class="g-toode">${gKast(kin)}<div><b>${esc(r.kood)}</b> ${esc(t ? t.nimi : 'Buumi ekspordis pole')}</div></div>
     <div class="g-vaja">${r.vaja ? `Vaja <b>${gArv(r.vaja)}</b>` : 'Uus rida'} ${esc(t && t.uhik || '')}
       ${t ? `<span class="hall"> · laos ${gArv(t.maardu)}</span>` : ''}</div>
-    <div class="hall vaike">${gKontrollitud === r.id ? '<span style="color:var(--roheline)">✓ Õige toode</span>' : 'Skänni toode kontrolliks'}${gRezhiim === 'jarjest' && !gUusRida ? ' · ' + jrk + ' rida jäänud' : ''}</div>
+    <div class="hall vaike">${ok ? (gKontrollViis === 'vale ribakood' ? '<span style="color:var(--punane)">Kinnitatud käsitsi: ribakood ei sobinud</span>' : '<span style="color:var(--roheline)">✓ Õige toode</span>')
+      : !ean ? 'Ribakoodi pole, kinnita nupuga' : r.olek && r.kinnitus ? 'Varem: ' + esc(r.kinnitus) : 'Skänni toote ribakood'}${gRezhiim === 'jarjest' && !gUusRida ? ' · ' + jrk + ' rida jäänud' : ''}</div>
+    ${gVale && gVale.id === r.id ? gValeKast(gVale) : ''}
+    ${ean && !ok ? '<button class="g-skann-suur" data-gskann="rida">⌗ Skänni toode</button>' : ''}
     <div class="otsirida" style="margin-top:8px">
       <input id="gKogus" data-gid="${esc(r.id)}" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" value="${r.olek ? String(r.votetud).replace('.', ',') : r.vaja ? String(r.vaja).replace('.', ',') : ''}" aria-label="Võetud kogus" style="font-size:22px;font-weight:700">
-      <button class="skann-nupp" data-gskann="rida" aria-label="Skänni toode">⌗</button>
+      ${ean && !ok ? '' : '<button class="skann-nupp" data-gskann="rida" aria-label="Skänni toode">⌗</button>'}
     </div>
     ${koht ? `<div class="nupud" style="margin-top:6px"><button class="nupp vaike" data-gtyhi="${esc(r.kood + '|' + koht.koht)}">${onTooraineLiik(koht.liik) ? 'Tooraine alus sai tühjaks' : onAjutineKoht(koht) ? 'Ajutine koht jäi tühjaks' : 'Koht jäi tühjaks'}</button></div>` : ''}
-    <div class="nupud"><button class="nupp pea" data-gkinnita style="flex:1">Kinnita</button>
+    <div class="nupud"><button class="nupp${ok || !ean ? ' pea' : ''}" data-gkinnita style="flex:1">${ok || !ean ? 'Kinnita' : 'Kinnita skännimata'}</button>
       ${gUusRida ? '<button class="nupp" data-gloobu>Loobu</button>'
         : gRezhiim === 'jarjest' && !r.olek && !gRida ? `<button class="nupp" data-gvahele="${esc(r.id)}">Jäta vahele</button>`
         : `<button class="nupp" data-gloobu>Sulge</button>${r.olek ? `<button class="nupp ohtlik" data-gtyhjenda="${esc(r.id)}">${r.lisatud ? 'Kustuta' : 'Tühjenda'}</button>` : ''}`}</div>
@@ -2340,7 +2393,7 @@ function renderKogNimekirjad(L) {
 
 function gAva(id) {
   gAvatud = id; kirjuta(V.kogAvatud, id);
-  gRida = null; gUusRida = null; gKontrollitud = null; gVahele.clear();
+  gRida = null; gUusRida = null; gKontrollitud = null; gVale = null; gVahele.clear();
   const n = kogNimekirjad().find(x => x.id === id);
   if (n && !n.read.length) gRezhiim = 'nimekiri';
   renderKogumine(); window.scrollTo(0, 0);
@@ -2359,39 +2412,77 @@ function gKinnita() {
   if (!/^\d+([.,]\d+)?$/.test(tekst)) { naita('Sisesta kogus numbrina', true); $('gKogus').focus(); return; }
   const votetud = nr(tekst);
   const olek = r.vaja && votetud < r.vaja ? 'puudu' : 'tehtud';
-  kogMuuda({ op: 'rida', nimekiri: gAvatud, id: r.id, kood: r.kood, vaja: r.vaja || 0, votetud, olek });
+  // SKANN: kuidas õige toode tuvastati (uuesti märkimisel ilma skännita jääb varasem kinnitus)
+  const t = IX && IX.tooted.get(r.kood), ok = gKontrollitud === r.id;
+  const kinnitus = ok ? gKontrollViis : r.olek && r.kinnitus ? r.kinnitus : gOnRibakood(t, (r.k || reaKoht(r.kood)).parim) ? 'nupp' : 'ribakoodita';
+  const skann = ok && gKontrollViis === 'vale ribakood' ? gKontrollSkann : !ok && kinnitus === 'vale ribakood' ? r.skann || '' : '';
+  kogMuuda({ op: 'rida', nimekiri: gAvatud, id: r.id, kood: r.kood, vaja: r.vaja || 0, votetud, olek, kinnitus, skann });
   naita(`${r.kood}: ${fmtNr(votetud)}` + (olek === 'puudu' ? ` (puudu ${fmtNr(r.vaja - votetud)})` : ''), false);
   // VASTUVOTT: puudu jäi -> korjekoht on tõenäoliselt tühi
   const pk = olek === 'puudu' && (r.k || reaKoht(r.kood)).parim;
   if (pk && !onAjutineKoht(pk) && !taitOotel(r.kood, pk.koht) && confirm(`Kas ${pk.koht} jäi tühjaks? Lisan selle täitmise nimekirja.`)) margiTyhi(r.kood, pk.koht, 'kogumisel puudu');
-  gVahele.delete(r.id); gRida = null; gUusRida = null; gKontrollitud = null;
+  gVahele.delete(r.id); gRida = null; gUusRida = null; gKontrollitud = null; gVale = null;
   renderKogumine(); window.scrollTo(0, 0);
 }
-function gLisaToode(t) {
+function gLisaToode(t, skannitud) {
   const n = kogNimekirjad().find(x => x.id === gAvatud);
   if (!n || !t) return;
   const olemas = n.read.find(r => r.kood === t.kood);
   if (olemas) { gRida = olemas.id; gUusRida = null; }
   else gUusRida = { id: uusId(), kood: t.kood, vaja: 0, k: reaKoht(t.kood) };
-  gKontrollitud = olemas ? olemas.id : gUusRida.id;
+  gKontrollitud = skannitud ? (olemas ? olemas.id : gUusRida.id) : null; gKontrollViis = 'skänn'; gVale = null;   // SKANN
   renderKogumine(); window.scrollTo(0, 0);
 }
 function gSkanni(mis) {
-  avaSkanner(async v => {
-    const t = await tolgendaTaielik(v);
-    if (t.koht) { naita('Asukoht ' + t.koht); return; }
-    if (t.vale) { naita(t.vale, true); return; }
-    const toode = leiaToode(t.kood);
-    if (!toode) { naita('Toodet ei leitud: ' + t.kood, true); return; }
-    const r = gAktiivneRida();
-    if (mis === 'rida' && r && r.kood === toode.kood) { gKontrollitud = r.id; renderKogumine(); return; }
-    const n = kogNimekirjad().find(x => x.id === gAvatud);
-    const teine = n && n.read.find(x => x.kood === toode.kood);
-    if (teine) { if (mis === 'rida') naita('See on teine toode: ' + toode.kood, true); gRida = teine.id; gUusRida = null; gKontrollitud = teine.id; renderKogumine(); return; }
-    if (mis === 'rida' && !confirm(`${toode.kood} (${toode.nimi}) pole nimekirjas. Lisan?`)) return;
-    gLisaToode(toode);
-  }, mis === 'rida' ? 'Skänni toote ribakood' : 'Skänni lisatav toode');
+  avaSkanner(v => gSkannitud(v, mis), mis === 'rida' ? 'Skänni toote ribakood' : 'Skänni lisatav toode');
 }
+// SKANN: kaamera või laoterminali skänner. mis = 'rida' (kontrolli aktiivset rida) | 'lisa'
+async function gSkannitud(v, mis) {
+  const t = await tolgendaTaielik(v);
+  if (t.koht) { piiks(false); naita('See on asukoha kood ' + t.koht + '. Skänni toote ribakood.', true); return; }
+  if (t.vale && !t.kood) { piiks(false); naita(t.vale, true); return; }
+  const kood = String(t.kood || v).trim(), toode = leiaToode(kood);
+  const n = kogNimekirjad().find(x => x.id === gAvatud);
+  const r = gAktiivneRida();
+  if (mis === 'rida' && r) {
+    if (toode && toode.kood === r.kood) { piiks(true); gKontrollitud = r.id; gKontrollViis = 'skänn'; gKontrollSkann = ''; gVale = null; renderKogumine(); return; }
+    const teine = toode && n && n.read.find(x => x.kood === toode.kood && x.id !== r.id);
+    piiks(false);
+    gVale = { id: r.id, kood, toode: toode || null, teine: teine ? teine.id : null };
+    if (gKontrollitud === r.id) gKontrollitud = null;
+    renderKogumine(); window.scrollTo(0, 0);
+    return;
+  }
+  if (!toode) { piiks(false); naita('Toodet ei leitud: ' + kood, true); return; }
+  piiks(true);
+  const teine = n && n.read.find(x => x.kood === toode.kood);
+  if (teine) { gRida = teine.id; gUusRida = null; gKontrollitud = teine.id; gKontrollViis = 'skänn'; gVale = null; renderKogumine(); window.scrollTo(0, 0); return; }
+  gLisaToode(toode, true);
+}
+// SKANN: laoterminali skänner trükib koodi nagu klaviatuur (kiiresti) ja lõpus Enter või Tab.
+// Kogumise vaates püütakse see kinni ka siis, kui kursor on koguse lahtris (lahtri sisu taastatakse).
+const KS = { buf: '', t0: 0, viim: 0, el: null, vana: '' };
+document.addEventListener('keydown', e => {
+  if (aktiivne !== 'kogumine' || !gAvatud || tVaade || SK.tootab) { KS.buf = ''; return; }
+  const nyyd = performance.now();
+  if (e.key === 'Enter' || e.key === 'Tab') {
+    const b = KS.buf;
+    KS.buf = '';
+    if (b.length < 4 || nyyd - KS.viim > 100 || (KS.viim - KS.t0) / (b.length - 1) > 40) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (KS.el) KS.el.value = KS.vana;
+    const mis = KS.el && KS.el.id === 'gLisa' ? 'lisa' : gAktiivneRida() ? 'rida' : 'lisa';
+    if (mis === 'lisa' && $('gSoovitused')) $('gSoovitused').innerHTML = '';
+    gSkannitud(b, mis);
+    return;
+  }
+  if (!e.key || e.key.length !== 1 || e.ctrlKey || e.altKey || e.metaKey) return;
+  if (!KS.buf || nyyd - KS.viim > 100) {
+    const a = document.activeElement;
+    KS.buf = ''; KS.t0 = nyyd; KS.el = a && /^(INPUT|TEXTAREA)$/.test(a.tagName) ? a : null; KS.vana = KS.el ? KS.el.value : '';
+  }
+  KS.buf += e.key; KS.viim = nyyd;
+}, true);
 function gLopeta() {
   const n = kogNimekirjad().find(x => x.id === gAvatud);
   if (!n) return;
@@ -2425,12 +2516,15 @@ $('v-kogumine').addEventListener('click', e => {
     gAva(id);
   }
   else if (d.grezhiim) { gRezhiim = d.grezhiim; kirjuta(V.kogRezhiim, gRezhiim); gRida = null; gUusRida = null; renderKogumine(); }
-  else if (d.grida) { gRida = d.grida; gUusRida = null; gKontrollitud = null; renderKogumine(); window.scrollTo(0, 0); }
+  else if (d.grida) { gRida = d.grida; gUusRida = null; gKontrollitud = null; gVale = null; renderKogumine(); window.scrollTo(0, 0); }
   else if ('gkinnita' in d) gKinnita();
-  else if (d.gvahele) { gVahele.add(d.gvahele); gKontrollitud = null; renderKogumine(); }
-  else if ('gloobu' in d) { gRida = null; gUusRida = null; gKontrollitud = null; renderKogumine(); }
+  else if (d.gvahele) { gVahele.add(d.gvahele); gKontrollitud = null; gVale = null; renderKogumine(); }
+  else if ('gloobu' in d) { gRida = null; gUusRida = null; gKontrollitud = null; gVale = null; renderKogumine(); }
   else if (d.gtyhjenda) { kogMuuda({ op: 'kustutaRida', nimekiri: gAvatud, id: d.gtyhjenda }); gRida = null; renderKogumine(); }
   else if (d.gskann) gSkanni(d.gskann);
+  else if (d.gavateine) { gRida = d.gavateine; gUusRida = null; gKontrollitud = d.gavateine; gKontrollViis = 'skänn'; gVale = null; renderKogumine(); window.scrollTo(0, 0); }   // SKANN
+  else if ('glisavale' in d) { const t = gVale && gVale.toode; gVale = null; if (t) gLisaToode(t, true); }
+  else if ('gvaleok' in d) { const r = gAktiivneRida(); if (r && gVale) { gKontrollitud = r.id; gKontrollViis = 'vale ribakood'; gKontrollSkann = gVale.kood; gVale = null; renderKogumine(); } }
   else if ('glopeta' in d) gLopeta();
   else if (d.glisavali) { $('gSoovitused').innerHTML = ''; gLisaToode(IX.tooted.get(d.glisavali)); }
 });
