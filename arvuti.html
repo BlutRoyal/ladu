@@ -214,6 +214,27 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
 #rapTulemus .tabel input[type=text] { width: 70px; }
 #rapTulemus .tabel td:last-child { white-space: nowrap; }
 
+/* PAKKIMINE: pakkimisraportid samas aknas; poodi saatmise väljad peidus ja vastupidi */
+.rap.pakkimine .rap-poodi, .rap:not(.pakkimine) .rap-pak { display: none !important; }
+.rap.pakkimine .rap-pak-kott { display: none !important; }
+.rap.pakkimine.alam-kott .rap-pak-kott { display: inline-flex !important; }
+#rapTulemus .rap-kerida { overflow-x: auto; }
+.modaal.rap.pakkimine { width: min(1800px, calc(100% - 24px)); }
+#rapTulemus .tabel.pak th[data-rapsort] { white-space: normal; vertical-align: bottom; }
+#rapTulemus .tabel.pak td, #rapTulemus .tabel.pak th { padding: 5px 4px; font-size: 12.5px; }
+#rapTulemus .tabel.pak input[type=text] { width: 58px; }
+#rapTulemus .tabel.pak td.arv { text-align: right; white-space: nowrap; }
+.pak-kust { display: inline-block; padding: 1px 6px; border-radius: 6px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.pak-kust.maardu { background: var(--roh-hele); color: var(--roheline); }
+.pak-kust.pood, .pak-kust.maardu-pood { background: var(--kollane); color: #8a5a00; }
+.pak-kust.puudu { background: var(--pun-hele); color: var(--punane); }
+.pak-silt { font-size: 11px; color: var(--hall); font-weight: 600; }
+
+/* INFO3: Kontroll – poodi ja pakkimise väljad peidus */
+.rap.kontroll .rap-poodi, .rap.kontroll .rap-ei-kontr, .rap:not(.kontroll) .rap-kontr { display: none !important; }
+.pak-kust.info { background: var(--tuhi); color: var(--hall); border: 1px solid var(--joon); }
+#rapTulemus .tabel.i3 td { font-size: 12.5px; }
+
 header .otsing-kast { min-width: 200px; }
 header .olek { min-width: 0; overflow: hidden; text-overflow: ellipsis; }   /* RAPORTID: pikk olek (nt hoiatus) ei pigista otsingut kokku */
 
@@ -491,33 +512,46 @@ header .olek { min-width: 0; overflow: hidden; text-overflow: ellipsis; }   /* R
     </div>
     <div class="rap-rida">
       <span class="rap-silt">Raport</span>
-      <select id="rapLiik"><option value="poodi">Poodi saatmine</option></select>
+      <select id="rapLiik"><option value="poodi">Poodi saatmine</option><option value="pakkimine">Pakkimine</option><option value="kontroll">Kontroll</option></select>
+      <select id="rapKontroll" class="rap-kontr" title="Andmete kontroll (INFO3)"><option value="info3">Info 3 (tooraine kood)</option></select>
+      <select id="rapAlam" class="rap-pak" title="Mida millest pakitakse"><option value="pakk">TÜKK → PAKK</option><option value="kott">TÜKK → KOTT (tükki vähe → PAKK)</option><option value="pakkkott">PAKK → KOTT</option></select>
       <span id="rapSuund" class="vaike"></span>
-      <span class="rap-silt" style="margin-left:10px">Ühik</span>
-      <span id="rapUhikud"></span>
+      <span class="rap-silt rap-poodi" style="margin-left:10px">Ühik</span>
+      <span id="rapUhikud" class="rap-poodi"></span>
     </div>
+    <div class="rap-rida rap-kontr"><span class="rap-silt">Probleem</span><span id="rapProbleemid"></span></div>
     <div class="rap-rida">
       <label title="Käibekiiruse periood (samad lehed, mida Sheetsi raportid kasutavad)">Käibekiirus <select id="rapPeriood"><option value="yld">Üldine</option><option value="suvi">Suvi (apr–sept)</option><option value="talv">Talv (okt–apr)</option></select></label>
-      <label title="Mitme kuu müük peab poes olemas olema (käibekiiruse järgi)">Varu <input id="rapKuud" type="text" inputmode="decimal"> kuud</label>
-      <label title="PAKK ja KOTT: kui poes on vähem kui see, tuleb toode nimekirja ka ilma käibekiiruseta (uus toode, vähe müügiajalugu)">PAKK/KOTT: poes alla <input id="rapPiir" type="text" inputmode="decimal"> → alati</label>
-      <label title="Muu (TÜKK, TK …): sama reegel eraldi. 0 = ainult käibekiiruse järgi (tükikaupa ilma müügita poodi ei saadeta)">Muu: poes alla <input id="rapPiirMuu" type="text" inputmode="decimal"> → alati</label>
-      <label title="Kui poe mahutavus (müügisaal + poe ladu) on Sheetsis kirjas: toode tuleb, kui poes on alla selle osa mahust, ja pood täidetakse mahuni">Mahuga: täida alla <input id="rapTaide" type="text" inputmode="decimal"> %</label>
+      <label class="rap-ei-kontr" title="Poodi saatmine: mitme kuu müük peab poes olema. Pakkimine: mitme kuu müük peab laos kokku (Üldkogus) olema (Sheetsis PAKK 3, KOTT 6)">Varu <input id="rapKuud" type="text" inputmode="decimal"> kuud</label>
+      <label class="rap-pak" title="Rida tuleb ainult siis, kui toorainest (Maardu + Kauplus 3) saab teha vähemalt nii palju (Sheetsis 10)">Min pakkida <input id="rapMinPak" type="text" inputmode="decimal"></label>
+      <label class="rap-pak rap-pak-kott" title="TÜKK → KOTT: kui tooraine TÜKK-i on Maardus + poes vähem kui see, tehakse kotid pakkidest (Sheetsis 500)">TÜKK alla <input id="rapTukkMin" type="text" inputmode="decimal"> → PAKK-ist</label>
+      <label class="rap-pak" title="Kust tooraine tuleb">Näita <select id="rapKustFilter"><option value="koik">kõik</option><option value="maardu">ainult Maardust kohe tehtavad</option><option value="pood">vajab poest juurde</option></select></label>
+      <label class="rap-poodi" title="PAKK ja KOTT: kui poes on vähem kui see, tuleb toode nimekirja ka ilma käibekiiruseta (uus toode, vähe müügiajalugu)">PAKK/KOTT: poes alla <input id="rapPiir" type="text" inputmode="decimal"> → alati</label>
+      <label class="rap-poodi" title="Muu (TÜKK, TK …): sama reegel eraldi. 0 = ainult käibekiiruse järgi (tükikaupa ilma müügita poodi ei saadeta)">Muu: poes alla <input id="rapPiirMuu" type="text" inputmode="decimal"> → alati</label>
+      <label class="rap-poodi" title="Kui poe mahutavus (müügisaal + poe ladu) on Sheetsis kirjas: toode tuleb, kui poes on alla selle osa mahust, ja pood täidetakse mahuni">Mahuga: täida alla <input id="rapTaide" type="text" inputmode="decimal"> %</label>
     </div>
     <div class="rap-rida">
       <span class="rap-silt">Peida</span>
       <label title="Nimes @ (lõpetatud / ei telli enam)"><input type="checkbox" id="rapPeidaAt"> @-tooted</label>
       <label title="Nimi algab x. (väljamüük)"><input type="checkbox" id="rapPeidaX"> x.-tooted</label>
-      <label title="Muu: lahtine TÜKK, millest Maardus pakitakse (sama koodiga PAKK/KOTT on olemas või nimi lõpeb .T)"><input type="checkbox" id="rapPeidaToor"> tooraine (TÜKK pakkimiseks)</label>
+      <label class="rap-kontr" title="Erandiks märgitud read (kontrollitud, Info 3 sama mis märkimisel)"><input type="checkbox" id="rapNaitaErandid"> näita ka erandeid</label>
+      <label class="rap-poodi" title="Muu: lahtine TÜKK, millest Maardus pakitakse (sama koodiga PAKK/KOTT on olemas või nimi lõpeb .T)"><input type="checkbox" id="rapPeidaToor"> tooraine (TÜKK pakkimiseks)</label>
       <span class="rap-silt" style="margin-left:10px">Sorteeri</span>
       <select id="rapSort"><option value="pohjus">kiireloomulisus (kõige varem otsas ees)</option><option value="grupp">metagrupp → kaubagrupp → nimetus</option><option value="koht">Maardu asukoht</option></select>
     </div>
+    <!-- PAKKIMINE (Freddy): grupivalikud kokku volditavad -->
+    <div class="rap-rida"><button class="nupp" id="rapGrupidLyliti" style="min-height:28px;padding:0 10px" aria-expanded="false" title="Näita / peida grupivalikud">Grupid ▸</button> <span class="vaike hall" id="rapGrupidKokku"></span></div>
+    <div id="rapGrupidSisu" hidden>
     <div class="rap-grupid">
       <div class="rap-valik" id="rapMetaKast"></div>
       <div class="rap-valik" id="rapGruppKast"></div>
     </div>
     <div class="rap-valik" id="rapToorKast" style="margin-bottom:8px" title="Neis kaubagruppides tuleb Muu raportisse ka tooraine (TÜKK), nt mutrite hulgipakk pappkarbis. Kogust arvutab kokkupanija ise."></div>
+    </div>
     <div class="rap-rida">
       <button class="nupp pea" id="rapNaita">Näita</button>
+      <button class="nupp" id="rapTyhjenda" title="Tühjenda tulemuse tabel (seaded jäävad)">Tühjenda</button>
+      <button class="nupp" id="rapLahtesta" style="min-height:28px;padding:0 10px;font-size:12px" title="Selle raporti liigi vaikeseaded; salvestatud filter jääb alles, valik tühjaks">Lähtesta seaded</button>
       <span class="hall vaike">Seaded jäävad selles arvutis meelde. Salvesta, kui tahad neid teistega jagada.</span>
     </div>
     <div id="rapTulemus"></div>
@@ -539,6 +573,20 @@ const kirjuta = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } 
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const normKood = s => String(s == null ? '' : s).trim().toUpperCase();
+// INFO3: Sheets hoiab numbrikoodi arvuna ja kaotab eesnullid: "000934940000100000" == "934940000100000".
+// koodSama võrdleb, koodLeia otsib Mapist (T, kiirus, Info 3, erandid) ka eesnullidega/ilma.
+const koodVoti = k => /^\d+$/.test(k) ? (k.replace(/^0+/, '') || '0') : k;
+const koodSama = (a, b) => a === b || (!!a && !!b && koodVoti(a) === koodVoti(b));
+const KOOD_IDX = new WeakMap();
+function koodLeia(m, k) {
+  if (!m || !k) return undefined;
+  const v = m.get(k);
+  if (v !== undefined || !/^\d+$/.test(k)) return v;
+  let x = KOOD_IDX.get(m);
+  if (!x || x.n !== m.size) { const idx = new Map(); m.forEach((_, kk) => { if (/^\d+$/.test(kk) && !idx.has(koodVoti(kk))) idx.set(koodVoti(kk), kk); }); x = { n: m.size, idx }; KOOD_IDX.set(m, x); }
+  const kk = x.idx.get(koodVoti(k));
+  return kk === undefined ? undefined : m.get(kk);
+}
 const normKoht = s => normKood(s).replace(/\s+/g, '');
 const nr = x => { const n = Number(String(x).replace(',', '.')); return isFinite(n) ? n : 0; };
 const fmt = n => (Math.round(n * 10) / 10).toLocaleString('et-EE');
@@ -689,7 +737,8 @@ async function laeAndmed(teavita) {
   if (!SEADED || laeb) return;
   laeb = true; olek();
   try {
-    const versioon = ANDMED && ANDMED.tooted && ANDMED.tootekaart ? ANDMED.versioon : undefined;
+    // PAKKIMINE: vanas salvestatud vormingus pole pakendi suurust ja Info 3: siis laetakse kõik uuesti (mitte „muutmata“)
+    const versioon = ANDMED && ANDMED.tooted && ANDMED.tootekaart && (ANDMED.tooted.veerud || []).includes('Info 3') ? ANDMED.versioon : undefined;
     // KIIRENDUS: esimesel korral tuleb samas päringus ka ping-info ja kasutajate nimekiri (eraldi päringuid pole)
     const kysiKas = !KAS_LAETUD && !KAS_OOTEL;
     const j = await api({ tegevus: 'andmed', osad: 'tooted,tootekaart,asukohad,paigutus,seaded', versioon,
@@ -810,10 +859,13 @@ function jsonSeade(S, nimi, vaikimisi) {
 function ehitaKoik() {
   T = new Map(); EAN = new Map(); KOHAD = new Map(); READ = new Map();
   if (ANDMED && ANDMED.tooted) {
+    // PAKKIMINE: pakendi suurus ja Info 3 (tooraine) päise järgi; vana server -> suurus nimetusest ("200TK"), Info 3 tühi
+    const VV = ANDMED.tooted.veerud || [], iPak = VV.indexOf('Pakendi suurus'), iI3 = VV.indexOf('Info 3');
     ANDMED.tooted.read.forEach(r => {
       const t = { kood: normKood(r[0]), nimi: String(r[1] || ''), ean: String(r[2] || '').trim(), uld: r[3], k3: r[4], maardu: r[5],
                   uhik: String(r[6] || ''), grupp: String(r[7] || '').trim() || 'Määramata', meta: String(r[8] || '').trim() || 'Määramata',
-                  ak: Math.round(nr(r[9]) * 12), kuus: nr(r[9]) };   // SOOVITUS: kuus = käibekiirus kuus
+                  ak: Math.round(nr(r[9]) * 12), kuus: nr(r[9]),   // SOOVITUS: kuus = käibekiirus kuus
+                  pak: iPak >= 0 ? nr(r[iPak]) : pakNimest(r[1]), info3: iI3 >= 0 ? normKood(r[iI3] || '') : '' };
       T.set(t.kood, t);
       if (t.ean && t.ean !== t.kood) { EAN.set(t.ean.toUpperCase(), t.kood); if (/^\d+$/.test(t.ean)) EAN.set('#' + t.ean.replace(/^0+/, ''), t.kood); }
     });
@@ -2055,7 +2107,7 @@ function kogSoovitus({ pakk = true, kott = true, muu = false, tyybid = null, kuu
     if ((grupid && !grupid.has(t.grupp)) || (metad && !metad.has(t.meta)) || (peidaToor && sooToor(t) && !(toorGrupid && toorGrupid.has(t.grupp)))) return;
     const mood = tyyp === 'MUU' && SOO_MOODUD.has(t.uhik), piirT = tyyp === 'MUU' ? piirMuu : piir;
     // Maardust saadetakse ainult terveid pakke/kotte/tükke (nt 0,2 pakki = poolik jääk, seda ei saadeta)
-    const maardu = mood ? Math.round(nr(t[kust]) * 1000) / 1000 : Math.floor(nr(t[kust]) + 1e-9), k3 = nr(t[kuhu]), poes = Math.max(0, k3), kuus = (kiirus ? kiirus.get(t.kood) : t.kuus) || 0;
+    const maardu = mood ? Math.round(nr(t[kust]) * 1000) / 1000 : Math.floor(nr(t[kust]) + 1e-9), k3 = nr(t[kuhu]), poes = Math.max(0, k3), kuus = (kiirus ? koodLeia(kiirus, t.kood) : t.kuus) || 0;
     if (!(maardu > 0)) return;
     const vajadus = Math.ceil(kuus * kuud);
     const kaive = vajadus > 0 && poes < vajadus, kaitse = poes < piirT;
@@ -2099,6 +2151,8 @@ function sooPohjus(s) {
 }
 const SOO_PERIOOD = { yld: 'Üldine', suvi: 'Suvi', talv: 'Talv' };
 const SOO_KIIRUS = {};   // periood -> Map kood -> kiirus kuus (laetakse esimesel kasutamisel, Uuenda tühjendab)
+const SOO_INFO3 = {};    // PAKKIMINE: periood -> Map kood -> Info 3 hooaja lehelt (kui üldisel lehel pole), SOO_HOIATUS: lehe hoiatus
+const SOO_HOIATUS = {};
 // vaikimisi hooaeg kuu järgi: okt–märts talv, apr–sept suvi; viimane valik jääb meelde
 function sooVaikePeriood() {
   try { const v = localStorage.getItem('ladu_soovitus_periood'); if (SOO_PERIOOD[v]) return v; } catch (e) {}
@@ -2115,6 +2169,8 @@ async function sooLaeKiirus(periood, nupp, silt) {
       const j = await api({ tegevus: 'kaibekiirus', periood });
       if (!j.ok) throw new Error(j.viga);
       SOO_KIIRUS[periood] = new Map(Object.entries(j.kiirus || {}).map(([k, v]) => [normKood(k), nr(v)]));
+      SOO_INFO3[periood] = new Map(Object.entries(j.info3 || {}).map(([k, v]) => [normKood(k), normKood(v)]));   // PAKKIMINE
+      SOO_HOIATUS[periood] = j.hoiatus || '';
     } catch (e) { teade('Käibekiirust ei saanud: ' + e.message, true); return undefined; }
     finally { nupp.disabled = false; nupp.textContent = silt; }
   }
@@ -2213,12 +2269,27 @@ async function kogSaada() {
    Raport = seaded (filter). Mootor on sama mis Kogumise Arvuta (kogSoovitus). Seaded jäävad brauserisse meelde
    (ladu_raport_seaded); nimega salvestatud filtrid on serveris (leht Raportifiltrid, kõik ühised).
    Seadete kuju (filtri JSON): {liik, kust, kuhu, uhikud: ['PAKK','KOTT','MUU'], grupid: [], metad: [], periood,
-   kuud, piir, piirMuu, taide (%), peidaAt, peidaX, sort}. Tühi grupid/metad = kõik. */
+   kuud, piir, piirMuu, taide (%), peidaAt, peidaX, sort}. Tühi grupid/metad = kõik.
+   PAKKIMINE: liik 'pakkimine' + {alam: 'pakk'|'kott'|'pakkkott', minPak, tukkMin, kustFilter: 'koik'|'maardu'|'pood'} (vt pakSoovitus). */
 const RAP_LAOD = { maardu: 'Maardu', k3: 'Kauplus 3' };   // T väli -> lao nimi (hiljem Haapsalu, Keila …)
-const RAP_LIIGID = { poodi: { nimi: 'Poodi saatmine', kust: 'maardu', kuhu: 'k3' } };
+const RAP_LIIGID = { poodi: { nimi: 'Poodi saatmine', kust: 'maardu', kuhu: 'k3' }, kontroll: { nimi: 'Kontroll', kust: 'maardu', kuhu: 'k3' },   // INFO3
+                     pakkimine: { nimi: 'Pakkimine', kust: 'maardu', kuhu: 'k3' } };   // PAKKIMINE: kust = tooraine ladu, kuhu = pood (lisa tooraine)
+// PAKKIMINE: alamliigid ja „Näita“ valik (siin, sest rapNorm kasutab neid juba laadimisel)
+const PAK_ALAM = { pakk: 'TÜKK → PAKK', kott: 'TÜKK → KOTT', pakkkott: 'PAKK → KOTT' };
+const PAK_KUST = { koik: 'kõik', maardu: 'ainult Maardust kohe tehtavad', pood: 'vajab poest juurde' };
+// INFO3: Info 3 kontrolli probleemid [pikk nimi, lühike (linnuke), viga | info]; järjekord = sortimine
+const INFO3_PROB = {
+  puudub: ['Info 3 puudub, alus (kood ilma KP/PP) on Lao Andmetes olemas', 'puudub (alus olemas)', 'viga'], pole: ['Info 3 viitab koodile, mida Lao Andmetes pole', 'pole Lao Andmetes', 'viga'],
+  erinev: ['Info 3 ei kattu koodiga', 'ei kattu koodiga', 'viga'],
+  puudubOst: ['Info 3 puudub, alust pole (tõenäoliselt ostetakse valmis)', 'puudub (alust pole)', 'viga'], pakend: ['Pakendi suurus puudub', 'pakendi suurus puudub', 'viga'],
+  pakile: ['Info 3 viitab pakile (KP)', 'viitab pakile (info)', 'info'], oma: ['Info 3 = toote enda kood', '= oma kood (info)', 'info']
+};
+const INFO3_VAIKE = ['puudub', 'pole', 'erinev', 'puudubOst', 'pakend'];
 const RAP_TYYBID = [['PAKK', 'PAKK'], ['KOTT', 'KOTT'], ['MUU', 'Muu']];
 const RAP_SORDID = { pohjus: 'kiireloomulisus', grupp: 'metagrupp → kaubagrupp → nimetus', koht: 'Maardu asukoht' };
-const RAP_VAIKE = { liik: 'poodi', kust: 'maardu', kuhu: 'k3', uhikud: ['PAKK', 'KOTT'], grupid: [], metad: [], periood: '', kuud: 1, piir: 10, piirMuu: 0, taide: 50, peidaAt: true, peidaX: false, peidaToor: true, toorGrupid: [], sort: 'pohjus' };
+const RAP_VAIKE = { liik: 'poodi', kust: 'maardu', kuhu: 'k3', uhikud: ['PAKK', 'KOTT'], grupid: [], metad: [], periood: '', kuud: 1, piir: 10, piirMuu: 0, taide: 50, peidaAt: true, peidaX: false, peidaToor: true, toorGrupid: [], sort: 'pohjus',
+                    alam: 'pakk', minPak: 10, tukkMin: 500, kustFilter: 'koik',   // PAKKIMINE
+                    kontroll: 'info3', probleemid: INFO3_VAIKE, naitaErandid: false };   // INFO3
 const RAP_VOTI = 'ladu_raport_seaded';
 const RAP = { filtrid: null, filter: '', read: [], sort: null, info: null, otsM: '', otsG: '', otsT: '' };
 // suvaline objekt -> korrektsed seaded (vanad/vigased väärtused vaikimisi)
@@ -2230,7 +2301,10 @@ function rapNorm(o) {
   return { liik, kust: RAP_LAOD[o.kust] ? o.kust : RAP_LIIGID[liik].kust, kuhu: RAP_LAOD[o.kuhu] ? o.kuhu : RAP_LIIGID[liik].kuhu,
            uhikud: list(o.uhikud).filter(u => RAP_TYYBID.some(x => x[0] === u)), grupid: list(o.grupid), metad: list(o.metad), toorGrupid: list(o.toorGrupid),
            periood: SOO_PERIOOD[o.periood] ? o.periood : sooVaikePeriood(), kuud: arv(o.kuud, 1), piir: arv(o.piir, 10), piirMuu: arv(o.piirMuu, 0),
-           taide: Math.min(100, arv(o.taide, 50)), peidaAt: o.peidaAt !== false, peidaX: !!o.peidaX, peidaToor: o.peidaToor !== false, sort: RAP_SORDID[o.sort] ? o.sort : 'pohjus' };
+           taide: Math.min(100, arv(o.taide, 50)), peidaAt: o.peidaAt !== false, peidaX: !!o.peidaX, peidaToor: o.peidaToor !== false, sort: RAP_SORDID[o.sort] ? o.sort : 'pohjus',
+           // PAKKIMINE
+           alam: PAK_ALAM[o.alam] ? o.alam : 'pakk', minPak: arv(o.minPak, 10), tukkMin: arv(o.tukkMin, 500), kustFilter: PAK_KUST[o.kustFilter] ? o.kustFilter : 'koik',
+           kontroll: 'info3', probleemid: Array.isArray(o.probleemid) ? list(o.probleemid).filter(k => INFO3_PROB[k]) : INFO3_VAIKE.slice(), naitaErandid: !!o.naitaErandid };   // INFO3
 }
 let RAP_S = (() => { const v = loe(RAP_VOTI, null); if (v && v.filter) RAP.filter = String(v.filter); return rapNorm(v && v.seaded); })();
 const rapMeelde = () => kirjuta(RAP_VOTI, { seaded: RAP_S, filter: RAP.filter });
@@ -2263,9 +2337,21 @@ function renderRapFiltrid() {
 }
 // seaded -> vorm
 function rapTaidaVorm() {
-  const S = RAP_S;
+  const S = RAP_S, pak = S.liik === 'pakkimine';
   $('rapLiik').value = S.liik;
-  $('rapSuund').innerHTML = `<b>${esc(RAP_LAOD[S.kust])}</b> → <b>${esc(RAP_LAOD[S.kuhu])}</b>`;
+  // PAKKIMINE: väljad liigi järgi (CSS peidab), alamliik, piirid
+  const m = $('rapAken').querySelector('.modaal'); m.classList.toggle('pakkimine', pak); m.classList.toggle('alam-kott', S.alam === 'kott');
+  // INFO3
+  const kontr = S.liik === 'kontroll';
+  m.classList.toggle('kontroll', kontr);
+  $('rapKontroll').value = S.kontroll; $('rapNaitaErandid').checked = S.naitaErandid;
+  $('rapProbleemid').innerHTML = Object.entries(INFO3_PROB).map(([k, v]) => `<label style="margin-right:8px" title="${esc(v[0])}"><input type="checkbox" data-rapprob="${k}"${S.probleemid.includes(k) ? ' checked' : ''}> ${esc(v[1])}</label>`).join('') +
+    '<span class="hall vaike">(tühi = kõik)</span>';
+  $('rapSort').options[0].textContent = kontr ? 'probleemi järgi' : 'kiireloomulisus (kõige varem otsas ees)';
+  $('rapAlam').value = S.alam; $('rapKustFilter').value = S.kustFilter;
+  $('rapMinPak').value = String(S.minPak).replace('.', ','); $('rapTukkMin').value = String(S.tukkMin).replace('.', ',');
+  $('rapSort').options[2].textContent = pak ? 'tooraine asukoht Maardus' : 'Maardu asukoht';
+  $('rapSuund').innerHTML = kontr ? 'PAKK ja KOTT tooted' : pak ? `tooraine: <b>${esc(RAP_LAOD[S.kust])}</b>, juurde <b>${esc(RAP_LAOD[S.kuhu])}</b>` : `<b>${esc(RAP_LAOD[S.kust])}</b> → <b>${esc(RAP_LAOD[S.kuhu])}</b>`;
   $('rapUhikud').innerHTML = RAP_TYYBID.map(([v, silt]) => `<label style="margin-right:8px" title="${v === 'MUU' ? 'Kõik, mis pole PAKK ega KOTT (TÜKK, TK, PK, JM …)' : ''}"><input type="checkbox" data-rapuhik="${v}"${S.uhikud.includes(v) ? ' checked' : ''}> ${silt}</label>`).join('');
   $('rapPeriood').value = S.periood;
   $('rapKuud').value = String(S.kuud).replace('.', ',');
@@ -2276,23 +2362,27 @@ function rapTaidaVorm() {
   $('rapSort').value = S.sort;
   renderRapGrupid();
   const h = laoHoiatus();
-  $('rapHoiatus').innerHTML = h ? `<div class="rap-hoiatus">⚠ ${esc(h)}. Need väljad on tühjad: raport ei arvuta valede numbritega. Paranda Buumi ekspordi päis Sheetsis ja vajuta Uuenda.</div>` : '';
+  $('rapHoiatus').innerHTML = (h ? `<div class="rap-hoiatus">⚠ ${esc(h)}. Need väljad on tühjad: raport ei arvuta valede numbritega. Paranda Buumi ekspordi päis Sheetsis ja vajuta Uuenda.</div>` : '') +
+    pakHoiatused(S).map(x => `<div class="rap-hoiatus">⚠ ${esc(x)}</div>`).join('');   // PAKKIMINE
 }
 // vorm -> seaded (grupid/metad muutuvad linnukeste kaupa otse RAP_S-is)
 function rapLoeVorm() {
   RAP_S = rapNorm(Object.assign({}, RAP_S, {
     liik: $('rapLiik').value, periood: $('rapPeriood').value, kuud: $('rapKuud').value, piir: $('rapPiir').value, piirMuu: $('rapPiirMuu').value,
     taide: $('rapTaide').value, peidaAt: $('rapPeidaAt').checked, peidaX: $('rapPeidaX').checked, peidaToor: $('rapPeidaToor').checked, sort: $('rapSort').value,
+    alam: $('rapAlam').value, minPak: $('rapMinPak').value, tukkMin: $('rapTukkMin').value, kustFilter: $('rapKustFilter').value,   // PAKKIMINE
+    naitaErandid: $('rapNaitaErandid').checked, probleemid: [...document.querySelectorAll('[data-rapprob]')].filter(x => x.checked).map(x => x.dataset.rapprob),   // INFO3
     uhikud: [...document.querySelectorAll('[data-rapuhik]')].filter(x => x.checked).map(x => x.dataset.rapuhik)
   }));
 }
 // meta- ja kaubagruppide valik: ainult valitud ühikute tooted (kaubagrupid ka valitud metagruppide piires);
 // arv = mitu sellist toodet on Maardus. Valitud grupp jääb nähtavaks ka siis, kui see valikust välja langeb.
 function renderRapGrupid() {
-  const uh = new Set(RAP_S.uhikud), mv = new Set(RAP_S.metad), M = new Map(), G = new Map();
+  const kontr = RAP_S.liik === 'kontroll', pak = RAP_S.liik === 'pakkimine' || kontr;   // PAKKIMINE: grupid pakitava toote (PAKK või KOTT) järgi; INFO3: mõlemad
+  const uh = new Set(kontr ? ['PAKK', 'KOTT'] : pak ? [RAP_S.alam === 'pakk' ? 'PAKK' : 'KOTT'] : RAP_S.uhikud), mv = new Set(RAP_S.metad), M = new Map(), G = new Map();
   T.forEach(t => {
     if (!uh.has(sooRyhm(t))) return;
-    const md = nr(t[RAP_S.kust]) > 0 ? 1 : 0;
+    const md = pak || nr(t[RAP_S.kust]) > 0 ? 1 : 0;   // PAKKIMINE: arv = tooteid (Maardu kogusest sõltumata)
     M.set(t.meta, (M.get(t.meta) || 0) + md);
     if (!mv.size || mv.has(t.meta)) G.set(t.grupp, (G.get(t.grupp) || 0) + md);
   });
@@ -2311,9 +2401,27 @@ function renderRapGrupid() {
   };
   kast('rapMetaKast', 'Metagrupp', M, RAP_S.metad, RAP.otsM, 'meta');
   kast('rapGruppKast', 'Kaubagrupp', G, RAP_S.grupid, RAP.otsG, 'grupp');
-  const toorNahtav = RAP_S.peidaToor && uh.has('MUU');
+  const toorNahtav = !pak && RAP_S.peidaToor && uh.has('MUU');
   $('rapToorKast').style.display = toorNahtav ? '' : 'none';
   if (toorNahtav) kast('rapToorKast', 'Tooraine ikka poodi (kaubagrupid)', TG, RAP_S.toorGrupid, RAP.otsT, 'toor', 'ükski');
+  // PAKKIMINE: kokkuvõte voldi kõrval (ka kinniselt näha, mis on valitud)
+  const v = n => n ? `<b>${n} valitud</b>` : 'kõik';
+  $('rapGrupidKokku').innerHTML = `Metagrupp: ${v(RAP_S.metad.length)} · Kaubagrupp: ${v(RAP_S.grupid.length)}` +
+    (toorNahtav ? ` · Tooraine ikka poodi: ${RAP_S.toorGrupid.length ? `<b>${RAP_S.toorGrupid.length} valitud</b>` : 'ükski'}` : '');
+  rapGrupidLahti(rapGrupidOlek());
+}
+// grupivalikute volt: vaikimisi kinni, olek selles brauseris meeles
+const RAP_GRUPID_VOTI = 'ladu_raport_grupid_lahti';
+function rapGrupidOlek() { try { return localStorage.getItem(RAP_GRUPID_VOTI) === '1'; } catch (e) { return false; } }
+function rapGrupidLahti(lahti) {
+  $('rapGrupidSisu').hidden = !lahti;
+  $('rapGrupidLyliti').textContent = lahti ? 'Grupid ▾' : 'Grupid ▸';
+  $('rapGrupidLyliti').setAttribute('aria-expanded', lahti ? 'true' : 'false');
+}
+function rapGrupidVaheta() {
+  const lahti = $('rapGrupidSisu').hidden;
+  try { localStorage.setItem(RAP_GRUPID_VOTI, lahti ? '1' : '0'); } catch (e) {}
+  rapGrupidLahti(lahti);
 }
 function rapRakendaFilter(nimi) {
   const f = (RAP.filtrid || []).find(x => x.nimi === nimi);
@@ -2360,7 +2468,14 @@ const rapKohad = kood => seosed(kood).slice().sort((a, b) => ((onAjutineSeos(a) 
 const rapKoht = kood => { const k = rapKohad(kood); return k.length ? k[0].koht : ''; };
 const RAP_SORT_VOTI = Object.assign({}, KOG_SORT_VOTI, {
   uhik: r => (T.get(r.kood) || {}).uhik || '', grupp: r => (T.get(r.kood) || {}).grupp || '', meta: r => (T.get(r.kood) || {}).meta || '',
-  koht: r => rapKoht(r.kood) || '￿', maardu: r => nr((T.get(r.kood) || {})[RAP_S.kust])
+  koht: r => (r.toor ? pakKohad(r).map(x => x.koht)[0] : rapKoht(r.kood)) || '￿', maardu: r => nr((T.get(r.kood) || {})[RAP_S.kust]),   // PAKKIMINE: pakkimises tooraine koht
+  // PAKKIMINE: pakkimisraporti veerud
+  jaak: r => r.jaak, vajadus: r => r.vajadus, uld: r => r.uld, puudu: r => r.puudu, toor: r => r.toor || '', toorMd: r => r.md, toorPd: r => r.pd,
+  suurus: r => r.suurus, saab: r => r.saab, toorVaja: r => r.toorVaja, maardust: r => r.maardust, poest: r => r.poest, toorPuudu: r => r.toorPuudu,
+  kust: r => ['maardu', 'maardu-pood', 'pood', 'puudu', ''].indexOf(r.kust),
+  // INFO3
+  i3: r => r.info3 || '', baas: r => r.baas || '', prob: r => r.p ? Object.keys(INFO3_PROB).indexOf(r.p[0]) : 0, k3: r => nr((T.get(r.kood) || {})[RAP_S.kuhu]),
+  pakend: r => (T.get(r.kood) || {}).pak || 0, erand: r => r.erand ? 1 : 0
 });
 function rapAlusSort(L, sort) {
   const t = r => T.get(r.kood) || {};
@@ -2379,6 +2494,8 @@ function rapSordi(v) {
 async function rapArvuta() {
   rapLoeVorm();
   const S = RAP_S;
+  if (S.liik === 'pakkimine') return rapPakArvuta();   // PAKKIMINE
+  if (S.liik === 'kontroll') return rapI3Arvuta();   // INFO3
   if (!S.uhikud.length) { teade('Vali vähemalt üks ühik (PAKK, KOTT või Muu)', true); return; }
   if (!(S.kuud > 0)) { teade('Varu kuud peab olema suurem kui 0', true); $('rapKuud').focus(); return; }
   if (!T.size) { teade('Tooteid pole laaditud', true); return; }
@@ -2406,6 +2523,8 @@ function rapKokkuvote(I) {
 }
 function renderRapTulemus() {
   const L = RAP.read, I = RAP.info;
+  if (I && I.liik === 'pakkimine') return renderRapPak();   // PAKKIMINE
+  if (I && I.liik === 'kontroll') return renderRapI3();   // INFO3
   if (!I) { $('rapTulemus').innerHTML = '<p class="hall vaike">Vali filter või seaded ja vajuta <b>Näita</b>. Märgitud read saad saata korjenimekirjaks (Komplekteerimine → Saada telefoni), printida või võtta Excelisse.</p>'; return; }
   if (!L.length) { $('rapTulemus').innerHTML = `<p class="vaike hall">${esc(rapKokkuvote(I))}</p><p>Ühtegi toodet ei pea saatma.</p>`; return; }
   const n = L.filter(r => r.valik).length, kust = RAP_LAOD[I.kust], kuhu = RAP_LAOD[I.kuhu];
@@ -2431,15 +2550,18 @@ function renderRapTulemus() {
 }
 const rapValitud = () => RAP.read.filter(r => r.valik && r.vaja > 0);
 function rapUuendaNupud() {
+  if (RAP.info && RAP.info.liik === 'kontroll') return rapI3Nupud();   // INFO3
   const n = RAP.read.filter(r => r.valik).length;
   if (!$('rapKorjeks')) return;
   $('rapKorjeks').textContent = `Saada korjenimekirjaks (${n})`;
   ['rapKorjeks', 'rapPrindi', 'rapCsv'].forEach(id => { $(id).disabled = !n; });
+  if (RAP.info && RAP.info.liik === 'pakkimine') rapPakNupud();   // PAKKIMINE
   $('rapKoik').checked = n === RAP.read.length;
   $('rapKoik').indeterminate = n > 0 && n < RAP.read.length;
 }
 // märgitud read Komplekteerimise mustandisse (sama s-info) -> seal Saada telefoni
 function rapKorjeks() {
+  if (RAP.info && RAP.info.liik === 'pakkimine') return rapPakKorjeks();   // PAKKIMINE
   const L = rapValitud(), I = RAP.info;
   if (!L.length) { teade('Märgi vähemalt üks rida', true); return; }
   if (KOG_MUSTAND.length && !confirm(`Komplekteerimise mustandis on juba ${KOG_MUSTAND.length} rida. Asendan need raporti ${L.length} reaga?`)) return;
@@ -2452,6 +2574,8 @@ function rapKorjeks() {
   teade(`${L.length} rida Komplekteerimise mustandis – kontrolli ja vajuta Saada telefoni`);
 }
 function rapPrindi() {
+  if (RAP.info && RAP.info.liik === 'pakkimine') return rapPakPrindi();   // PAKKIMINE
+  if (RAP.info && RAP.info.liik === 'kontroll') return rapI3Prindi();   // INFO3
   const L = rapValitud(), I = RAP.info, kust = RAP_LAOD[I.kust];
   if (!L.length) return;
   const html = `<table class="kog"><tr><th>Kood</th><th>Nimetus</th><th>Ühik</th><th>Kaubagrupp</th><th>Poes</th><th>${esc(kust)}</th><th>Asukoht</th><th>Saata</th><th>✓</th></tr>` +
@@ -2462,7 +2586,19 @@ function rapPrindi() {
 }
 // Eesti Excel: semikoolon, koma kümnendmärgina, UTF-8 BOM. Pikk numbriline kood (EAN) või eesnulliga kood ="..." kujul,
 // et Excel seda arvuks (8,0E+12) ega 0012 -> 12 ei muudaks.
+// PAKKIMINE: CSV abi ühine (rapCsvFail)
+const rapLahter = v => { const s = typeof v === 'number' ? String(Math.round(v * 1000) / 1000).replace('.', ',') : String(v == null ? '' : v); return /[;"\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+const rapCsvKood = k => /^\d{12,}$|^0\d+$/.test(k) ? `="${k}"` : rapLahter(k);
+function rapCsvFail(V, read, nimi) {
+  const csv = '\ufeff' + [V.map(rapLahter).join(';')].concat(read.map(r => r.join(';'))).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = `${nimi.replace(/[^\wäöüõšž-]+/gi, '_')}_${mdkPaev(Date.now())}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+}
 function rapCsv() {
+  if (RAP.info && RAP.info.liik === 'pakkimine') return rapPakCsv();   // PAKKIMINE
+  if (RAP.info && RAP.info.liik === 'kontroll') return rapI3Csv();   // INFO3
   const L = rapValitud(), I = RAP.info, kust = RAP_LAOD[I.kust];
   if (!L.length) return;
   const lahter = v => { const s = typeof v === 'number' ? String(Math.round(v * 1000) / 1000).replace('.', ',') : String(v == null ? '' : v); return /[;"\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
@@ -2476,6 +2612,388 @@ function rapCsv() {
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
   a.download = `raport_${(I.filter || RAP_LIIGID[I.liik].nimi).replace(/[^\wäöüõšž-]+/gi, '_')}_${mdkPaev(Date.now())}.csv`;
   document.body.appendChild(a); a.click(); a.remove();
+}
+
+/* ---------- PAKKIMINE: pakkimisraportid (TÜKK → PAKK, TÜKK → KOTT, PAKK → KOTT) ----------
+   Sheetsi raportid 3 ja 4 (pakkimisRaport + leiaAllikas) arvutis, lisaks tooraine asukoht ja jaotus Maardu / pood.
+   Vajadus nagu Sheetsis: ümarda üles(käibekiirus kuus × varu kuud), võrreldakse pakitud toote Üldkogusega (kõik laod,
+   negatiivne = 0). Puudu = vajadus − Üldkogus (üles terveks). Tooraine = Info 3 (Lao Andmed / Käibekiiruse Andmed,
+   puudumisel hooaja leht), puudumisel kood ilma KP/PP lõputa. Info 3 = kood -> toode pole pakitav (välja, nagu Sheetsis).
+   Tooraine saadaval = Maardu + Kauplus 3 (terved ühikud, negatiivne = 0; teisi ladusid ei arvestata).
+   Saab teha = saadaval / pakendi suurus (PAKK allikal pakke × paki suurus tükki); alla minPak -> rida ei tule.
+   KOTT: tükki (Maardu + pood) vähemalt tukkMin -> TÜKK-ist, muidu PAKK-ist (koodKP või Info 3 osutab pakile);
+   pakkkott = ainult PAKK-ist. Pakkida = min(puudu, saab teha), muudetav.
+   Tooraine vaja (allika ühikutes) võetakse esmalt Maardust, siis poest juurde; üle jääb = puudu. Sama tooraine mitmel
+   real: kiireloomulisem rida võtab enne (märkimata rida ei võta). */
+const PAK_KUST_SILT = { maardu: 'Maardust', 'maardu-pood': 'Maardu + pood', pood: 'Poest', puudu: 'Puudu' };
+function pakNimest(nimi) { const m = /(\d+)\s*TK/i.exec(String(nimi || '')); return m ? +m[1] : 0; }   // "200TK" (nagu otsiPakendiSuurusNimetusest)
+const pakTerve = x => Math.max(0, Math.floor(nr(x) + 1e-9));
+const pakYh = r => r.allikas === 'PAKK' ? 'pk' : 'tk';
+// tooraine Maardu kohad; kui tooraine kohta Paigutuses pole, siis pakitava toote koht (tooraine hoitakse sageli toote pesas)
+const pakKohad = r => { const k = rapKohad(r.toor); return k.length ? k : rapKohad(r.kood).map(x => Object.assign({}, x, { toote: true })); };
+const pakKohtHtml = r => { const k = pakKohad(r);
+  return !k.length ? '<span style="color:#b26a00">asukoht puudub</span>' : k[0].toote ? `<span class="hall" title="Tooraine kohta pole Paigutuses: pakitava toote ${esc(r.kood)} koht">toote koht ${k.map(x => esc(x.koht)).join(', ')}</span>` : k.map(x => esc(x.koht)).join(', '); };
+const pakKohtTekst = r => { const k = pakKohad(r); return k.length ? (k[0].toote ? 'toote koht ' : '') + k.map(x => x.koht).join(', ') : ''; };
+// t = pakitav toode, i3 = Info 3 -> {allikas, t: tooraine toode, pakis (tk allika ühikus), suurus (tk pakitavas), saab} | null
+function pakAllikas(t, i3, o) {
+  const lopp = o.alam === 'pakk' ? 'KP' : 'PP';
+  const baas = i3 && !koodSama(i3, t.kood) ? i3 : t.kood.endsWith(lopp) ? t.kood.slice(0, -2) : '';
+  if (!baas || koodSama(baas, t.kood)) return null;
+  const suurus = t.pak > 0 ? t.pak : 1, saadaval = x => pakTerve(x[o.kust]) + pakTerve(x[o.kuhu]);
+  let tukk = koodLeia(T, baas) || null, pakk = null;
+  if (o.alam === 'pakk') {
+    if (!tukk || tukk === t) return null;
+    const saab = Math.floor(saadaval(tukk) / suurus);
+    return saab > 0 && saab >= o.minPak ? { allikas: 'TÜKK', t: tukk, pakis: 1, suurus, saab } : null;
+  }
+  if (tukk && sooTyyp(tukk) === 'PAKK') { pakk = tukk; tukk = null; }   // Info 3 osutab otse pakile
+  else pakk = T.get(baas + 'KP') || null;
+  if (o.alam === 'kott' && tukk && tukk !== t && saadaval(tukk) >= o.tukkMin) {
+    const saab = Math.floor(saadaval(tukk) / suurus);
+    if (saab > 0 && saab >= o.minPak) return { allikas: 'TÜKK', t: tukk, pakis: 1, suurus, saab };
+  }
+  if (pakk && pakk !== t) {
+    const pakis = pakk.pak > 0 ? pakk.pak : 1, saab = Math.floor(saadaval(pakk) * pakis / suurus);
+    if (saab > 0 && saab >= o.minPak) return { allikas: 'PAKK', t: pakk, pakis, suurus, saab };
+  }
+  return null;
+}
+function pakSoovitus({ alam = 'pakk', kuud = 3, kiirus = null, info3 = null, minPak = 10, tukkMin = 500, grupid = null, metad = null,
+                       peidaAt = true, peidaX = false, kustFilter = 'koik', kust = 'maardu', kuhu = 'k3' } = {}) {
+  const o = { alam, minPak, tukkMin, kust, kuhu }, tyyp = alam === 'pakk' ? 'PAKK' : 'KOTT';
+  let L = [];
+  T.forEach(t => {
+    if (sooTyyp(t) !== tyyp || (peidaAt && t.nimi.includes('@')) || (peidaX && /^x\./i.test(t.nimi.trim()))) return;
+    if ((grupid && !grupid.has(t.grupp)) || (metad && !metad.has(t.meta))) return;
+    const i3 = t.info3 || (info3 && koodLeia(info3, t.kood)) || '';
+    if (koodSama(i3, t.kood)) return;   // Info 3 = kood: toode ise on tooraine / ostetakse valmis
+    const kuus = (kiirus ? koodLeia(kiirus, t.kood) : t.kuus) || 0, vajadus = Math.ceil(kuus * kuud), uld = Math.max(0, nr(t.uld));
+    if (!(vajadus > 0 && uld < vajadus)) return;
+    const a = pakAllikas(t, i3, o);
+    if (!a) return;
+    const puudu = Math.ceil(vajadus - uld - 1e-9);
+    L.push({ kood: t.kood, valik: true, kuus, vajadus, uld, puudu, jaak: uld / kuus, info3: i3, allikas: a.allikas, toor: a.t.kood, pakis: a.pakis,
+             suurus: a.suurus, pakPuudu: !(t.pak > 0), saab: a.saab, md: pakTerve(a.t[kust]), pd: pakTerve(a.t[kuhu]), vaja: Math.min(puudu, a.saab),
+             s: { paevi: uld / kuus * 30, kuus, k3: nr(t[kuhu]) } });
+  });
+  L.sort(sooVordle); L.forEach((r, i) => { r.jrk = i; });
+  pakJaotaKoik(L);
+  if (kustFilter !== 'koik') { L = L.filter(r => kustFilter === 'maardu' ? r.kust === 'maardu' : r.kust && r.kust !== 'maardu'); pakJaotaKoik(L); }
+  return L;
+}
+// tooraine jaotus kiireloomulisuse järjekorras (r.jrk): Maardust, siis poest, ülejääk puudu. Märkimata rida ei võta.
+function pakJaotaKoik(L) {
+  const J = new Map(), N = new Map();
+  L.slice().sort((a, b) => a.jrk - b.jrk).forEach(r => {
+    const j = J.get(r.toor) || J.set(r.toor, [r.md, r.pd]).get(r.toor), v = Math.max(0, nr(r.vaja));
+    r.toorVaja = r.allikas === 'PAKK' ? Math.ceil(v * r.suurus / r.pakis - 1e-9) : Math.ceil(v * r.suurus - 1e-9);
+    r.maardust = Math.min(r.toorVaja, j[0]); r.poest = Math.min(r.toorVaja - r.maardust, j[1]); r.toorPuudu = r.toorVaja - r.maardust - r.poest;
+    if (r.valik) { j[0] -= r.maardust; j[1] -= r.poest; }
+    r.kust = !r.toorVaja ? '' : r.toorPuudu > 0 ? 'puudu' : r.poest > 0 ? (r.maardust > 0 ? 'maardu-pood' : 'pood') : 'maardu';
+    N.set(r.toor, (N.get(r.toor) || []).concat(r.kood));
+  });
+  L.forEach(r => { r.yhine = N.get(r.toor).filter(k => k !== r.kood); });
+  return L;
+}
+// hoiatused aknas: puuduv Ühiku kirjeldus / käibekiiruse tulp, vana server (Info 3 pole)
+function pakHoiatused(S) {
+  if ((S.liik !== 'pakkimine' && S.liik !== 'kontroll') || !ANDMED || !ANDMED.tooted) return [];   // INFO3: ka kontrollis
+  const t = ANDMED.tooted, h = [t.pakkHoiatus, t.kaibeHoiatus, SOO_HOIATUS[S.periood]].filter(Boolean);
+  if (!(t.veerud || []).includes('Info 3')) h.push('Server on vanem kui 2.12: Info 3 (tooraine kood) puudub, pakendi suurus ainult nimetusest. Paigalda uus Veebirakendus.gs ja vajuta Uuenda.');
+  return h;
+}
+async function rapPakArvuta() {
+  const S = RAP_S;
+  if (!(S.kuud > 0)) { teade('Varu kuud peab olema suurem kui 0', true); $('rapKuud').focus(); return; }
+  if (!T.size) { teade('Tooteid pole laaditud', true); return; }
+  rapMeelde();
+  const kiirus = await sooLaeKiirus(S.periood, $('rapNaita'), 'Näita');
+  if (kiirus === undefined) return;
+  const L = pakSoovitus({ alam: S.alam, kuud: S.kuud, kiirus, info3: SOO_INFO3[S.periood] || null, minPak: S.minPak, tukkMin: S.tukkMin,
+                          grupid: S.grupid.length ? new Set(S.grupid) : null, metad: S.metad.length ? new Set(S.metad) : null,
+                          peidaAt: S.peidaAt, peidaX: S.peidaX, kustFilter: S.kustFilter, kust: S.kust, kuhu: S.kuhu });
+  RAP.read = rapAlusSort(L, S.sort); RAP.sort = null;
+  RAP.info = Object.assign({}, S, { filter: RAP.filter, hoiatus: laoHoiatus() });
+  rapTaidaVorm();   // hooaja lehe hoiatus
+  renderRapTulemus();
+  if (!L.length) teade('Midagi pole vaja pakkida');
+}
+function rapPakKokkuvote(I) {
+  const grupid = (I.metad.length ? ` · metagrupp: ${I.metad.join(', ')}` : '') + (I.grupid.length ? ` · kaubagrupp: ${I.grupid.length > 3 ? I.grupid.length + ' gruppi' : I.grupid.join(', ')}` : '');
+  return `${PAK_ALAM[I.alam]} · tooraine ${RAP_LAOD[I.kust]}, juurde ${RAP_LAOD[I.kuhu]}${grupid} · ${SOO_PERIOOD[I.periood]} · varu ${fmt(I.kuud)} k Üldkoguse järgi` +
+    ` · min pakkida ${fmt(I.minPak)}${I.alam === 'kott' ? ` · TÜKK alla ${fmt(I.tukkMin)} → PAKK-ist` : ''}${I.kustFilter !== 'koik' ? ' · ' + PAK_KUST[I.kustFilter] : ''}` +
+    ` · Buumi seis ${ANDMED && ANDMED.laoAndmedUuendatud ? kogAeg(ANDMED.laoAndmedUuendatud) : '?'}`;
+}
+const pakJatkub = r => r.uld <= 0 ? '<b class="hoiatus">otsas</b>' : `${fmt(r.jaak)} k<br><span class="hall vaike">${Math.round(r.jaak * 30)} p</span>`;
+function renderRapPak() {
+  const L = RAP.read, I = RAP.info, md = RAP_LAOD[I.kust], pd = RAP_LAOD[I.kuhu];
+  if (!L.length) { $('rapTulemus').innerHTML = `<p class="vaike hall">${esc(rapPakKokkuvote(I))}</p><p>Midagi pole vaja pakkida (või toorainet pole piisavalt).</p>`; return; }
+  pakJaotaKoik(L);
+  const th = (v, silt, lisa = '') => `<th data-rapsort="${v}" title="Sordi"${lisa}>${silt}${RAP.sort && RAP.sort.v === v ? (RAP.sort.suund > 0 ? ' ▲' : ' ▼') : ''}</th>`;
+  $('rapTulemus').innerHTML = `<p class="vaike hall" id="rapPakInfo"></p>
+    <div class="rida" style="gap:8px;margin:6px 0;flex-wrap:wrap">
+      <button class="nupp pea" id="rapKorjeks" title="Maardust võetav tooraine (kood = tooraine) Komplekteerimise mustandisse">Saada korjenimekirjaks</button>
+      <button class="nupp" id="rapPrindi" title="Pakendaja tööleht märgitud ridadest">Prindi tööleht</button>
+      <button class="nupp" id="rapCsv">Excel (CSV)</button>
+      <button class="nupp" id="rapPoest" title="Tooraine, mis tuleb poest (Kauplus 3) Maardusse tagasi tellida">Poest tellida</button>
+      <button class="nupp" id="rapPoestCsv">Poest tellida (CSV)</button>
+    </div>
+    <div class="rap-kerida"><table class="tabel pak"><tr><th><input type="checkbox" id="rapKoik" title="Kõik / mitte ükski"></th>${th('kood', 'Kood')}${th('nimi', 'Nimetus / kaubagrupp')}` +
+    `${th('kiirus', `Kiirus kuus (${SOO_PERIOOD[I.periood]})`)}${th('jaak', 'Jätkub')}${th('vajadus', `Vajadus (${fmt(I.kuud)} k)`)}${th('uld', 'Üldkogus')}${th('puudu', 'Puudu')}` +
+    `${th('toor', 'Tooraine')}${th('koht', `Asukoht (${esc(md)})`)}${th('toorMd', esc(md), ' title="Tooraine kogus (allika ühikutes: tk või pk)"')}${th('toorPd', esc(pd), ' title="Tooraine kogus poes (allika ühikutes), miinus = 0"')}${th('suurus', I.alam === 'pakk' ? 'Pakis tk' : 'Kotis tk')}${th('saab', 'Saab teha')}` +
+    `${th('vaja', 'Pakkida', ' style="width:70px"')}${th('toorVaja', 'Tooraine vaja')}${th('maardust', 'Maardust')}${th('poest', 'Poest juurde')}${th('toorPuudu', 'Puudu')}${th('kust', 'Kust')}</tr>` +
+    L.map(rapPakRida).join('') + '</table></div>';
+  rapPakUuenda();
+}
+function rapPakRida(r, i) {
+  const t = T.get(r.kood) || toode(r.kood), tt = T.get(r.toor) || toode(r.toor), yh = pakYh(r);
+  return `<tr data-pakrida="${i}"${r.valik ? '' : ' class="maha"'}><td><input type="checkbox" data-rapvali="${i}"${r.valik ? ' checked' : ''}></td><td><b>${esc(r.kood)}</b></td><td>${esc(t.nimi)}<br><span class="hall vaike">${esc(t.grupp)}</span></td>
+    <td class="arv">${fmt(r.kuus)}</td><td>${pakJatkub(r)}</td><td class="arv">${fmt(r.vajadus)}</td><td class="arv">${fmt(r.uld)}</td><td class="arv"><b>${fmt(r.puudu)}</b></td>
+    <td title="${esc(tt.nimi)}${r.yhine.length ? ' · sama tooraine ka: ' + esc(r.yhine.join(', ')) : ''}" style="white-space:nowrap"><b>${esc(r.toor)}</b> <span class="pak-silt">${r.allikas}${r.allikas === 'PAKK' ? ' ' + fmt(r.pakis) + ' tk' : ''}</span>${r.yhine.length ? ' <span class="pak-silt">+' + r.yhine.length + '</span>' : ''}</td>
+    <td>${pakKohtHtml(r)}</td>
+    <td class="arv">${fmt(r.md)}</td><td class="arv">${fmt(r.pd)}</td>
+    <td class="arv"${r.pakPuudu ? ' style="color:#b26a00" title="Pakendi suurus puudub (Ühiku kirjeldus, nimetus): arvestatud 1"' : ''}>${fmt(r.suurus)}${r.pakPuudu ? '?' : ''}</td><td class="arv">${fmt(r.saab)}</td>
+    <td><input type="text" inputmode="numeric" data-rapvaja="${i}" value="${r.vaja}"></td>
+    <td class="arv" data-p="toorVaja"></td><td class="arv" data-p="maardust"></td><td class="arv" data-p="poest"></td><td class="arv" data-p="toorPuudu"></td><td data-p="kust"></td></tr>`;
+}
+// arvutatud lahtrid (tooraine jaotus) kohapeal: sisestuskast jääb alles (fookus, nooled)
+function rapPakUuenda() {
+  const L = RAP.read, I = RAP.info;
+  if (!$('rapPakInfo')) return;
+  pakJaotaKoik(L);
+  document.querySelectorAll('#rapTulemus tr[data-pakrida]').forEach(tr => {
+    const r = L[+tr.dataset.pakrida], c = p => tr.querySelector(`[data-p="${p}"]`);
+    if (!r) return;
+    const yh = pakYh(r);
+    tr.classList.toggle('maha', !r.valik);
+    c('toorVaja').innerHTML = r.toorVaja ? `<b>${fmt(r.toorVaja)}</b> ${yh}${r.allikas === 'PAKK' ? ` <span class="hall vaike">(${fmt(r.toorVaja * r.pakis)} tk)</span>` : ''}` : '–';
+    c('maardust').innerHTML = r.maardust ? fmt(r.maardust) : '<span class="hall">–</span>';
+    c('poest').innerHTML = r.poest ? `<b style="color:#8a5a00">${fmt(r.poest)}</b>` : '<span class="hall">–</span>';
+    c('toorPuudu').innerHTML = r.toorPuudu ? `<b class="hoiatus">${fmt(r.toorPuudu)}</b>` : '<span class="hall">–</span>';
+    c('kust').innerHTML = r.kust ? `<span class="pak-kust ${r.kust}">${PAK_KUST_SILT[r.kust]}</span>` : '';
+  });
+  const M = rapValitud(), n = k => M.filter(r => r.kust === k).length;
+  $('rapPakInfo').innerHTML = `${L.length} toodet · ${esc(rapPakKokkuvote(I))}.<br>Märgitud ${M.length}: <span class="pak-kust maardu">Maardust ${n('maardu')}</span> ` +
+    `<span class="pak-kust maardu-pood">Maardu + pood ${n('maardu-pood')}</span> <span class="pak-kust pood">Poest ${n('pood')}</span> <span class="pak-kust puudu">Puudu ${n('puudu')}</span>` +
+    ` · Pakkida kogust saad muuta: tooraine jaotus arvutatakse uuesti (sama tooraine mitmel real: kiireloomulisem võtab enne).`;
+  rapUuendaNupud();
+}
+// tooraine kokku (sama tooraine mitmelt realt): v = 'maardust' | 'poest' -> [{kood, kogus, yh, read}]
+function pakToorKokku(L, v) {
+  const M = new Map();
+  L.forEach(r => {
+    if (!(r[v] > 0)) return;
+    const x = M.get(r.toor) || M.set(r.toor, { kood: r.toor, kogus: 0, yh: pakYh(r), read: [] }).get(r.toor);
+    x.kogus += r[v]; x.read.push(r.kood);
+  });
+  return [...M.values()];
+}
+function rapPakNupud() {
+  const L = rapValitud(), km = pakToorKokku(L, 'maardust').length, kp = pakToorKokku(L, 'poest').length;
+  $('rapKorjeks').textContent = `Saada korjenimekirjaks (${km} toorainet Maardust)`; $('rapKorjeks').disabled = !km;
+  $('rapPrindi').textContent = `Prindi tööleht (${L.length})`;
+  $('rapPoest').textContent = `Poest tellida (${kp})`; $('rapPoest').disabled = $('rapPoestCsv').disabled = !kp;
+}
+// Maardust võetav tooraine Komplekteerimise mustandisse (kood = tooraine, kogus = Maardust osa) -> Saada telefoni
+function rapPakKorjeks() {
+  const I = RAP.info, K = pakToorKokku(rapValitud(), 'maardust');
+  if (!K.length) { teade('Märgitud ridadel pole Maardust võetavat toorainet', true); return; }
+  if (KOG_MUSTAND.length && !confirm(`Komplekteerimise mustandis on juba ${KOG_MUSTAND.length} rida. Asendan need ${K.length} tooraine reaga?`)) return;
+  KOG_MUSTAND = K.map(x => ({ kood: x.kood, vaja: x.kogus }));
+  KOG_SOOV = null; KOG_SORT = null; $('kogKleebi').value = '';
+  $('kogNimi').value = (I.filter || PAK_ALAM[I.alam]) + ' tooraine ' + kogTana();
+  $('rapAken').classList.remove('lahti');
+  avaKogumine();
+  teade(`${K.length} toorainet Komplekteerimise mustandis (Maardust võetav osa) – kontrolli ja vajuta Saada telefoni`);
+}
+// pakendaja tööleht (nagu Sheetsi looPakendajaTooleht): märgitud read, Pakkida, tooraine võtta ja kust
+function rapPakPrindi() {
+  const L = rapValitud(), I = RAP.info;
+  if (!L.length) return;
+  const html = `<table class="kog"><tr><th>Jrk</th><th>Tehtud</th><th>Toote kood</th><th>Nimetus</th><th>Tooraine</th><th>Asukoht (${esc(RAP_LAOD[I.kust])})</th><th>${I.alam === 'pakk' ? 'Pakis' : 'Kotis'} (tk)</th><th>Pakkida</th><th>Tooraine võtta</th><th>Reaalselt pakitud</th></tr>` +
+    L.map((r, i) => {
+      const t = T.get(r.kood) || toode(r.kood), yh = pakYh(r);
+      const kust = [r.maardust ? `${fmt(r.maardust)} ${yh} Maardust` : '', r.poest ? `${fmt(r.poest)} ${yh} poest` : '', r.toorPuudu ? `PUUDU ${fmt(r.toorPuudu)} ${yh}` : ''].filter(Boolean).join(', ');
+      return `<tr><td>${i + 1}</td><td style="width:12mm">☐</td><td><b>${esc(r.kood)}</b></td><td>${esc(t.nimi)}</td><td>${esc(r.toor)} (${r.allikas})</td>
+        <td>${esc(pakKohtTekst(r))}</td><td>${fmt(r.suurus)}</td><td style="background:#fff2cc"><b>${fmt(r.vaja)}</b></td>
+        <td><b>${fmt(r.toorVaja)} ${yh}</b>${kust ? '<br>' + kust : ''}</td><td style="width:30mm"></td></tr>`;
+    }).join('') + '</table>';
+  prindi([{ pealkiri: 'Pakendamisleht ' + kogTana(), markus: `Pakendaja: ________________________ · ${I.filter || PAK_ALAM[I.alam]} · ${L.length} rida`, html }]);
+}
+// poest (Kauplus 3) Maardusse tagasi tellitav tooraine: print või CSV
+function rapPakPoest(csv) {
+  const I = RAP.info, K = pakToorKokku(rapValitud(), 'poest');
+  if (!K.length) { teade('Märgitud ridadel pole poest midagi vaja', true); return; }
+  const yhik = x => { const t = T.get(x.kood) || toode(x.kood); return t.uhik || (x.yh === 'pk' ? 'PAKK' : 'TÜKK'); };
+  if (csv) return rapCsvFail(['Kood', 'Nimetus', 'Ühik', `Poes (${RAP_LAOD[I.kuhu]})`, 'Tellida poest', 'Pakkimiseks'],
+    K.map(x => { const t = T.get(x.kood) || toode(x.kood); return [rapCsvKood(x.kood), rapLahter(t.nimi), rapLahter(yhik(x)), rapLahter(pakTerve(t[I.kuhu])), rapLahter(x.kogus), rapLahter(x.read.join(', '))]; }),
+    'poest_tellida');
+  const html = `<table class="kog"><tr><th>Kood</th><th>Nimetus</th><th>Ühik</th><th>Poes</th><th>Tellida poest</th><th>Pakkimiseks</th><th>✓</th></tr>` +
+    K.map(x => { const t = T.get(x.kood) || toode(x.kood);
+      return `<tr><td><b>${esc(x.kood)}</b></td><td>${esc(t.nimi)}</td><td>${esc(yhik(x))}</td><td>${fmt(pakTerve(t[I.kuhu]))}</td><td><b>${fmt(x.kogus)}</b></td><td>${esc(x.read.join(', '))}</td><td style="width:12mm"></td></tr>`; }).join('') + '</table>';
+  prindi([{ pealkiri: `Poest tellida (${RAP_LAOD[I.kuhu]} → ${RAP_LAOD[I.kust]}) ${kogTana()}`, markus: `${K.length} toorainet · ${I.filter || PAK_ALAM[I.alam]}`, html }]);
+}
+function rapPakCsv() {
+  const L = rapValitud(), I = RAP.info, md = RAP_LAOD[I.kust], pd = RAP_LAOD[I.kuhu];
+  if (!L.length) return;
+  const V = ['Kood', 'Nimetus', 'Kaubagrupp', `Kiirus kuus (${SOO_PERIOOD[I.periood]})`, 'Jätkub (kuud)', `Vajadus (${fmt(I.kuud)} k)`, 'Üldkogus', 'Puudu', 'Allikas', 'Tooraine', 'Tooraine nimetus',
+             `Asukoht (${md})`, `Tooraine ${md}`, `Tooraine ${pd}`, I.alam === 'pakk' ? 'Pakis tk' : 'Kotis tk', 'Saab teha', 'Pakkida', 'Tooraine vaja', 'Ühik', 'Maardust', 'Poest juurde', 'Puudu tooraine', 'Kust'];
+  rapCsvFail(V, L.map(r => { const t = T.get(r.kood) || toode(r.kood), tt = T.get(r.toor) || toode(r.toor);
+    return [rapCsvKood(r.kood), rapLahter(t.nimi), rapLahter(t.grupp), rapLahter(r.kuus), rapLahter(Math.round(r.jaak * 10) / 10), rapLahter(r.vajadus), rapLahter(r.uld), rapLahter(r.puudu),
+            r.allikas, rapCsvKood(r.toor), rapLahter(tt.nimi), rapLahter(pakKohtTekst(r)), rapLahter(r.md), rapLahter(r.pd), rapLahter(r.suurus), rapLahter(r.saab),
+            rapLahter(r.vaja), rapLahter(r.toorVaja), pakYh(r), rapLahter(r.maardust), rapLahter(r.poest), rapLahter(r.toorPuudu), rapLahter(PAK_KUST_SILT[r.kust] || '')]; }),
+    'pakkimine_' + (I.filter || PAK_ALAM[I.alam]));
+}
+
+// Tühjenda: tulemus (read, kokkuvõte, nupud) kaob, aken ja seaded jäävad
+function rapTyhjenda() { RAP.read = []; RAP.info = null; RAP.sort = null; renderRapTulemus(); }
+// Lähtesta: praeguse liigi vaikeseaded (pakkimises sama alamliik, varu PAKK 3 / KOTT 6 k nagu valmisfiltris), periood jääb;
+// filtrivalik tühjaks (midagi ei kustutata)
+function rapLahtesta() {
+  const S = RAP_S, pak = S.liik === 'pakkimine';
+  RAP_S = rapNorm(Object.assign({}, pak ? { liik: 'pakkimine', alam: S.alam, kuud: S.alam === 'pakk' ? 3 : 6 } : { liik: S.liik === 'kontroll' ? 'kontroll' : 'poodi' }, { periood: S.periood }));   // INFO3: kontroll
+  RAP.filter = ''; RAP.otsM = RAP.otsG = RAP.otsT = '';
+  rapMeelde(); rapTaidaVorm(); renderRapFiltrid();
+  teade('Seaded lähtestatud' + (pak ? ` (${PAK_ALAM[RAP_S.alam]})` : ''));
+}
+/* ---------- INFO3: andmete kontroll – Info 3 (tooraine kood) ----------
+   PAKK/KOTT tooted (sooTyyp), mille tooraine kood on kahtlane (Freddy 14.10, ühekordne üle vaatamine):
+   puudub (alus olemas / alust pole); viitab koodile, mida Lao Andmetes pole; ei kattu koodiga (alus = kood ilma KP/PP on olemas, aga Info 3 on muu,
+   nt 8565EPP -> 8590E; ka Info 3 = oma kood, kui alus on olemas); pakendi suurus puudub. Info (mitte viga): KOTT viitab pakile
+   (…KP, õige PAKK → KOTT jaoks), Info 3 = oma kood (ostetakse valmis). Info 3 nagu pakkimises (Lao Andmed / Käibekiiruse Andmed,
+   puudumisel hooaja leht). Erand (leht "Info3 erandid") kehtib ainult sama Info 3 korral; muutunud Info 3 -> rida tuleb uuesti. */
+function info3Kontroll({ info3 = null, kiirus = null, erandid = null, grupid = null, metad = null, peidaAt = true, peidaX = false, probleemid = null, naitaErandid = false, kust = 'maardu', kuhu = 'k3' } = {}) {
+  const L = [], jrk = Object.keys(INFO3_PROB);
+  T.forEach(t => {
+    const ty = sooTyyp(t);
+    if (!ty || (peidaAt && t.nimi.includes('@')) || (peidaX && /^x\./i.test(t.nimi.trim()))) return;
+    if ((grupid && !grupid.has(t.grupp)) || (metad && !metad.has(t.meta))) return;
+    const i3 = t.info3 || (info3 && koodLeia(info3, t.kood)) || '', lopp = ty === 'PAKK' ? 'KP' : 'PP';
+    const baas = t.kood.endsWith(lopp) ? t.kood.slice(0, -2) : '', ti = i3 ? koodLeia(T, i3) || null : null, tb = baas ? koodLeia(T, baas) || null : null;
+    const pakile = ty === 'KOTT' && !!ti && ti !== t && sooTyyp(ti) === 'PAKK', p = [];
+    if (!i3) p.push(tb ? 'puudub' : 'puudubOst');
+    else {
+      if (!koodSama(i3, t.kood) && !ti) p.push('pole');
+      if (tb && !koodSama(i3, baas) && !(pakile && i3 === baas + 'KP')) p.push('erinev');
+      if (pakile) p.push('pakile');
+      if (koodSama(i3, t.kood)) p.push('oma');
+    }
+    if (!(t.pak > 0)) p.push('pakend');
+    if (!p.length || (probleemid && !p.some(x => probleemid.has(x)))) return;
+    const e = erandid && koodLeia(erandid, t.kood), erand = e && koodSama(e.info3, i3) ? e : null;
+    if (erand && !naitaErandid) return;
+    const kuus = (kiirus ? koodLeia(kiirus, t.kood) : t.kuus) || 0;
+    L.push({ kood: t.kood, valik: true, vaja: 1, tyyp: ty, info3: i3, baas, p, erand, vanaErand: e && !erand ? e : null, kuus, s: { kuus, k3: nr(t[kuhu]), paevi: 0 } });
+  });
+  return L.sort((a, b) => jrk.indexOf(a.p[0]) - jrk.indexOf(b.p[0]) || CN.compare(a.kood, b.kood));
+}
+async function rapI3Arvuta() {
+  const S = RAP_S;
+  if (!T.size) { teade('Tooteid pole laaditud', true); return; }
+  rapMeelde();
+  const nupp = $('rapNaita');
+  const kiirus = await sooLaeKiirus(S.periood, nupp, 'Näita');
+  if (kiirus === undefined) return;
+  try {
+    const j = await api({ tegevus: 'info3Erandid' });
+    if (!j.ok) throw new Error(j.viga);
+    RAP.erandid = new Map((j.erandid || []).map(e => [normKood(e.kood), Object.assign({}, e, { info3: normKood(e.info3) })]));
+  } catch (e) { teade('Erandeid ei saanud: ' + e.message, true); return; }
+  const L = info3Kontroll({ info3: SOO_INFO3[S.periood] || null, kiirus, erandid: RAP.erandid, grupid: S.grupid.length ? new Set(S.grupid) : null, metad: S.metad.length ? new Set(S.metad) : null,
+                            peidaAt: S.peidaAt, peidaX: S.peidaX, probleemid: S.probleemid.length ? new Set(S.probleemid) : null, naitaErandid: S.naitaErandid, kust: S.kust, kuhu: S.kuhu });
+  RAP.read = S.sort === 'pohjus' ? L : rapAlusSort(L, S.sort); RAP.sort = null;
+  RAP.info = Object.assign({}, S, { filter: RAP.filter, hoiatus: laoHoiatus() });
+  rapTaidaVorm();
+  renderRapTulemus();
+  if (!L.length) teade('Probleeme ei leitud');
+}
+function rapI3Kokkuvote(I) {
+  const grupid = (I.metad.length ? ` · metagrupp: ${I.metad.join(', ')}` : '') + (I.grupid.length ? ` · kaubagrupp: ${I.grupid.length > 3 ? I.grupid.length + ' gruppi' : I.grupid.join(', ')}` : '');
+  const n = RAP.erandid ? RAP.erandid.size : 0;
+  return `Info 3 kontroll · PAKK ja KOTT${grupid} · ${I.probleemid.length ? I.probleemid.map(k => INFO3_PROB[k][1]).join(', ') : 'kõik probleemid'}` +
+    ` · erandeid ${n}${n ? (I.naitaErandid ? ' (näidatud)' : ' (peidus)') : ''} · Buumi seis ${ANDMED && ANDMED.laoAndmedUuendatud ? kogAeg(ANDMED.laoAndmedUuendatud) : '?'}`;
+}
+const i3Silt = k => `<span class="pak-kust ${INFO3_PROB[k][2] === 'viga' ? 'puudu' : 'info'}" title="${esc(INFO3_PROB[k][0])}">${esc(INFO3_PROB[k][1])}</span>`;
+const i3Toode = kood => { if (!kood) return '<span class="hall">–</span>'; const t = koodLeia(T, kood); return t ? `${esc(t.nimi)} <span class="pak-silt">${esc(t.uhik)}</span>` : '<span class="hoiatus">pole Lao Andmetes</span>'; };
+function renderRapI3() {
+  const L = RAP.read, I = RAP.info;
+  if (!L.length) { $('rapTulemus').innerHTML = `<p class="vaike hall">${esc(rapI3Kokkuvote(I))}</p><p>Probleeme ei leitud.</p>`; return; }
+  const th = (v, silt, lisa = '') => `<th data-rapsort="${v}" title="Sordi"${lisa}>${silt}${RAP.sort && RAP.sort.v === v ? (RAP.sort.suund > 0 ? ' ▲' : ' ▼') : ''}</th>`;
+  const kokku = Object.keys(INFO3_PROB).map(k => [k, L.filter(r => r.p.includes(k)).length]).filter(x => x[1]);
+  $('rapTulemus').innerHTML = `<p class="vaike hall">${L.length} toodet · ${esc(rapI3Kokkuvote(I))}<br>${kokku.map(([k, n]) => i3Silt(k).replace('</span>', ` ${n}</span>`)).join(' ')}
+      · Õige erandi märgi <b>Erand</b> (märkusega): see ei tule enam välja, kuni Info 3 muutub.</p>
+    <div class="rida" style="gap:8px;margin:6px 0;flex-wrap:wrap">
+      <button class="nupp pea" id="rapI3Margi" title="Märgitud read on kontrollitud (õiged erandid)">Märgi erandiks</button>
+      <button class="nupp" id="rapPrindi">Prindi</button>
+      <button class="nupp" id="rapCsv">Excel (CSV)</button>
+    </div>
+    <div class="rap-kerida"><table class="tabel pak i3"><tr><th><input type="checkbox" id="rapKoik" title="Kõik / mitte ükski"></th>${th('kood', 'Kood')}${th('nimi', 'Nimetus')}${th('uhik', 'Ühik')}${th('grupp', 'Kaubagrupp')}` +
+    `${th('i3', 'Info 3')}<th>Info 3 toode</th>${th('baas', 'Oodatud (kood ilma KP/PP)')}<th>Oodatud toode</th>${th('pakend', 'Pakis tk')}${th('maardu', esc(RAP_LAOD[I.kust]))}${th('k3', esc(RAP_LAOD[I.kuhu]))}` +
+    `${th('kiirus', `Kiirus kuus (${SOO_PERIOOD[I.periood]})`)}${th('prob', 'Probleem')}${th('erand', 'Erand')}</tr>` +
+    L.map((r, i) => { const t = T.get(r.kood) || toode(r.kood);
+      return `<tr${r.valik ? '' : ' class="maha"'}><td><input type="checkbox" data-rapvali="${i}"${r.valik ? ' checked' : ''}></td><td><b>${esc(r.kood)}</b></td><td>${esc(t.nimi)}</td><td>${esc(t.uhik)}</td><td class="hall">${esc(t.grupp)}</td>
+        <td><b>${esc(r.info3) || '<span class="hoiatus">–</span>'}</b></td><td>${r.info3 && !koodSama(r.info3, r.kood) ? i3Toode(r.info3) : '<span class="hall">–</span>'}</td>
+        <td>${esc(r.baas) || '<span class="hall">–</span>'}</td><td>${i3Toode(r.baas)}</td>
+        <td class="arv">${t.pak > 0 ? fmt(t.pak) : '<span class="hoiatus">?</span>'}</td><td class="arv">${fmt(nr(t[I.kust]))}</td><td class="arv">${fmt(nr(t[I.kuhu]))}</td><td class="arv">${r.kuus ? fmt(r.kuus) : '<span class="hall">–</span>'}</td>
+        <td>${r.p.map(i3Silt).join(' ')}</td>
+        <td>${r.erand ? `<span class="pak-kust maardu" title="${esc(r.erand.kes)} ${esc(r.erand.aeg ? kogAeg(r.erand.aeg) : '')}">erand</span> ${esc(r.erand.markus)} <button class="nupp" data-i3eemalda="${i}" style="min-height:24px;padding:0 6px" title="Võta erand ära">✕</button>`
+          : `<button class="nupp" data-i3erand="${i}" style="min-height:24px;padding:0 8px" title="Kontrollitud: õige erand">Erand</button>${r.vanaErand ? ` <span class="hall vaike" title="Erand märgiti, kui Info 3 oli ${esc(r.vanaErand.info3 || 'tühi')}">erand aegunud</span>` : ''}`}</td></tr>`; }).join('') +
+    '</table></div>';
+  rapUuendaNupud();
+}
+function rapI3Nupud() {
+  const n = RAP.read.filter(r => r.valik).length, m = rapValitud().filter(r => !r.erand).length;
+  if (!$('rapI3Margi')) return;
+  $('rapI3Margi').textContent = `Märgi erandiks (${m})`; $('rapI3Margi').disabled = !m;
+  $('rapPrindi').disabled = $('rapCsv').disabled = !n;
+  $('rapKoik').checked = n === RAP.read.length; $('rapKoik').indeterminate = n > 0 && n < RAP.read.length;
+}
+// read -> erandiks (server: leht Info3 erandid), märkus küsitakse
+async function rapI3Margi(read) {
+  if (!read.length) { teade('Märgi vähemalt üks rida', true); return; }
+  const markus = prompt(`${read.length === 1 ? read[0].kood : read.length + ' rida'}: märgin kontrollituks (õige erand). Märkus (miks see on õige)?`, '');
+  if (markus === null) return;
+  try {
+    const j = await api({ tegevus: 'salvestaInfo3Erand', markus: markus.trim(), read: read.map(r => ({ kood: r.kood, info3: r.info3 })) });
+    if (!j.ok) throw new Error(j.viga);
+    const aeg = new Date().toISOString(), kes = (SEADED && SEADED.kes) || '';
+    read.forEach(r => { r.erand = { kood: r.kood, info3: r.info3, markus: markus.trim(), kes, aeg }; r.vanaErand = null; RAP.erandid.set(r.kood, r.erand); });
+    if (!RAP.info.naitaErandid) RAP.read = RAP.read.filter(r => !r.erand);
+    teade(`${read.length} rida märgitud erandiks`);
+  } catch (e) { teade('Ei saanud salvestada: ' + e.message, true); }
+  renderRapTulemus();
+}
+async function rapI3Eemalda(r) {
+  if (!r || !r.erand || !confirm(`Võtan ${r.kood} erandi ära? Toode tuleb jälle kontrolli.`)) return;
+  try {
+    const j = await api({ tegevus: 'kustutaInfo3Erand', koodid: [r.kood] });
+    if (!j.ok) throw new Error(j.viga);
+    r.erand = null; RAP.erandid.delete(r.kood);
+    teade(`${r.kood}: erand eemaldatud`);
+  } catch (e) { teade('Ei saanud eemaldada: ' + e.message, true); }
+  renderRapTulemus();
+}
+function rapI3Prindi() {
+  const L = rapValitud(), I = RAP.info;
+  if (!L.length) return;
+  const nimi = x => { const t = x && koodLeia(T, x); return x ? (t ? `${t.nimi} (${t.uhik})` : 'pole Lao Andmetes') : ''; };
+  const html = `<table class="kog"><tr><th>Kood</th><th>Nimetus</th><th>Ühik</th><th>Info 3</th><th>Info 3 toode</th><th>Oodatud</th><th>Oodatud toode</th><th>Probleem</th><th>Õige Info 3 / märkus</th></tr>` +
+    L.map(r => { const t = T.get(r.kood) || toode(r.kood);
+      return `<tr><td><b>${esc(r.kood)}</b></td><td>${esc(t.nimi)}</td><td>${esc(t.uhik)}</td><td><b>${esc(r.info3)}</b></td><td>${esc(!koodSama(r.info3, r.kood) ? nimi(r.info3) : '')}</td><td>${esc(r.baas)}</td>
+        <td>${esc(nimi(r.baas))}</td><td>${r.p.map(k => esc(INFO3_PROB[k][1])).join(', ')}</td><td style="width:45mm">${r.erand ? 'erand: ' + esc(r.erand.markus) : ''}</td></tr>`; }).join('') + '</table>';
+  prindi([{ pealkiri: (I.filter || 'Info 3 kontroll') + ' ' + kogTana(), markus: `${L.length} rida · ${rapI3Kokkuvote(I)}`, html }]);
+}
+function rapI3Csv() {
+  const L = rapValitud(), I = RAP.info;
+  if (!L.length) return;
+  const nimi = x => { const t = x && koodLeia(T, x); return x ? (t ? t.nimi : 'pole Lao Andmetes') : ''; }, yh = x => { const t = x && koodLeia(T, x); return t ? t.uhik : ''; };
+  rapCsvFail(['Kood', 'Nimetus', 'Ühik', 'Kaubagrupp', 'Metagrupp', 'Info 3', 'Info 3 nimetus', 'Info 3 ühik', 'Oodatud', 'Oodatud nimetus', 'Oodatud ühik', 'Pakis tk', RAP_LAOD[I.kust], RAP_LAOD[I.kuhu],
+              `Kiirus kuus (${SOO_PERIOOD[I.periood]})`, 'Probleem', 'Erand', 'Märkus'],
+    L.map(r => { const t = T.get(r.kood) || toode(r.kood);
+      return [rapCsvKood(r.kood), rapLahter(t.nimi), rapLahter(t.uhik), rapLahter(t.grupp), rapLahter(t.meta), rapCsvKood(r.info3), rapLahter(!koodSama(r.info3, r.kood) ? nimi(r.info3) : ''), rapLahter(yh(r.info3)),
+              rapCsvKood(r.baas), rapLahter(nimi(r.baas)), rapLahter(yh(r.baas)), rapLahter(t.pak || ''), rapLahter(nr(t[I.kust])), rapLahter(nr(t[I.kuhu])), rapLahter(r.kuus),
+              rapLahter(r.p.map(k => INFO3_PROB[k][0]).join(', ')), r.erand ? 'jah' : '', rapLahter(r.erand ? r.erand.markus : '')]; }),
+    'info3_kontroll');
 }
 
 /* ---------- KUBJAS: komplekteerimise kiirinfo ---------- */
@@ -3574,6 +4092,9 @@ $('sooArvuta').addEventListener('click', sooArvuta);   // SOOVITUS
 $('rapNupp').addEventListener('click', () => { if (SEADED) avaRaportid(); });
 $('rapSulge').addEventListener('click', () => $('rapAken').classList.remove('lahti'));
 $('rapNaita').addEventListener('click', rapArvuta);
+$('rapTyhjenda').addEventListener('click', rapTyhjenda);
+$('rapGrupidLyliti').addEventListener('click', rapGrupidVaheta);   // PAKKIMINE (Freddy): tulemus tühjaks / seaded vaikimisi
+$('rapLahtesta').addEventListener('click', rapLahtesta);
 $('rapSalvesta').addEventListener('click', rapSalvesta);
 $('rapKustuta').addEventListener('click', rapKustuta);
 $('rapFilter').addEventListener('change', e => rapRakendaFilter(e.target.value));
@@ -3592,7 +4113,20 @@ $('rapAken').addEventListener('change', e => {
     RAP_S[k] = e.target.checked ? RAP_S[k].concat(v) : RAP_S[k].filter(x => x !== v);
     renderRapGrupid(); renderRapFiltrid(); return;
   }
-  if (e.target.closest('.rap-rida') && e.target.id !== 'rapFilter') { rapLoeVorm(); if (e.target.id === 'rapPeidaToor') renderRapGrupid(); renderRapFiltrid(); return; }
+  if (e.target.closest('.rap-rida') && e.target.id !== 'rapFilter') {
+    rapLoeVorm();
+    if (e.target.id === 'rapLiik' || e.target.id === 'rapAlam') rapTaidaVorm();   // PAKKIMINE: väljad ja grupid liigi järgi
+    else if (e.target.id === 'rapPeidaToor') renderRapGrupid();
+    renderRapFiltrid(); return;
+  }
+  // PAKKIMINE: linnuke / Pakkida muudab tooraine jaotust (sama tooraine mitmel real) -> kogu tabel uuesti
+  if (RAP.info && RAP.info.liik === 'pakkimine' && (d.rapvali !== undefined || d.rapvaja !== undefined)) {
+    const r = RAP.read[+(d.rapvali !== undefined ? d.rapvali : d.rapvaja)];
+    if (!r) return;
+    if (d.rapvali !== undefined) r.valik = e.target.checked;
+    else r.vaja = Math.max(0, Math.round(nr(e.target.value.replace(/\s/g, ''))));
+    rapPakUuenda(); return;
+  }
   if (d.rapvali !== undefined) { const r = RAP.read[+d.rapvali]; if (r) { r.valik = e.target.checked; e.target.closest('tr').classList.toggle('maha', !r.valik); rapUuendaNupud(); } return; }
   if (e.target.id === 'rapKoik') { RAP.read.forEach(r => { r.valik = e.target.checked; }); renderRapTulemus(); return; }
   if (d.rapvaja !== undefined) {
@@ -3609,6 +4143,11 @@ $('rapAken').addEventListener('click', e => {
   else if (b.id === 'rapKorjeks') rapKorjeks();
   else if (b.id === 'rapPrindi') rapPrindi();
   else if (b.id === 'rapCsv') rapCsv();
+  else if (b.id === 'rapPoest') rapPakPoest(false);   // PAKKIMINE
+  else if (b.id === 'rapPoestCsv') rapPakPoest(true);
+  else if (b.id === 'rapI3Margi') rapI3Margi(rapValitud().filter(r => !r.erand));   // INFO3
+  else if (b.dataset.i3erand !== undefined) rapI3Margi([RAP.read[+b.dataset.i3erand]].filter(Boolean));
+  else if (b.dataset.i3eemalda !== undefined) rapI3Eemalda(RAP.read[+b.dataset.i3eemalda]);
 });
 // Enter / nooled Saata lahtris: järgmine rida (nagu Komplekteerimises)
 $('rapTulemus').addEventListener('keydown', e => {
@@ -3616,10 +4155,11 @@ $('rapTulemus').addEventListener('keydown', e => {
   const l = [...$('rapTulemus').querySelectorAll('input[data-rapvaja]')], i = l.indexOf(e.target), j = e.key === 'ArrowUp' ? i - 1 : i + 1;
   e.preventDefault();
   e.target.dispatchEvent(new Event('change', { bubbles: true }));
-  if (l[j]) { l[j].focus(); l[j].select(); }
+  const l2 = [...$('rapTulemus').querySelectorAll('input[data-rapvaja]')];   // PAKKIMINE: tabel võis uuesti tekkida
+  if (l2[j]) { l2[j].focus(); l2[j].select(); }
 });
 $('rapTulemus').addEventListener('focusin', e => { if (e.target.dataset.rapvaja !== undefined) e.target.select(); });
-$('uuenda').addEventListener('click', () => Object.keys(SOO_KIIRUS).forEach(k => delete SOO_KIIRUS[k]));   // hooaja kiirus loetakse uuesti
+$('uuenda').addEventListener('click', () => Object.keys(SOO_KIIRUS).forEach(k => { delete SOO_KIIRUS[k]; delete SOO_INFO3[k]; delete SOO_HOIATUS[k]; }));   // hooaja kiirus loetakse uuesti
 // BUUM
 $('buumFail').addEventListener('change', e => { buumLae(e.target.files[0]); e.target.value = ''; });
 $('moodFail').addEventListener('change', e => { moodLae(e.target.files[0]); e.target.value = ''; });
