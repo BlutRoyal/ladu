@@ -1,7 +1,7 @@
 // Laoäpi teenustöötaja: hoiab lehe ja skänneri teegi telefonis, et need avaneksid ka ilma võrguta.
 // Oma lehe failid: võrgus alati uusim, võrguta salvestatud koopia.
 // Skänneri teek (CDN): esimesel korral laaditakse, edaspidi võetakse telefonist.
-const VAHEMALU = 'ladu-v18';   // MADIS (2.14): uus versioon, et telefon võtaks uue lehe
+const VAHEMALU = 'ladu-v19';   // ABI (2.15): uus versioon (arvuti.html: „Miks?“ ja „? Abi“); MADIS (2.14): ladu-v18
 const FAILID = ['./', './index.html'];
 const LISAFAILID = ['./manifest.json', './ikoon-192.png'];   // puudumine ei takista paigaldust
 const CDN = ['cdn.jsdelivr.net', 'unpkg.com'];
