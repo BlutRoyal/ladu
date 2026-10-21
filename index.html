@@ -90,6 +90,9 @@ label { display: block; font-size: 13px; color: var(--hall); margin: 12px 0 4px;
 #paigRiba .nupp { flex: none; }
 #paigRiba .sulge { flex: none; width: 34px; height: 34px; border: 0; background: none; font-size: 18px; color: var(--hall); cursor: pointer; border-radius: 8px; }
 body.paig-lahti { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
+/* PAIGUTA 2.19: kogus */
+.kogus-rida { margin-top: 4px; font-size: 15px; }
+.kogus-kokku { margin-top: 8px; font-size: 15px; }
 /* PAIGUTA: paigutamise ja „kust võtsid“ aknad */
 #pgAken, #kusAken { position: fixed; inset: 0; z-index: 30; display: none; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.45); }
 #pgAken.lahti, #kusAken.lahti { display: flex; }
@@ -1155,6 +1158,7 @@ function tooteKaart(t) {
     return `<button class="koht${fl ? ' fluid' : ''}" data-koht="${esc(x.koht)}">
       <div class="kk">${esc(x.koht)}${fl ? '<span class="silt">ajutine</span>' : ''}${x.ootel ? '<span class="silt">saatmata</span>' : ''}${tooraineSilt(x)}</div>
       <div class="juhis">${esc(juhis(x.koht, x.pool))}</div>
+      ${kogusRida(x, t.uhik)}
     </button>`;
   }).join('');
   const pysi = s.filter(x => !onAjutineKoht(x) && !onTooraineLiik(x.liik));
@@ -1169,7 +1173,9 @@ function tooteKaart(t) {
     ${laoseis(t)}
     ${hinnaRida(t)}
     ${kohad || '<div class="tuhi" style="padding:14px 0 4px">Asukoht puudub</div>'}
+    ${kogusKokku(s, t.uhik)}
     <div class="nupud">
+      ${voibMuuta() ? `<button class="nupp pea" data-paigutatoode="${esc(t.kood)}">Paiguta</button>` : ''}
       ${voibMuuta() ? `<button class="nupp vaike" data-lisafluid="${esc(t.kood)}">＋ Lisa ajutisse kohta</button>` : ''}
       ${voibMuuta() && s.some(x => !onAjutineKoht(x)) ? `<button class="nupp vaike" data-tyhikaart="${esc(t.kood)}">Koht tühi</button>` : ''}
       ${voibMuuta() && pysi.length ? `<button class="nupp vaike" data-tooraine="${esc(t.kood)}">Pesas on tooraine</button>` : ''}
@@ -1230,6 +1236,7 @@ function renderKoht() {
       <button class="nupp vaike" style="float:right;margin-left:8px" data-toode="${esc(x.kood)}">Ava</button>
       <span class="toode-kood" style="font-size:16px">${esc(x.kood)}</span>${x.pool && x.pool !== 'terve' ? `<span class="silt">${esc(x.pool)}</span>` : ''}${x.ootel ? '<span class="silt">saatmata</span>' : ''}${toor ? '<span class="silt tooraine">tooraine</span>' : ''}
       <div>${esc(t ? t.nimi : 'Buumi ekspordis pole')}</div>
+      ${kogusRida(x, t && t.uhik)}
       ${t && toor ? `<div class="hall vaike">Maardu ${fmtNr(nr(t.maardu))} ${esc(t.uhik || '')}</div>` : ''}
       ${saabEemaldada ? `<div class="nupud" style="margin-top:6px"><button class="nupp vaike ohtlik" data-eemalda="${esc(x.kood)}" data-kohast="${esc(k)}">${toor ? 'Tooraine viidi ära' : 'Eemalda siit'}</button></div>` : ''}
     </div>`;
@@ -2000,6 +2007,28 @@ function skanniKohta() {
   }, 'Skänni toote ribakood');
 }
 
+/* ---------- PAIGUTA 2.19: kogus nähtavale ---------- */
+function lyhiAeg(v) {
+  const d = new Date(v);
+  if (!v || isNaN(d.getTime())) return '';
+  const p = n => String(n).padStart(2, '0');
+  return `${p(d.getDate())}.${p(d.getMonth() + 1)} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+// koha seose kogus ja viimase teatamise aeg (tooraine seostel kogust ei näidata)
+function kogusRida(x, uhik) {
+  if (onTooraineLiik(x.liik)) return '';
+  const q = pgKogus(x);
+  if (q === null) return '<div class="hall vaike">kogus teadmata</div>';
+  const a = lyhiAeg(x.kogusAeg);
+  return `<div class="kogus-rida">Kogus: <b>${fmtNr(q)}</b>${uhik ? ' ' + esc(uhik) : ''}${a ? ` <span class="hall vaike">· teatatud ${a}</span>` : ''}</div>`;
+}
+function kogusKokku(s, uhik) {
+  const l = s.filter(x => !onTooraineLiik(x.liik)), tead = l.filter(x => pgKogus(x) !== null);
+  if (!tead.length) return '';
+  const sum = Math.round(tead.reduce((a, x) => a + pgKogus(x), 0) * 1000) / 1000;
+  return `<div class="kogus-kokku">Kohtades kokku <b>${fmtNr(sum)}</b>${uhik ? ' ' + esc(uhik) : ''}${tead.length < l.length ? ` <span class="hall vaike">(kogus teada ${tead.length}/${l.length} kohas)</span>` : ''}</div>`;
+}
+
 /* ---------- PAIGUTA: sidumine kogusega (asukoht -> toode -> kogus), hoiatus ja soovitus ---------- */
 let PG = { koht: '', toode: null };
 const pgKogus = x => (x && x.kogus !== undefined && x.kogus !== null && x.kogus !== '' && isFinite(Number(x.kogus)) ? Number(x.kogus) : null);
@@ -2037,9 +2066,31 @@ function pgAva(koht) {
   PG = { koht: normKoht(koht), toode: null };
   $('pgAken').classList.add('lahti'); pgRender();
 }
+// PAIGUTA 2.19: pöördvõrdne: alustad tootest, siis skänni koht
+function pgAvaToode(kood) {
+  const t = leiaToode(kood);
+  if (!t) return;
+  PG = { koht: '', toode: t };
+  $('pgAken').classList.add('lahti'); pgRender();
+}
+function pgValiKoht(k) {
+  k = normKoht(k);
+  if (!IX.kohad.has(k)) { naita('Asukohta ' + k + ' pole', true); return; }
+  PG.koht = k; kohtVaates = k; pgRender();
+}
 function pgSulge() { $('pgAken').classList.remove('lahti'); PG.toode = null; renderAktiivne(); }
 function pgRender() {
   const k = PG.koht, info = IX && IX.kohad.get(k), el = $('pgSisu');
+  if (!k && PG.toode) {   // toode enne, koht pärast
+    const t = PG.toode, s = IX.seosKood.get(t.kood) || [], sugg = pgSoovitus(t.kood, '');
+    el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><div><b>${esc(t.kood)}</b><div class="hall vaike">${esc(t.nimi)}</div></div><button class="nupp vaike" data-pgsulge>✕ Sulge</button></div>` +
+      (s.length ? `<div style="margin-top:8px">${s.map(x => `<div class="hall vaike">${esc(x.koht)}${pgKogus(x) !== null ? ' · ' + fmtNr(pgKogus(x)) : ' · kogus teadmata'}</div>`).join('')}</div>${kogusKokku(s, t.uhik)}` : '<div class="hall vaike" style="margin-top:8px">Tootel pole veel asukohta</div>') +
+      (sugg ? `<div class="pg-soovitus">💡 Soovitus: ${sugg.koht ? `<b>${esc(sugg.koht)}</b> (${esc(sugg.miks)}) <button class="nupp vaike" data-pgvalikoht="${esc(sugg.koht)}">Vali see koht</button>` : esc(sugg.miks)}</div>` : '') +
+      `<label for="pgKohtSisend">Kuhu paigutad?</label><div class="otsirida"><input id="pgKohtSisend" type="text" placeholder="Asukoha kood, nt 5-1-2-1" autocomplete="off" autocapitalize="characters" spellcheck="false"><button class="skann-nupp" data-pgskann aria-label="Skänni koht">⌗</button></div>` +
+      `<div class="nupud"><button class="nupp pea" data-pgkohtvali style="flex:1">Vali koht</button></div>`;
+    const inp = $('pgKohtSisend'); inp.addEventListener('keydown', e => { if (e.key === 'Enter') pgValiKoht(inp.value); });
+    return;
+  }
   if (!info) { el.innerHTML = `<div class="pg-kood">${esc(k)}</div><p>Sellist asukohta pole.</p><div class="nupud"><button class="nupp" data-pgsulge style="flex:1">Sulge</button></div>`; return; }
   const s = (IX.seosKoht.get(k) || []).filter(x => !onTooraineLiik(x.liik));
   const sisu = s.length ? s.map(x => `<div class="hall vaike"><b>${esc(x.kood)}</b> ${esc((IX.tooted.get(x.kood) || {}).nimi || '')}${pgKogus(x) !== null ? ' · ' + fmtNr(pgKogus(x)) : ' · kogus teadmata'}</div>`).join('') : '<div class="hall vaike">Koht on tühi</div>';
@@ -2099,7 +2150,7 @@ function pgSalvesta(viis) {
 function pgSkanni() {
   avaSkanner(async v => {
     const t = await tolgendaTaielik(v);
-    if (t.koht) { PG.koht = t.koht; PG.toode = null; kohtVaates = t.koht; pgRender(); return; }
+    if (t.koht) { PG.koht = t.koht; kohtVaates = t.koht; pgRender(); return; }   // 2.19: toode jääb valituks (pöördpaigutus)
     if (t.vale) { naita(t.vale, true); return; }
     if (!t.kood || !leiaToode(t.kood)) { naita('Toodet ei leitud: ' + (t.kood || v), true); return; }
     pgValiToode(t.kood);
@@ -3228,7 +3279,10 @@ document.addEventListener('click', e => {
   if (d.pgvali) { pgValiToode(d.pgvali); return; }
   if (d.pgmine) { PG.koht = d.pgmine; kohtVaates = d.pgmine; pgRender(); return; }
   if (d.pgsalvesta) { pgSalvesta(d.pgsalvesta); return; }
-  if ('pgtuhista' in d) { PG.toode = null; pgRender(); return; }
+  if ('pgtuhista' in d) { if (!PG.koht) { pgSulge(); return; } PG.toode = null; pgRender(); return; }
+  if (d.paigutatoode) { pgAvaToode(d.paigutatoode); return; }   // 2.19
+  if (d.pgvalikoht) { pgValiKoht(d.pgvalikoht); return; }
+  if ('pgkohtvali' in d) { pgValiKoht($('pgKohtSisend').value); return; }
   if (d.kusvali) { kusLopp(d.kusvali); return; }
   if ('kusloobu' in d) { kusLopp(null); return; }
   if ('kusskann' in d) { avaSkanner(async v => { const t = await tolgendaTaielik(v); if (t.koht) kusLopp(t.koht); else { naita('See pole asukoha kood', true); } }, 'Skänni koha QR, kust võtsid'); return; }
