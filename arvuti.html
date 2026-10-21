@@ -535,6 +535,7 @@ header .olek { min-width: 0; overflow: hidden; text-overflow: ellipsis; }   /* R
       <input id="moodFail" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
       <span class="hall vaike">Lao mõõdud.xlsx – kui riiulid muutuvad, paranda Exceli tabel ja laadi uuesti</span>
     </div>
+    <div id="moodPuud"></div>
     <div id="moodSisu"></div>
     </div>
     <h3 style="margin:18px 0 4px;font-size:14px">Nimekirjad <button class="nupp" id="kogUuenda" style="min-height:24px;padding:0 8px">Uuenda</button></h3>
@@ -3578,8 +3579,14 @@ function qrPystak(rida, p) {
   return h + '</div>';
 }
 function prindiQr() {
+  const puud = puuduvadKohad(UI.rida);   // KOHAD-MOOTUDEST: rea asukohad puuduvad Sheetsist, aga mõõdud on olemas
+  if (puud.length) {
+    if (vaataAinult()) return;
+    if (!confirm(`Rea ${UI.rida} asukohti puudub Sheetsist ${puud.length} tk (mõõdud on olemas). Loon need mõõtude põhjal ja prindin?`)) return;
+    looPuuduvadKohad(UI.rida);
+  }
   const info = READ.get(UI.rida);
-  if (!info) { teade('Sellel real pole asukohti', true); return; }
+  if (!info) { teade('Sellel real pole asukohti ega mõõte (laadi Lao mõõdud Mõõdud aknas)', true); return; }
   const pyst = UI.rp ? [UI.rp] : Array.from({ length: info.p }, (_, i) => i + 1);
   prindi(pyst.map(p => ({ pealkiri: `Rida ${UI.rida}, püstak ${p}`, markus: '· skänni asukoha QR, siis toode · tala 1 = põrand · katkendjoon = ajutine koht', html: qrPystak(UI.rida, p) })));
 }
@@ -6169,7 +6176,7 @@ function moodudTabelist(lehed) {
   const vead = [], arv = v => (v === '' || v == null || isNaN(+v)) ? null : Math.round(+v);
   const T = lehed.Talad, P = lehed.Plaan;
   if (!T || !P) return { vead: ['Failis peavad olema lehed „Talad“ ja „Plaan“'] };
-  const tal = {}, read = {}, kor = {}, alk = {}, kohad = [];   // VAADE25D: kor = talade kõrgused, alk = alusekohti talal (püstaku kaupa)
+  const tal = {}, read = {}, kor = {}, alk = {}, kohad = [], ajt = {}, eit = {};   // KOHAD-MOOTUDEST: ajt/eit = ajutised talad ja kasutamata tala püstaku kaupa   // VAADE25D: kor = talade kõrgused, alk = alusekohti talal (püstaku kaupa)
   T.slice(1).forEach(r => {
     const rida = arv(r[0]), pk = arv(r[1]);
     if (rida == null || pk == null || /näide/i.test(String(r[13] || ''))) return;
@@ -6179,6 +6186,8 @@ function moodudTabelist(lehed) {
     const n = arv(r[4]) || 0;
     (kor[rida] = kor[rida] || [])[pk - 1] = r.slice(5, 12).map(arv).slice(0, n || 7).filter(x => x != null);
     (alk[rida] = alk[rida] || [])[pk - 1] = arv(r[3]) || 1;
+    (ajt[rida] = ajt[rida] || [])[pk - 1] = (String(r[12] == null ? '' : r[12]).match(/\d+/g) || []).map(Number);
+    (eit[rida] = eit[rida] || [])[pk - 1] = ((/tala\s*(\d+)[^,;]*ei\s+kasuta/i.exec(String(r[13] || ''))) || [0, 0])[1] * 1;
     // MOODUD-KOHAD: iga tala × alusekoht = asukoht; "Ajutised talad" (nt "4,5") -> ajutine; Märkus "Tala N ei kasuta" -> sellele talale kohti ei tule
     const aj = String(r[12] == null ? '' : r[12]).match(/\d+/g) || [], ei = /tala\s*(\d+)[^,;]*ei\s+kasuta/i.exec(String(r[13] || ''));
     for (let t = 1; t <= n; t++) {
@@ -6196,7 +6205,7 @@ function moodudTabelist(lehed) {
     const w = tal[r], p = obj['rida ' + r];
     if (w.some(x => !x)) { vead.push(`Rida ${r}: püstakute numbrites on auk`); return; }
     if (!p || p[0] == null || p[1] == null) { vead.push(`Plaan: „Rida ${r}“ X/Y puudu`); return; }
-    read[r] = [p[0], p[1], p[3] || 1200, w, kor[r], alk[r]];
+    read[r] = [p[0], p[1], p[3] || 1200, w, kor[r], alk[r], ajt[r], eit[r]];
   });
   if (vead.length) return { vead };
   const vp = vpK && obj[vpK].every(x => x != null) ? obj[vpK] : null;
@@ -6217,6 +6226,34 @@ function laeXlsx() {
   });
 }
 const laoMoodud = () => MOOD;
+// KOHAD-MOOTUDEST: kõik asukohad Lao mõõtude järgi (rida-püstak-tala-alusekoht). Vanas mõõdus (enne 2.18) ajutisi talasid pole -> Ajutine 'ei'.
+function moodKohadG(G, rida) {
+  const out = [];
+  if (!G || !G.read) return out;
+  Object.keys(G.read).forEach(r => {
+    if (rida !== undefined && +r !== +rida) return;
+    const rr = G.read[r], w = rr[3] || [];
+    for (let pk = 1; pk <= w.length; pk++) {
+      const kor = rr[4] && rr[4][pk - 1], n = kor ? kor.length : 0, ak = (rr[5] && rr[5][pk - 1]) || 1;
+      const aj = (rr[6] && rr[6][pk - 1]) || [], ei = (rr[7] && rr[7][pk - 1]) || 0;
+      for (let t = 1; t <= n; t++) {
+        if (ei === t) continue;
+        for (let a = 1; a <= ak; a++) out.push({ Asukoht: `${r}-${pk}-${t}-${a}`, 'Tüüp': 'alus', Ajutine: aj.includes(t) ? 'jah' : 'ei', 'Märkus': 'Lao mõõdud' });
+      }
+    }
+  });
+  return out;
+}
+const puuduvadKohad = rida => moodKohadG(laoMoodud(), rida).filter(k => !KOHAD.has(k.Asukoht));
+// loo puuduvad asukohad Sheetsi (olemasolevaid ei muudeta); tagastab loodud arvu
+function looPuuduvadKohad(rida) {
+  const l = puuduvadKohad(rida);
+  if (!l.length) return 0;
+  ANDMED.asukohad = (ANDMED.asukohad || []).concat(l.map(k => Object.assign({ Ala: '' }, k)));
+  muuda({ tegevus: 'salvestaAsukohad', read: l });
+  ehitaKoik();
+  return l.length;
+}
 async function moodLae(fail) {
   if (vaataAinult()) return;   // MADIS
   MOOD_UUS = null;
@@ -6243,6 +6280,10 @@ async function moodLae(fail) {
 function renderMood() {
   const G = laoMoodud();
   $('moodOlek').textContent = G && G.read ? `kasutusel: ${Object.keys(G.read).length} rida, uks 2 X ${(G.uks[0] / 1000).toFixed(1)} m` : 'mõõdud laadimata – järjekord rea kaupa';
+  // KOHAD-MOOTUDEST: mõõtudes on read, mille asukohad Sheetsist puuduvad
+  const puud = puuduvadKohad(), m = {};
+  puud.forEach(k => { const r = k.Asukoht.split('-')[0]; m[r] = (m[r] || 0) + 1; });
+  $('moodPuud').innerHTML = puud.length ? `<p class="hoiatus">Mõõtude järgi puudub Sheetsist ${puud.length} asukohta (${Object.keys(m).sort((a, b) => a - b).map(r => `rida ${r}: ${m[r]}`).join(', ')}). <button class="nupp pea" id="moodLoo">Loo puuduvad asukohad</button></p>` : '';
 }
 /* ---------- /MARSRUUT arvutis ---------- */
 
@@ -7057,6 +7098,12 @@ $('uuenda').addEventListener('click', () => Object.keys(SOO_KIIRUS).forEach(k =>
 // BUUM
 $('buumFail').addEventListener('change', e => { buumLae(e.target.files[0]); e.target.value = ''; });
 $('moodFail').addEventListener('change', e => { moodLae(e.target.files[0]); e.target.value = ''; });
+$('moodPuud').addEventListener('click', e => {   // KOHAD-MOOTUDEST
+  if (e.target.id !== 'moodLoo') return;
+  const n = looPuuduvadKohad();
+  teade(n ? `Loodud ${n} asukohta` : 'Puuduvaid asukohti pole');
+  renderMood();
+});
 $('moodSisu').addEventListener('click', e => {
   if (e.target.id !== 'moodSalvesta' || !MOOD_UUS) return;
   const p = [{ tegevus: 'salvestaSeade', seade: 'Lao mõõdud', vaartus: JSON.stringify(MOOD_UUS) }];
