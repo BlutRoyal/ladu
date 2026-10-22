@@ -3219,6 +3219,9 @@ function rakenda(A, p) {
       if (i >= 0) P[i] = Object.assign({}, P[i], uus); else P.push(uus);
     });
     A.paigutus = P;
+  } else if (p.tegevus === 'kogusKohal') {   // KOGUS-MUUTMINE
+    const kd = normKood(p.kood), kh = normKoht(p.asukoht);
+    A.paigutus = (A.paigutus || []).map(x => normKood(x.Kood) === kd && normKoht(x.Asukoht) === kh ? Object.assign({}, x, { Kogus: p.kogus, 'Koguse aeg': new Date().toISOString() }) : x);
   } else if (p.tegevus === 'salvestaAsukohad') {   // MOODUD-KOHAD: lisa puuduvad (olemasolevaid ei muudeta)
     const olemas = new Set((A.asukohad || []).map(a => normKoht(a.Asukoht)));
     A.asukohad = (A.asukohad || []).concat((p.read || []).filter(o => !olemas.has(normKoht(o.Asukoht))).map(o => Object.assign({ 'Ala': '' }, o, { Asukoht: normKoht(o.Asukoht) })));
@@ -3472,7 +3475,7 @@ function renderValitud() {
     <div>${esc(t.nimi)}</div>
     <div class="hall vaike">${esc(t.meta)} · ${esc(t.grupp)} · käive ${t.ak || 0} tk/a · Maardu ${fmt(nr(t.maardu))} · K3 ${fmt(nr(t.k3))}</div>
     ${peid ? `<div class="vaike hall">Peidetud: ${esc(peid)}</div>` : ''}
-    <div style="margin-top:6px">${koik.length ? koik.map(s => `<div${VALITUD.koht === s.koht ? ' style="font-weight:700"' : ''}>${kohaTekst(s)}</div>`).join('') : `<span class="hall">${onLadu() ? 'Paigutamata' : 'Paigutamata – klõpsa riiulil tühja kohta'}</span>`}</div>
+    <div style="margin-top:6px">${koik.length ? koik.map(s => `<div${VALITUD.koht === s.koht ? ' style="font-weight:700"' : ''}>${kohaTekst(s)}${!onTooraineLiik(s.liik) && s.kogus != null ? ` · kogus ${fmt(s.kogus)}` : ''}${!onLadu() && !onTooraineLiik(s.liik) ? ` <button class="nupp" data-muudakogus="${esc(s.kood)}" data-kohast="${esc(s.koht)}" title="Paranda koha kogust">✎</button>` : ''}</div>`).join('') : `<span class="hall">${onLadu() ? 'Paigutamata' : 'Paigutamata – klõpsa riiulil tühja kohta'}</span>`}</div>
     ${redel ? '<div class="hoiatus vaike">⚠ Kiire toode (>300/a) redeli kõrgusel – kaalu madalamat taset</div>' : ''}
     ${onLadu() ? '' : `<div class="rida" style="margin-top:8px">
       <span class="hall vaike">${vp ? 'Kast:' : 'Alus:'}</span>
@@ -3532,11 +3535,26 @@ function pesaMitu(koht, list, print, uusP, tr) {
   const lisa = print ? (jaak > 0 ? `<div class="ml-lisa">+${jaak} toodet</div>` : '') : `<div class="ml-lisa" data-pesainfo="${koht}" title="Kõik tooted selles kohas">${jaak > 0 ? `+${jaak} · ` : ''}kõik ${list.length} ⓘ</div>`;
   return `<div class="pesa fluid multi${uusP ? ' uus-p' : ''}${tr ? ' toor' : ''}"${tr ? ` title="Tooraine: ${esc(tr.map(x => x.kood).join(', '))}"` : ''}><div class="ml">${read}${lisa}</div></div>`;
 }
+// KOGUS-MUUTMINE (2.23): admin parandab koha kogust (absoluutne; server logib vana → uus). Madis (ladu) teeb seda telefonis.
+function muudaKogus(kood, koht) {
+  if (vaataAinult()) return;
+  const olemas = SEOSED.find(x => x.kood === kood && x.koht === koht);
+  if (!olemas || onTooraineLiik(olemas.liik)) return;
+  const q0 = olemas.kogus, s = prompt(`${kood} · ${koht}\nÕige kogus (0 = koht on tühi)${q0 !== null ? '. Praegu ' + fmt(q0) : ''}:`, q0 === null ? '' : String(q0).replace('.', ','));
+  if (s === null) return;
+  const tekst = s.replace(/\s/g, '').replace(',', '.');
+  if (!/^\d+(\.\d+)?$/.test(tekst)) { teade('Sisesta kogus numbrina, nt 12', true); return; }
+  const uus = Math.round(Number(tekst) * 1000) / 1000;
+  if (uus === q0) return;
+  if (q0 !== null && q0 > 0 && (uus > q0 * 10 || Math.abs(uus - q0) > 50) && !confirm(`Oli ${fmt(q0)}, saab ${fmt(uus)}. Kinnitad?`)) return;
+  muuda({ tegevus: 'kogusKohal', kood, asukoht: koht, kogus: uus, vana: q0 === null ? '' : q0 });
+  if ($('pesaAken').classList.contains('lahti')) avaPesaInfo(koht);
+}
 function avaPesaInfo(koht) {
   const l = SEOSED.filter(x => x.koht === koht && !onTooraineLiik(x.liik));
   $('pesaSisu').innerHTML = `<h2>${esc(koht)}${(KOHAD.get(koht) || {}).fluid ? ' <span class="hall vaike">ajutine</span>' : ''}</h2>
-    <table class="kog"><tr><th>Kood</th><th>Nimetus</th><th>Kogus</th><th>Teatatud</th></tr>` +
-    l.map(x => { const t = toode(x.kood); return `<tr><td><b>${esc(x.kood)}</b></td><td>${esc(t ? t.nimi : '')}</td><td>${x.kogus !== null ? fmt(x.kogus) + (t && t.uhik ? ' ' + esc(t.uhik) : '') : '<span class="hall">teadmata</span>'}</td><td>${esc(fmtAeg(x.kogusAeg))}</td></tr>`; }).join('') +
+    <table class="kog"><tr><th>Kood</th><th>Nimetus</th><th>Kogus</th><th>Teatatud</th>${onLadu() ? '' : '<th></th>'}</tr>` +
+    l.map(x => { const t = toode(x.kood); return `<tr><td><b>${esc(x.kood)}</b></td><td>${esc(t ? t.nimi : '')}</td><td>${x.kogus !== null ? fmt(x.kogus) + (t && t.uhik ? ' ' + esc(t.uhik) : '') : '<span class="hall">teadmata</span>'}</td><td>${esc(fmtAeg(x.kogusAeg))}</td>${onLadu() ? '' : `<td><button class="nupp" data-muudakogus="${esc(x.kood)}" data-kohast="${esc(koht)}">✎ Muuda</button></td>`}</tr>`; }).join('') +
     `</table><div class="rida" style="margin-top:14px;justify-content:flex-end"><button class="nupp" data-pesasulge>Sulge</button></div>`;
   $('pesaAken').classList.add('lahti');
 }
@@ -6886,6 +6904,8 @@ function valgusta(selektor) {
    SÜNDMUSED
    ============================================================ */
 document.addEventListener('click', e => {
+  const mk = e.target.closest('[data-muudakogus]');   // KOGUS-MUUTMINE
+  if (mk) { muudaKogus(mk.dataset.muudakogus, mk.dataset.kohast); return; }
   const el = e.target.closest('[data-pesainfo],[data-pesasulge],[data-vaade],[data-kood],[data-tyhi],[data-k],[data-tegevus],[data-varv],[data-kylg],[data-pystak],[data-rida],[data-rp],[data-v25],[data-vp],[data-i],[data-jrk],[data-peida],[data-taasta],[data-peidvaade],[data-buumita],[data-fluideemalda],[data-ajutava],[data-tooreemalda],[data-taittehtud],[data-taitkustuta],[data-kaslink],[data-kasarvuti],[data-kaskasuta],[data-kasvoti],[data-kaseemalda],[data-kastaasta],[data-vanad],[data-kasvabasta],[data-kaskustuta],[data-kasparool],[data-kasseanss],[data-kasvaljakoik],[data-kaslukk]');
   if (!el) { if (!e.target.closest('.otsing-kast')) $('otsTulemus').classList.remove('lahti'); return; }
   const d = el.dataset;
