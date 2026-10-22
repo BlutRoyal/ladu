@@ -153,6 +153,11 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
 #plaanSvg .post { fill: none; stroke: #2f5d9b; stroke-width: 2; }
 #plaanSvg .alusk { stroke: #7a5a2c; stroke-width: .7; }
 #plaanSvg .alusk.esi { fill: #c9a066; } #plaanSvg .alusk.kylg { fill: #a9834c; } #plaanSvg .alusk.ylem { fill: #e3c48f; }
+/* TAHKE-ALUS: sektorite toonid (3+ toodet = 4 sektorit; 2 toodet = kaks poolt) */
+#plaanSvg .alusk.t1.esi { fill: hsl(18 48% 56%); } #plaanSvg .alusk.t1.kylg { fill: hsl(18 48% 44%); } #plaanSvg .alusk.t1.ylem { fill: hsl(18 52% 70%); }
+#plaanSvg .alusk.t2.esi { fill: hsl(48 50% 52%); } #plaanSvg .alusk.t2.kylg { fill: hsl(48 50% 41%); } #plaanSvg .alusk.t2.ylem { fill: hsl(48 55% 68%); }
+#plaanSvg .alusk.t3.esi { fill: hsl(78 34% 50%); } #plaanSvg .alusk.t3.kylg { fill: hsl(78 34% 40%); } #plaanSvg .alusk.t3.ylem { fill: hsl(78 38% 66%); }
+#plaanSvg .alusk.t4.esi { fill: #d9c9a8; } #plaanSvg .alusk.t4.kylg { fill: #bfae8a; } #plaanSvg .alusk.t4.ylem { fill: #ece0c6; }
 #plaanSvg .alus.tyhi .alusk, #plaanSvg .alus.plaan .alusk { fill: none; stroke: #8a6a3a; stroke-dasharray: 4 3; }
 #plaanSvg .alus.plaan .alusk.ylem { fill: #e3c48f; fill-opacity: .25; }
 #plaanSvg .alus.vana .alusk { fill-opacity: .45; }
@@ -6345,7 +6350,16 @@ function v25Pyst(G, r, i) {   // talade kõrgused ja alusekohad; vanades mõõtu
 }
 function v25Kastid(G) {
   const O = [], post = G.post || 90, poolKohad = new Map();
-  SEOSED.forEach(s => { const o = suurOsad(s.koht); if (o) poolKohad.set(o.r + '-' + o.p + '-' + o.t + '-' + o.a, (poolKohad.get(o.r + '-' + o.p + '-' + o.t + '-' + o.a) || 0) + 1); });
+  const kaubad = new Map();   // TAHKE-ALUS: koht -> tõendatud kaubad (ajutine seos või kogus > 0); tooraine pesa ei võta
+  SEOSED.forEach(s => {
+    const o = suurOsad(s.koht); if (!o) return;
+    const vk = o.r + '-' + o.p + '-' + o.t + '-' + o.a;
+    poolKohad.set(vk, (poolKohad.get(vk) || 0) + 1);
+    if (onTooraineLiik(s.liik) || !(s.kogus != null ? s.kogus > 0 : onAjutineSeos(s))) return;
+    const l = kaubad.get(vk) || kaubad.set(vk, []).get(vk);
+    const e = l.find(x => x.kood === s.kood);
+    if (e) e.kogus = (e.kogus || 0) + (s.kogus || 0); else l.push({ kood: s.kood, kogus: s.kogus });
+  });
   const valitud = VALITUD && VALITUD.koht, teg = UI.v25t === 'tegelik' ? (V25.teg || new Map()) : null;   // PLAAN26: Tegelik = inventuuri viimane lugemine
   Object.keys(G.read).forEach(r => {
     const [x, y, s, w] = G.read[r];
@@ -6358,7 +6372,8 @@ function v25Kastid(G) {
           const koht = `${r}-${i + 1}-${j + 1}-${a}`, t = teg && teg.get(koht), tais = teg ? (t && t.kogus > 0 ? 1 : 0) : poolKohad.get(koht) || 0;
           if (!(teg ? t : tais) && koht !== valitud) continue;
           const al = wi / n;
-          sek.alused.push({ koht, x: cx + (a - 1) * al + 40, y: y + 50, l: al - 80, s: s - 100, z: zt + (j ? 60 : 0), h: korgus, tais, t, plaan: !teg, valik: koht === valitud });
+          const tooted = teg ? (t ? t.read.filter(x => x.kogus > 0).map(x => ({ kood: x.kood, kogus: x.kogus })) : []) : kaubad.get(koht) || [];
+          sek.alused.push({ koht, x: cx + (a - 1) * al + 40, y: y + 50, l: al - 80, s: s - 100, z: zt + (j ? 60 : 0), h: korgus, tais, t, plaan: !teg, valik: koht === valitud, tooted, taht: teg ? !!(t && t.kogus > 0) : tooted.length > 0 });
         }
       });
       O.push(sek); cx += wi + post;
@@ -6387,6 +6402,14 @@ function renderPlaan25(G) {
     : `<polygon class="${kl} esi" points="${pts([[b.u0, b.v0, b.z0], [b.u1, b.v0, b.z0], [b.u1, b.v0, b.z1], [b.u0, b.v0, b.z1]])}"/>` +
       `<polygon class="${kl} kylg" points="${pts([[b.u1, b.v0, b.z0], [b.u1, b.v1, b.z0], [b.u1, b.v1, b.z1], [b.u1, b.v0, b.z1]])}"/>` +
       `<polygon class="${kl} ylem" points="${pts([[b.u0, b.v0, b.z1], [b.u1, b.v0, b.z1], [b.u1, b.v1, b.z1], [b.u0, b.v1, b.z1]])}"/>`;
+  // TAHKE-ALUS: 1 toode = terve alus, 2 = kaks poolt, 3+ = neli sektorit (4. sektor = toode 4 ja ülejäänud, 3 toote puhul hele)
+  const sektorid = a => {
+    const n = a.taht ? a.tooted.length : 0, b = a.b, du = b.u1 - b.u0, dv = b.v1 - b.v0;
+    const sub = (i0, i1, j0, j1, t) => ({ b: { u0: b.u0 + du * i0, u1: b.u0 + du * i1, v0: b.v0 + dv * j0, v1: b.v0 + dv * j1, z0: b.z0, z1: b.z1 }, t });   // v0 = ees
+    if (n <= 1) return [sub(0, 1, 0, 1, 0)];
+    if (n === 2) return [sub(0, .5, 0, 1, 0), sub(.5, 1, 0, 1, 1)];
+    return [sub(0, .5, .5, 1, 2), sub(.5, 1, .5, 1, n === 3 ? 4 : 3), sub(0, .5, 0, .5, 0), sub(.5, 1, 0, .5, 1)];   // taga enne, ees pärast
+  };
   const tekst = (u, v, z, t, kl, anc) => { const [sx, sy] = pr(u, v, z); return `<text x="${Math.round(sx)}" y="${Math.round(sy)}" class="${kl || ''}" text-anchor="${anc || 'middle'}">${esc(t)}</text>`; };
   const O = v25Kastid(G).map(o => Object.assign(o, { b: kast(o) }));
   O.sort((a, b) => (b.b.v0 - a.b.v0) || (a.b.u0 - b.b.u0));
@@ -6409,13 +6432,13 @@ function renderPlaan25(G) {
     if (yl) {
       const kohti = o.P.alk.reduce((a, n) => a + n, 0), tais = UI.v25t === 'tegelik' ? 0 : new Set(o.alused.filter(a => a.tais).map(a => a.koht)).size;
       g += tahud(b, 'raam') + `<polygon class="taitus" style="opacity:${(tais / kohti * 0.6).toFixed(2)}" points="${pts([[b.u0, b.v0, 0], [b.u1, b.v0, 0], [b.u1, b.v1, 0], [b.u0, b.v1, 0]])}"/>`;
-      if (UI.v25t === 'tegelik') o.alused.filter(a => a.t && !a.valik).forEach(a => { const ab = kast(a); g += `<polygon class="${v25AlusKlass(a)} alusk" points="${pts([[ab.u0, ab.v0, 0], [ab.u1, ab.v0, 0], [ab.u1, ab.v1, 0], [ab.u0, ab.v1, 0]])}"><title>${esc(v25AlusInfo(a))}</title></polygon>`; });
+      o.alused.filter(a => (a.taht || (UI.v25t === 'tegelik' && a.t)) && !a.valik).forEach(a => { g += `<g class="${v25AlusKlass(a)}"><title>${esc(v25AlusInfo(a))}</title>${sektorid(Object.assign(a, { b: kast(a) })).map(x => tahud(x.b, 'alusk t' + x.t)).join('')}</g>`; });
       o.alused.filter(a => a.valik).forEach(a => { const ab = kast(a); g += `<polygon class="alus valik v25valgus" data-koht25="${esc(a.koht)}" points="${pts([[ab.u0, ab.v0, 0], [ab.u1, ab.v0, 0], [ab.u1, ab.v1, 0], [ab.u0, ab.v1, 0]])}"/>`; });
       g += tekst((b.u0 + b.u1) / 2, (b.v0 + b.v1) / 2 - 220, 0, o.p, 'v25nr');
     } else {
       g += `<polygon class="raam taga" points="${pts([[b.u0, b.v1, 0], [b.u1, b.v1, 0], [b.u1, b.v1, b.z1], [b.u0, b.v1, b.z1]])}"/>`;
       o.alused.map(a => Object.assign(a, { b: kast(a) })).sort((p, q) => (p.b.z0 - q.b.z0) || (q.b.v0 - p.b.v0) || (p.b.u0 - q.b.u0))
-        .forEach(a => { g += `<g class="${v25AlusKlass(a)}" data-koht25="${esc(a.koht)}"><title>${esc(v25AlusInfo(a))}</title>${tahud(a.b, 'alusk')}</g>`; });
+        .forEach(a => { g += `<g class="${v25AlusKlass(a)}" data-koht25="${esc(a.koht)}"><title>${esc(v25AlusInfo(a))}</title>${sektorid(a).map(x => tahud(x.b, 'alusk t' + x.t)).join('')}</g>`; });
       o.P.h.forEach(zt => { if (zt > 0) g += `<polyline class="tala" points="${pts([[b.u0, b.v0, zt], [b.u1, b.v0, zt], [b.u1, b.v1, zt]])}"/>`; });
       [[b.u0, b.v0], [b.u1, b.v0], [b.u1, b.v1]].forEach(([u, v]) => { g += `<polyline class="post" points="${pts([[u, v, 0], [u, v, b.z1]])}"/>`; });
       g += `<polygon class="raam ylem" points="${pts([[b.u0, b.v0, b.z1], [b.u1, b.v0, b.z1], [b.u1, b.v1, b.z1], [b.u0, b.v1, b.z1]])}"/>`;
@@ -6449,16 +6472,18 @@ function v25ViewBox() {
 // PLAAN26: Tegelik = iga koht+kood viimane inventuuri lugemine (kõik seansid); koha kogus = nende summa
 function v25AlusKlass(a) {
   if (a.valik) return 'alus valik v25valgus';
-  if (a.plaan) return 'alus plaan';
+  if (a.plaan) return a.taht ? 'alus taht' : 'alus plaan';
   const vana = a.t && Date.now() - a.t.aeg > 30 * 864e5;
   return 'alus' + (a.t && a.t.kogus > 0 ? (vana ? ' vana' : '') : ' null');
 }
 function v25AlusInfo(a) {
+  const kg = x => x.kogus != null ? ' ' + String(x.kogus).replace('.', ',') : '';
+  if (a.plaan && a.taht) return `${a.koht} · kaup kohas: ` + a.tooted.map(x => x.kood + kg(x)).join(', ');
   if (!a.t) return a.koht + (a.plaan ? ' · määratud: ' + SEOSED.filter(s => s.koht === a.koht).map(s => s.kood).join(', ') : '');
   return `${a.koht} · loetud ${new Date(a.t.aeg).toLocaleDateString('et-EE')}: ` + a.t.read.map(r => r.kood + ' ' + String(r.kogus).replace('.', ',')).join(', ');
 }
 function v25Legend() {
-  if (UI.v25t !== 'tegelik') return 'katkendjoon = määratud koht (plaan), mitte päris alus';
+  if (UI.v25t !== 'tegelik') return 'tahke = kohas on kaup (ajutine koht või kogus > 0) · 3+ toodet = 4 sektorit · katkendjoon = määratud koht, kaupa pole kinnitatud';
   if (V25.tegLaeb) return 'laen inventuuri lugemisi…';
   if (!V25.teg) return 'inventuuri lugemisi pole laaditud';
   const n = [...V25.teg.values()], viim = Math.max(0, ...n.map(t => t.aeg));
