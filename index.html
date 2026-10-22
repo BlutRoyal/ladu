@@ -348,6 +348,7 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
       <div id="aVaataKui" style="display:none;margin:8px 0"></div>
       <div class="hall" id="aAndmed"></div>
       <div class="hall" id="aOotel"></div>
+      <div class="hall" id="aMalu" style="margin-top:8px"></div>
       <div class="hall" id="aKaamera"></div>
       <div class="nupud">
         <button class="nupp vaike" id="aMuudaNimi">Muuda nime</button>
@@ -425,7 +426,27 @@ const V = { seaded: 'ladu_seaded', andmed: 'ladu_andmed', valjas: 'ladu_valjas',
             invSeansid: 'ladu_invseansid',   // INVSEANSS
             vastu: 'ladu_vastu', tait: 'ladu_tait' };   // VASTUVOTT
 function loe(k, vaikimisi) { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : vaikimisi; } catch (e) { return vaikimisi; } }
-function kirjuta(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { naita('Telefoni mälu on täis: ' + e.message, true); return false; } }
+// MALU: localStorage kvoot (~5 MB). Kui täis, vabasta kõigepealt vähem olulised vahemälud ja proovi uuesti
+function kirjuta(k, v) {
+  const s = JSON.stringify(v);
+  try { localStorage.setItem(k, s); return true; } catch (e) {}
+  for (let samm = 1; samm <= 2; samm++) {
+    malupuhasta(samm, k);
+    try { localStorage.setItem(k, s); return true; } catch (e) {}
+  }
+  naita(`Telefoni mälu on täis (${k}, ${Math.round(s.length / 1024)} KB). Seaded → Telefoni mälu → Puhasta vahemälu`, true);
+  return false;
+}
+// samm 1: vana andmekoopia, vastuvõttude ajalugu, saadetud inventuuri loendused; samm 2: uuesti laaditavad nimekirjad (laetakse serverist tagasi)
+function malupuhasta(samm, valja) {
+  const kustuta = k => { if (k !== valja) { try { localStorage.removeItem(k); } catch (e) {} } };
+  if (samm >= 1) {
+    kustuta('ladu_andmed');
+    if (valja !== 'ladu_vastu') { try { localStorage.setItem('ladu_vastu', JSON.stringify((loe('ladu_vastu', []) || []).slice(0, 20))); } catch (e) {} }
+    if (valja !== 'ladu_inv' && typeof pruuniInv === 'function') { pruuniInv(20); try { localStorage.setItem('ladu_inv', JSON.stringify(INV)); } catch (e) {} }
+  }
+  if (samm >= 2) ['ladu_kog', 'ladu_tait', 'ladu_invseansid'].forEach(kustuta);
+}
 
 let SEADED = loe(V.seaded, null);          // {url, voti, kes}
 let ANDMED = null;                          // serveri vastus 'andmed' (IndexedDB-s, laaditakse käivitusel)
@@ -676,7 +697,8 @@ function loginNupp(tekst, varv) {
 }
 
 function salvestaAndmed() {
-  IDB.kirjuta('andmed', ANDMED).catch(() => kirjuta(V.andmed, ANDMED));   // varuks localStorage
+  // varuks localStorage ainult väikese andmemahu korral (suur koopia täidaks kvoodi ja takistaks muud salvestamist)
+  IDB.kirjuta('andmed', ANDMED).catch(() => { try { const s = JSON.stringify(ANDMED); if (s && s.length < 1.5e6) localStorage.setItem(V.andmed, s); } catch (e) {} });
 }
 // Seos serveri kujul (lühike massiiv või vana objekt) -> ühtne objekt
 const onAjutineLiik = v => /^(ajutine|fluid)$/i.test(String(v || '').trim());
@@ -688,6 +710,12 @@ function seosObj(x) {
 }
 let VALJAS = loe(V.valjas, []);            // saatmata muudatused
 let INV = loe(V.inv, []);                  // selle telefoni loendused
+// MALU: serverisse saadetud loendused on serveris olemas, telefonis hoiame neist ainult viimased (saatmata ja veaga jäävad alles)
+function pruuniInv(hoia = 200) {
+  const hoitav = new Set(INV.filter(x => x.saadetud && !x.viga).slice(-hoia));
+  INV = INV.filter(x => !(x.saadetud && !x.viga) || hoitav.has(x));
+}
+pruuniInv();
 let IX = null;                             // otsinguindeksid
 
 /* ============================================================
@@ -934,7 +962,7 @@ async function saadaValjas() {
             const r = INV.find(x => x.id === t.id);
             if (r) { r.saadetud = t.ok; r.viga = t.ok ? '' : t.viga; }
           });
-          kirjuta(V.inv, INV);
+          pruuniInv(); kirjuta(V.inv, INV);
         } else naita('Inventuur: ' + j.viga, true);
         VALJAS.splice(0, n);
       } else {
@@ -1549,6 +1577,30 @@ function renderSeaded() {
     ' · ' + ('BarcodeDetector' in window ? 'sisseehitatud lugeja' : 'ZXing') +
     ' · ' + (window.isSecureContext ? 'https ok' : 'EI OLE turvaline ühendus') +
     (window.navigator.standalone ? ' · avakuva äpp' : '');
+  renderMalu();
+}
+// MALU: mis telefoni mälus ruumi võtab
+const MALU_NIMED = { ladu_seaded: 'sisselogimine', ladu_andmed: 'vana andmekoopia', ladu_valjas: 'saatmata muudatused', ladu_inv: 'inventuuri loendused', ladu_kog: 'korjenimekirjad', ladu_vastu: 'vastuvõtud', ladu_tait: 'täitmine', ladu_invseansid: 'inventuuri seansid', ladu_seanss: 'seansi nimi' };
+function renderMalu() {
+  const el = $('aMalu');
+  if (!el) return;
+  let osad = [], kokku = 0;
+  try {
+    Object.keys(localStorage).filter(k => k.indexOf('ladu_') === 0 && k.indexOf('ladu_arvuti_') !== 0).forEach(k => { const n = k.length + (localStorage.getItem(k) || '').length; kokku += n; osad.push([k, n]); });
+  } catch (e) { el.textContent = ''; return; }
+  osad.sort((a, b) => b[1] - a[1]);
+  const kb = n => n >= 1024 ? Math.round(n / 102.4) / 10 + ' KB' : n + ' B';
+  el.innerHTML = `<b>Telefoni mälu</b> (väike vahemälu, piir umbes 5000 KB): ${kb(kokku)}<br>` +
+    osad.slice(0, 5).map(([k, n]) => `${esc(MALU_NIMED[k] || k)} ${kb(n)}`).join(' · ') + '<span id="aMaluSuur"></span>' +
+    '<div class="nupud" style="margin-top:6px"><button class="nupp vaike" data-malupuhasta>Puhasta vahemälu</button></div>';
+  if (navigator.storage && navigator.storage.estimate) navigator.storage.estimate().then(r => {
+    const e2 = $('aMaluSuur'); if (e2 && r.quota) e2.textContent = ` · andmed ja suur vahemälu: ${Math.round(r.usage / 104857.6) / 10} MB / ${Math.round(r.quota / 104857.6) / 10} MB (telefoni vaba ruum)`;
+  }).catch(() => {});
+}
+function malupuhastaNupp() {
+  if (!confirm('Kustutan telefonist uuesti laaditavad vahemälud (vana andmekoopia, nimekirjad, vanad saadetud loendused). Saatmata muudatused jäävad alles. Jätkan?')) return;
+  malupuhasta(2, '');
+  renderSeaded(); naita('Vahemälu puhastatud'); if (typeof laeKog === 'function') laeKog(true);
 }
 
 function seadistusLink() {
@@ -3257,6 +3309,7 @@ document.addEventListener('click', e => {
   if ('tagasi' in d) { mine(eelmine); return; }
   if (d.koht) { avaKoht(d.koht); return; }
   if (d.vaatakui) { vaataKui(d.vaatakui); return; }   // ROLLIVAADE
+  if ('malupuhasta' in d) { malupuhastaNupp(); return; }   // MALU
   if (d.plaanil !== undefined) { naitaPlaanil(d.plaanil.split(',')); return; }   // PLAAN26
   if (d.plzoom !== undefined) { plSuumi(+d.plzoom); return; }
   if (d.toode) {
