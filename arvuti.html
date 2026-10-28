@@ -4303,6 +4303,10 @@ $('kogKasKleebiLisa').addEventListener('click', kogKasKleebi);
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.27', kp: '28.10.2026', nimi: 'Napilt puudu ei ole puudu',
+    lisati: ['Komplekteerimisel loetakse rida „napilt“, kui võetud on vähem kui vaja, aga vahe on kuni 5% vajalikust (nt 99 / 100). See ei lähe puudu hulka ei nimekirjas, tabelis ega mõõdikutes; näha on hall „napilt −1“.',
+             'Telefonis märgitakse selline rida tehtuks (mitte puudu), teade ütleb „napilt −1“.'],
+    kasutus: ['Piir on kõigil sama (5%); 9 / 10 on ikka puudu. Vanad nimekirjad arvutatakse sama reegliga ümber, andmeid ei muudeta.'] },
   { v: '2.26', kp: '28.10.2026', nimi: 'Tooraine pakkimisse, väljaviimine ja vahekanne, käsitsi nimekiri',
     lisati: ['Telefon: koha või toote juures „→ Läks pakkimisse“ (kogus + viis: käsitsi / pakkeliin / vangla / järjekorras); kogus väheneb nagu eemaldamisel.',
              'Telefon, vastuvõtt: „→ Läheb pakkimisse (mitte lattu)“; vahekaart Vastuvõtt | Pakkimine nimekirjaga (ootel → pakkimisel → „Pakitud, võtan lattu“).',
@@ -4660,7 +4664,7 @@ function mdkArvuta(j) {
     const read = (n.read || []).map(r => ({ kood: r[0], vaja: nr(r[1]), votetud: r[2] == null ? null : nr(r[2]), olek: r[3], aeg: r[4], kes: r[5] || '?', nimekiri: n.nimi,
       kinnitus: r[6] || '', skann: r[7] || '' }));   // SKANN
     read.forEach(r => kogRead.push(r));
-    const puudu = read.filter(r => r.olek === 'puudu' || (r.votetud != null && r.votetud < r.vaja)).length;
+    const puudu = read.filter(r => kogPuudub(r)).length;
     const ta = kogTooajad(n.olek, n.lopetatud, read.filter(r => r.aeg).map(r => ({ aeg: r.aeg, kes: r.kes })), n.ajalugu);   // YLEANDMINE
     nimekirjad.push({ nimi: n.nimi, olek: n.olek, koguja: ta.korjajad.length ? ta.korjajad.join(', ') : n.koguja || [...new Set(read.map(r => r.kes))].join(', '), ridu: n.ridu, tehtud: read.length, puudu,
       kestus: mdkKestus(n, read, ta), tootunnid: ta.korjajad.length > 1 && n.lopetatud ? ta.tootunnid / 60000 : null, lopetatud: n.lopetatud, ...mdkSkann(read) });
@@ -4671,7 +4675,7 @@ function mdkArvuta(j) {
   const inimesed = [...kesM].map(([kes, l]) => {
     const k = mdkKiirus(l);
     return { kes, nimekirju: new Set(l.map(r => r.nimekiri)).size, ridu: l.length, kogus: l.reduce((s, r) => s + (r.votetud || 0), 0),
-      puudu: l.filter(r => r.olek === 'puudu' || (r.votetud != null && r.votetud < r.vaja)).length, minutid: k.minutid, tunnis: k.tunnis, ...mdkSkann(l) };
+      puudu: l.filter(r => kogPuudub(r)).length, minutid: k.minutid, tunnis: k.tunnis, ...mdkSkann(l) };
   }).sort((a, b) => b.ridu - a.ridu);
   // KUBJAS: töötaja + päev (aktiivne aeg, esimene/viimane võtmine) ja töötaja keskmised päeva kohta
   const tpM = new Map();
@@ -4693,11 +4697,11 @@ function mdkArvuta(j) {
   // päevade kaupa
   const paevM = new Map();
   kogRead.forEach(r => { const p = mdkPaev(r.aeg); const x = paevM.get(p) || paevM.set(p, { paev: p, ridu: 0, puudu: 0, nimekirjad: new Set(), kes: new Set() }).get(p);
-    x.ridu++; x.nimekirjad.add(r.nimekiri); x.kes.add(r.kes); if (r.olek === 'puudu' || (r.votetud != null && r.votetud < r.vaja)) x.puudu++; });
+    x.ridu++; x.nimekirjad.add(r.nimekiri); x.kes.add(r.kes); if (kogPuudub(r)) x.puudu++; });
   const paevad = [...paevM.values()].sort((a, b) => b.paev.localeCompare(a.paev));
   // puudused toodete kaupa
   const puM = new Map();
-  kogRead.filter(r => r.olek === 'puudu' || (r.votetud != null && r.votetud < r.vaja)).forEach(r => {
+  kogRead.filter(r => kogPuudub(r)).forEach(r => {
     const x = puM.get(r.kood) || puM.set(r.kood, { kood: r.kood, korda: 0, puudu: 0, viimati: 0 }).get(r.kood);
     x.korda++; x.puudu += Math.max(0, r.vaja - (r.votetud || 0)); x.viimati = Math.max(x.viimati, r.aeg || 0);
   });
@@ -6298,7 +6302,7 @@ function renderKubjas() {
       const k = kogKokku(x.n), pikk = x.vaikus != null && x.vaikus > paus;
       return `<tr><td><b>${esc(x.n.nimi)}</b></td>
         <td>${kubKorjajad(x)}</td>
-        <td>${k.tehtud}/${k.kokku}${k.puudu ? ` <span style="color:#b26a00">· ${k.puudu} puudu</span>` : ''}</td>
+        <td>${k.tehtud}/${k.kokku}${k.puudu ? ` <span style="color:#b26a00">· ${k.puudu} puudu</span>` : ''}${k.napilt ? ` <span class="hall" title="Kuni 5% vähem kui vaja">· ${k.napilt} napilt</span>` : ''}</td>
         <td>${mdkSkannimata(mdkSkann(x.n.read))}</td>
         <td>${x.algus ? kubKell(x.algus) : '<span class="hall">–</span>'}</td>
         <td>${x.viimati ? kubKell(x.viimati) : '<span class="hall">–</span>'}${x.vaikus != null ? ` <span${pikk ? ' style="color:#b26a00;font-weight:700"' : ' class="hall"'} title="Aeg viimasest võetud reast">· ${kubKestus(x.vaikus)} tagasi</span>` : ''}</td>
@@ -6312,9 +6316,13 @@ function renderKubjas() {
 setInterval(() => { if ($('kogAken').classList.contains('lahti') && !document.hidden) renderKubjas(); }, 20000);
 setInterval(() => { if ($('kogAken').classList.contains('lahti') && !document.hidden && SEADED) laeKogumised(true); }, 60000);
 
+// NAPILT (2.27): võetud on vähem kui vaja, aga vahe on kuni 5% vajalikust -> ei loeta puudu (nt 99 / 100). Hoiab olekut „puudu“ ainult päris puuduse jaoks.
+const NAPILT_PIIR = 0.05;
+const kogNapilt = r => r.votetud != null && r.vaja > 0 && r.votetud < r.vaja && (r.vaja - r.votetud) / r.vaja <= NAPILT_PIIR + 1e-9;
+const kogPuudub = r => (kogPuudub(r)) && !kogNapilt(r);
 function kogKokku(n) {
-  const tehtud = n.read.filter(r => r.olek).length, puudu = n.read.filter(r => r.olek === 'puudu').length;
-  return { tehtud, puudu, kokku: n.read.length };
+  const tehtud = n.read.filter(r => r.olek).length, puudu = n.read.filter(r => r.olek === 'puudu' && !kogNapilt(r)).length, napilt = n.read.filter(r => r.olek && kogNapilt(r)).length;
+  return { tehtud, puudu, napilt, kokku: n.read.length };
 }
 function kogOlek(n) {
   if (n.olek === 'valmis') return `<b style="color:var(--roheline,#1a7f37)">valmis</b> <span class="hall">${kogAeg(n.lopetatud)}${n.koguja ? ' · ' + esc(n.koguja) : ''}</span>${n.asub || n.asubMarkus ? ` <span title="Tellimuse asukoht (telefonist)">📍 ${esc(n.asub || '')}${n.asubMarkus ? ' · ' + esc(n.asubMarkus) : ''}</span>` : ''}${n.valja ? ` <span title="Läks laost välja${n.valjaKes ? ' (' + esc(n.valjaKes) + ')' : ''}">🚚 ${kogAeg(n.valja)}</span>` : ''}`;   // ASUKOHT; PAKKIMINE
@@ -6332,7 +6340,7 @@ function renderKogNimekirjad() {
       return `<tr><td><b>${esc(n.nimi)}</b>${n.markus ? `<div class="hall vaike">${esc(n.markus)}</div>` : ''}</td>
         <td class="hall">${kogAeg(n.loodud)}${n.loi ? ' · ' + esc(n.loi) : ''}</td>
         <td>${kogOlek(n)}</td>
-        <td>${k.tehtud}/${k.kokku}${k.puudu ? ` <span style="color:#b26a00">· ${k.puudu} puudu</span>` : ''}</td>
+        <td>${k.tehtud}/${k.kokku}${k.puudu ? ` <span style="color:#b26a00">· ${k.puudu} puudu</span>` : ''}${k.napilt ? ` <span class="hall" title="Kuni 5% vähem kui vaja">· ${k.napilt} napilt</span>` : ''}</td>
         <td style="white-space:nowrap"><button class="nupp" data-kogvaata="${esc(n.id)}">${KOG_VAATA === n.id ? 'Peida' : 'Vaata'}</button>
           <button class="nupp" data-kogprindi="${esc(n.id)}">Prindi</button>
           <button class="nupp" data-kogcsv="${esc(n.id)}">CSV</button>
@@ -6346,11 +6354,11 @@ function kogTabel(n, print) {
   const ok = print ? '' : ' style="color:#b26a00"';
   return `<table class="tabel kog"><tr><th>Kood</th><th>Nimetus</th>${print ? '' : '<th>Asukoht</th>'}<th>Vaja</th><th>Võetud</th><th>Puudu</th>${print ? '' : '<th>Kinnitus</th>'}</tr>` +
     n.read.map(r => {
-      const t = T.get(r.kood), puudu = r.votetud == null ? r.vaja : Math.max(0, r.vaja - r.votetud);
+      const t = T.get(r.kood), napilt = kogNapilt(r), puudu = napilt ? 0 : r.votetud == null ? r.vaja : Math.max(0, r.vaja - r.votetud);
       return `<tr><td><b>${esc(r.kood)}</b>${r.lisatud ? ' <span class="hall">(lisatud)</span>' : ''}</td><td>${esc(t ? t.nimi : '')}</td>
         ${print ? '' : `<td class="hall">${seosed(r.kood).map(x => esc(x.koht)).join(', ')}</td>`}
         <td>${r.vaja ? fmt(r.vaja) : ''}</td><td>${r.votetud == null ? '<span class="hall">–</span>' : '<b>' + fmt(r.votetud) + '</b>'}</td>
-        <td${puudu ? ok : ''}>${puudu && r.vaja ? fmt(puudu) : ''}</td>${print ? '' : `<td>${kogKinnitus(r)}</td>`}</tr>`;
+        <td${puudu ? ok : ''}>${puudu && r.vaja ? fmt(puudu) : napilt ? `<span class="hall" title="Kuni 5% vähem kui vaja ei loeta puudu">napilt −${fmt(r.vaja - r.votetud)}</span>` : ''}</td>${print ? '' : `<td>${kogKinnitus(r)}</td>`}</tr>`;
     }).join('') + '</table>';
 }
 // SKANN: kuidas rida telefonis kinnitati

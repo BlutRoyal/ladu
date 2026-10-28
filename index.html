@@ -2640,8 +2640,12 @@ function laoMoodud() {
   if (m !== MR_TEKST) { MR_TEKST = m; try { MR_OBJ = JSON.parse(m); } catch (e) { MR_OBJ = null; } }
   return MR_OBJ;
 }
+// NAPILT (2.27): võetud on vähem kui vaja, aga vahe on kuni 5% vajalikust -> ei loeta puudu (nt 99 / 100). Hoiab olekut „puudu“ ainult päris puuduse jaoks.
+const NAPILT_PIIR = 0.05;
+const kogNapilt = r => r.votetud != null && r.vaja > 0 && r.votetud < r.vaja && (r.vaja - r.votetud) / r.vaja <= NAPILT_PIIR + 1e-9;
+const kogPuudub = r => (r.olek === 'puudu' || (r.votetud != null && r.votetud < r.vaja)) && !kogNapilt(r);
 function gKokku(n) {
-  return { tehtud: n.read.filter(r => r.olek).length, puudu: n.read.filter(r => r.olek === 'puudu').length, kokku: n.read.length };
+  return { tehtud: n.read.filter(r => r.olek).length, puudu: n.read.filter(r => r.olek === 'puudu' && !kogNapilt(r)).length, napilt: n.read.filter(r => r.olek && kogNapilt(r)).length, kokku: n.read.length };
 }
 
 function renderKogumine(taust) {   // taust = uuendus ei tulnud kasutaja tegevusest (KOOND)
@@ -2654,7 +2658,7 @@ function renderKogumine(taust) {   // taust = uuendus ei tulnud kasutaja tegevus
   const minu = SEADED && SEADED.kes;
   const read = gJarjestatud(n);
   let sisu = `<div class="rida-pais"><button class="nupp vaike" data-gtagasi>← Nimekirjad</button>
-      <span class="hall">${k.tehtud}/${k.kokku}${k.puudu ? ` · <span style="color:var(--punane)">${k.puudu} puudu</span>` : ''}</span></div>
+      <span class="hall">${k.tehtud}/${k.kokku}${k.puudu ? ` · <span style="color:var(--punane)">${k.puudu} puudu</span>` : ''}${k.napilt ? ` · <span class="hall">${k.napilt} napilt</span>` : ''}</span></div>
     <h2 style="margin:10px 0 6px">${esc(n.nimi)}</h2>`;
   if (lukus) sisu += `<div class="logiriba" style="display:flex">✓ Lõpetatud. Muutmiseks ava see arvutis uuesti.</div>` + gAsukKaart(n);   // ASUKOHT
   // YLEANDMINE: keegi teine korjab -> enne korjamist küsi, kas võtad üle; pausil nimekiri -> info, jätkamiseks lihtsalt korja
@@ -2692,7 +2696,7 @@ function renderKogumine(taust) {   // taust = uuendus ei tulnud kasutaja tegevus
   if (gRezhiim === 'nimekiri' || lukus || !n.read.length || yleKysi) {
     sisu += `<div class="kaart" style="padding:4px 14px">` + (read.length ? read.map(r => {
       const t = IX && IX.tooted.get(r.kood);
-      const klass = r.olek === 'puudu' ? ' puudu' : r.olek ? ' tehtud' : '';
+      const klass = r.olek === 'puudu' && !kogNapilt(r) ? ' puudu' : r.olek ? ' tehtud' : '';
       return `<button class="g-rida${klass}${rida && rida.id === r.id ? ' valitud' : ''}" data-grida="${esc(r.id)}"${lukus || yleKysi ? ' disabled' : ''}>
         <span class="g-koht">${r.k.parim ? esc(r.k.parim.koht) : '–'}</span>
         <span>${gKast(r.olek ? r.kinnitus : '', 'g-kast')}<b>${esc(r.kood)}</b>${r.lisatud ? ' <span class="hall">lisatud</span>' : ''}<span class="hall g-nimi">${esc(t ? t.nimi : '')}</span></span>
@@ -2798,7 +2802,7 @@ function renderKogNimekirjad(L) {
       const k = gKokku(n);
       return `<button class="rida-tulemus" data-gava="${esc(n.id)}"><b>${esc(n.nimi)}</b>
         <div class="hall">${n.olek === 'valmis' ? '✓ valmis' + (n.asub ? ' · 📍 ' + esc(n.asub) : '') + (n.asubMarkus ? ' · ' + esc(n.asubMarkus) : '') : n.olek === 'kogumisel' ? 'kogumisel' + (kogAkt(n).length ? ': ' + esc(kogAkt(n).join(', ')) : n.koguja ? ': ' + esc(n.koguja) : '')
-          : n.olek === 'pooleli' ? '<b style="color:#b26a00">⏸ pooleli</b>' + (n.koguja ? ', viimati ' + esc(n.koguja) : '') : 'ootab'} · ${k.tehtud}/${k.kokku}${k.puudu ? ' · ' + k.puudu + ' puudu' : ''}</div></button>`;
+          : n.olek === 'pooleli' ? '<b style="color:#b26a00">⏸ pooleli</b>' + (n.koguja ? ', viimati ' + esc(n.koguja) : '') : 'ootab'} · ${k.tehtud}/${k.kokku}${k.puudu ? ' · ' + k.puudu + ' puudu' : ''}${k.napilt ? ' · ' + k.napilt + ' napilt' : ''}</div></button>`;
     }).join('') : `<div class="tuhi">${laebKog ? 'Laen…' : 'Nimekirju pole. Nimekiri tehakse arvutis (Komplekteerimine).'}</div>`}
     <div class="nupud"><button class="nupp" data-guus style="flex:1">+ Ilma nimekirjata</button></div>
     ${minuPooleli(L).length ? `<div class="nupud"><button class="nupp" data-gpaevlopp style="flex:1">🏁 Lõpetan päeva</button></div>
@@ -2827,7 +2831,7 @@ function gKinnita(kohast) {
   if (kohast === undefined && !r.olek && kusVaja(r)) { kusVotsid(r, k => gKinnita(k)); return; }   // PAIGUTA: tooraine -> küsi kust
   const votetud = nr(tekst);
   const voetudKoht = kohast !== undefined ? kohast : ((r.k || reaKoht(r.kood)).parim || {}).koht || '';   // PAIGUTA: vaikimisi pakutud pesa
-  const olek = r.vaja && votetud < r.vaja ? 'puudu' : 'tehtud';
+  const olek = r.vaja && votetud < r.vaja && !kogNapilt({ vaja: r.vaja, votetud }) ? 'puudu' : 'tehtud';   // NAPILT: kuni 5% vähem ei ole puudu
   // SKANN: kuidas õige toode tuvastati (uuesti märkimisel ilma skännita jääb varasem kinnitus)
   const t = IX && IX.tooted.get(r.kood), ok = gKontrollitud === r.id;
   const kinnitus = ok ? gKontrollViis : r.olek && r.kinnitus ? r.kinnitus : gOnRibakood(t, (r.k || reaKoht(r.kood)).parim) ? 'nupp' : 'ribakoodita';
@@ -2836,7 +2840,7 @@ function gKinnita(kohast) {
   // PAIGUTA: esmakordsel kinnitamisel vähenda koha teadaolevat kogust (absoluutne uus kogus; Buum jääb autoriteediks)
   const vs = !r.olek && voetudKoht && (IX.seosKood.get(r.kood) || []).find(x => x.koht === voetudKoht);
   if (vs && pgKogus(vs) !== null) lisaValjas({ tegevus: 'kogusKohal', kood: r.kood, asukoht: voetudKoht, kogus: Math.max(0, Math.round((pgKogus(vs) - votetud) * 1000) / 1000), vana: pgKogus(vs) });
-  naita(`${r.kood}: ${fmtNr(votetud)}` + (olek === 'puudu' ? ` (puudu ${fmtNr(r.vaja - votetud)})` : ''), false);
+  naita(`${r.kood}: ${fmtNr(votetud)}` + (olek === 'puudu' ? ` (puudu ${fmtNr(r.vaja - votetud)})` : r.vaja && votetud < r.vaja ? ` (napilt −${fmtNr(r.vaja - votetud)})` : ''), false);
   // VASTUVOTT: puudu jäi -> korjekoht on tõenäoliselt tühi
   const pk = olek === 'puudu' && (r.k || reaKoht(r.kood)).parim;
   if (pk && !onAjutineKoht(pk) && !taitOotel(r.kood, pk.koht) && confirm(`Kas ${pk.koht} jäi tühjaks? Lisan selle täitmise nimekirja.`)) margiTyhi(r.kood, pk.koht, 'kogumisel puudu');
