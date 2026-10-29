@@ -179,7 +179,7 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
 #plaanSvg .v25nr { font-size: 420px; font-weight: 600; fill: var(--hall); }
 #plaanSvg .v25markus { font-size: 600px; fill: var(--hall); font-weight: 400; }
 /* VAADE360: valitud rea ees olevad riiulid läbipaistvad; eestvaate kohakoodid */
-#plaanSvg .labi { opacity: .12; pointer-events: none; } #plaanSvg .labi text { display: none; }
+#plaanSvg .labi { opacity: .14; } #plaanSvg .labi:hover { opacity: .4; } #plaanSvg .labi text { display: none; }
 #plaanSvg .v25kood { font-size: 190px; font-weight: 700; fill: #1d2b3a; paint-order: stroke; stroke: #fff; stroke-width: 40px; stroke-linejoin: round; }
 #plaanSvg .v25kood.toode { font-weight: 500; font-size: 170px; }
 #plaanSvg .vpk { fill: var(--kollane); stroke: var(--kol-joon); stroke-width: 1; }
@@ -4383,6 +4383,9 @@ $('kogKasKleebiLisa').addEventListener('click', kogKasKleebi);
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.40', kp: '29.10.2026', nimi: '2.5D: Rida esile teeb kõik teised read läbipaistvaks',
+    lisati: ['Rida esile muudab nüüd läbipaistvaks kõik teised read (ka väikepakendi ja muud objektid), mitte ainult ees olevad. Valitud rida on alati kõige peal.'],
+    kasutus: ['Teise rea valimiseks klõpsa selle rea numbril või läbipaistval riiulil (hiire all muutub see tugevamaks). 2.40 muudab ainult arvuti.html ja sw.js.'] },
   { v: '2.39', kp: '29.10.2026', nimi: 'Mitu pakkimisrida korraga',
     lisati: ['Töölaual on pakkimise ridadel märkeruudud. Üleval riba „Valitud: N“: vali pakkimise viis ja „Alusta pakkimist“, „Pakitud“ või „Tagasi ootele“ kõigile valitutele korraga.',
              'Osas „Ootel, pakkimisalal“ on read vahekande (või nimekirja) kaupa grupeeritud: grupi märkeruut valib kogu vahekande. Iga osa päises on „vali kõik“.'],
@@ -6878,15 +6881,11 @@ function renderPlaan25(G) {
   const O = v25Kastid(G).map(o => Object.assign(o, { b: kast(o) }));
   O.forEach(o => { o.d = syv(o.b); o.u = K.uv((o.b.x0 + o.b.x1) / 2, (o.b.y0 + o.b.y1) / 2)[0]; });
   O.sort((a, b) => (b.d - a.d) || (a.u - b.u));
-  // VAADE360: valitud rida esile – selle ees olevad (ekraanil kattuvad) riiulid läbipaistvaks
+  // VAADE360: Rida esile – kõik teised read ja objektid läbipaistvaks; valitud rida joonistatakse viimasena (alati peal ja klõpsatav)
   const valRida = O.filter(o => o.liik === 'pyst' && o.rida === UI.rida);
   if (!yl && UI.v25esile !== false && valRida.length) {
-    const sB = valRida.map(o => ekraan(o.b)), sD = Math.min(...valRida.map(o => o.d));
-    O.forEach(o => {
-      if (o.liik === 'uks' || o.rida === UI.rida || (o.d >= sD - 100 && !V25.ees)) return;
-      const e = ekraan(o.b);
-      o.labi = (V25.ees && o.liik !== 'uks') || sB.some(r => e[0] < r[2] && e[2] > r[0] && e[1] < r[3] && e[3] > r[1]);   // eestvaates kõik teised kahvatuks
-    });
+    O.forEach(o => { o.labi = o.liik !== 'uks' && !(o.liik === 'pyst' && o.rida === UI.rida); });
+    O.sort((a, b) => (a.labi || a.liik === 'uks' ? 0 : 1) - (b.labi || b.liik === 'uks' ? 0 : 1) || (b.d - a.d) || (a.u - b.u));
   }
   const labi = o => o.labi ? ' labi' : '';
   const ees = V25.ees && !yl;
