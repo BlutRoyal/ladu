@@ -204,6 +204,7 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
 #menyy .menyy-vahe button { text-align: left; }
 aside { display: none; }
 body.paigutus-on aside { display: flex; }
+#krAken { z-index: 80; }   /* rea muutmise aken tuleb alati kõige peale (Komplekteerimise akna kohale) */
 /* TÖÖLAUD (2.31) */
 .menu { position: relative; }
 .menu-sisu { display: none; position: absolute; top: 100%; left: 0; margin-top: 4px; background: var(--paneel); border: 1px solid var(--joon); border-radius: 10px; padding: 6px; z-index: 40; flex-direction: column; gap: 4px; min-width: 190px; box-shadow: 0 6px 20px rgba(0,0,0,.2); }
@@ -4376,6 +4377,9 @@ $('kogKasKleebiLisa').addEventListener('click', kogKasKleebi);
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.37', kp: '29.10.2026', nimi: 'Kogu nimekiri pakkimise ootele arvutis',
+    lisati: ['Komplekteerimise nimekirjade real nupp „→ Pakkimise ootele“: kõik nimekirja (ka vahekande) read lähevad korraga pakkimise ootele (kogus = loetud, kui loetud pole, siis vaja). Juba pakkimises olevaid tooteid ei lisata uuesti. Rea akna ✎ Rida kaudu saab üksikuid ridu pakkimisele saata ja kogust muuta.'],
+    kasutus: ['Komplekteerimine → nimekirja rea juures „→ Pakkimise ootele“ → kinnita.'] },
   { v: '2.36', kp: '29.10.2026', nimi: 'Nimekirjade ja pakkimise parandamine arvutis',
     lisati: ['Komplekteerimine → Vaata: igal real nupp „✎ Rida“. Seal saab muuta Vaja ja Võetud/loetud kogust (ka lõpetatud nimekirjas ja vahekandes), eemaldada rea ja saata selle pakkimise ootele või otse pakkimisele (käsitsi / pakkeliin / vangla).',
              'Pakkimise nimekirjas (Töölaud ja Kontroll → Pakkimisel) on nupp ✎ kogus. Muudatused jäävad logisse.'],
@@ -6459,6 +6463,7 @@ function renderKogNimekirjad() {
         <td style="white-space:nowrap"><button class="nupp" data-kogvaata="${esc(n.id)}">${KOG_VAATA === n.id ? 'Peida' : 'Vaata'}</button>
           <button class="nupp" data-kogprindi="${esc(n.id)}">Prindi</button>
           <button class="nupp" data-kogcsv="${esc(n.id)}">CSV</button>
+          <button class="nupp" data-kogpakkoik="${esc(n.id)}" title="Kõik nimekirja read pakkimise ootele (kogus = loetud, muidu vaja)">→ Pakkimise ootele</button>
           ${n.olek === 'valmis' ? `<button class="nupp" data-kogava="${esc(n.id)}" title="Telefonis saab jälle muuta">Ava uuesti</button>` : ''}
           ${n.olek === 'kogumisel' ? `<button class="nupp" data-kogvabasta="${esc(n.id)}" title="Nt korjaja jäi haigeks: nimekiri jääb pooleli ja keegi teine saab telefonis jätkata">Vabasta</button>` : ''}
           <button class="nupp ohtlik" data-kogkustuta="${esc(n.id)}">Kustuta</button></td></tr>` +
@@ -7481,6 +7486,22 @@ $('krSalvesta').addEventListener('click', krSalvesta);
 $('krEemalda').addEventListener('click', krEemalda);
 $('krPakSaada').addEventListener('click', krPakSaada);
 $('krSulge').addEventListener('click', () => $('krAken').classList.remove('lahti'));
+async function kogPakKoik(nid) {
+  const n = KOG.find(x => x.id === nid); if (!n) return;
+  if (PAKA === null) await laePakArvuti();
+  const markus = (kogVK(n) ? 'Vahekanne ' + vkMark(n).nr : n.nimi).substring(0, 200);
+  const juba = new Set((PAKA || []).filter(x => x.markus === markus).map(x => x.kood));
+  const L = n.read.map(r => ({ kood: r.kood, kogus: r.votetud != null && r.votetud > 0 ? r.votetud : r.vaja || 0 })).filter(r => r.kogus > 0 && !juba.has(r.kood));
+  if (!L.length) { teade('Pakkimise ootele pole midagi lisada (read on juba lisatud või kogused puuduvad)', true); return; }
+  if (!confirm(`Lisan „${n.nimi}“ ${L.length} rida pakkimise ootele?\nKogus = loetud, kui loetud pole, siis vaja.${juba.size ? `\n${juba.size} toodet on juba pakkimises ja jäetakse vahele.` : ''}\nKoguseid saab hiljem pakkimise nimekirjas ✎ nupuga parandada.`)) return;
+  const id = () => Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-5);
+  try {
+    const j = await api({ tegevus: 'pakkimine', muudatused: L.map(r => ({ op: 'uus', id: id(), kood: r.kood, kogus: r.kogus, koht: '', allikas: 'arvuti', seis: 'ootel', liik: '', aeg: new Date().toISOString(), markus })) });
+    const v = !j.ok ? j.viga : (j.tulemused || []).filter(t => !t.ok).map(t => t.viga)[0];
+    if (v) throw new Error(v);
+    teade(`${L.length} rida pakkimise ootel`); laePakArvuti();
+  } catch (e) { teade('Ei saanud pakkimisele panna: ' + e.message, true); }
+}
 async function pakKogusMuuda(id) {
   const x = PAKA && PAKA.find(r => r.id === id); if (!x) return;
   const v = prompt(`${x.kood}: uus kogus pakkimisel`, String(x.kogus == null ? '' : x.kogus).replace('.', ',')); if (v === null) return;
@@ -7560,7 +7581,7 @@ async function avaToolaud() {
 document.addEventListener('click', e => {
   const mk = e.target.closest('[data-muudakogus]');   // KOGUS-MUUTMINE
   if (mk) { muudaKogus(mk.dataset.muudakogus, mk.dataset.kohast); return; }
-  const el = e.target.closest('[data-pesainfo],[data-pesasulge],[data-vaade],[data-kood],[data-tyhi],[data-k],[data-tegevus],[data-varv],[data-kylg],[data-pystak],[data-rida],[data-rp],[data-v25],[data-vp],[data-i],[data-jrk],[data-peida],[data-taasta],[data-peidvaade],[data-buumita],[data-fluideemalda],[data-ajutava],[data-tooreemalda],[data-taittehtud],[data-taitkustuta],[data-krava],[data-pakkogus],[data-tlava],[data-pakpakitud],[data-pakmargi],[data-paktagasi],[data-pakkustuta],[data-pakvalikoik],[data-valjamargi],[data-vahekanne],[data-valjatuhi],[data-valjakoik],[data-kaslink],[data-kasarvuti],[data-kaskasuta],[data-kasvoti],[data-kaseemalda],[data-kastaasta],[data-vanad],[data-kasvabasta],[data-kaskustuta],[data-kasparool],[data-kasseanss],[data-kasvaljakoik],[data-kaslukk]');
+  const el = e.target.closest('[data-pesainfo],[data-pesasulge],[data-vaade],[data-kood],[data-tyhi],[data-k],[data-tegevus],[data-varv],[data-kylg],[data-pystak],[data-rida],[data-rp],[data-v25],[data-vp],[data-i],[data-jrk],[data-peida],[data-taasta],[data-peidvaade],[data-buumita],[data-fluideemalda],[data-ajutava],[data-tooreemalda],[data-taittehtud],[data-taitkustuta],[data-kogpakkoik],[data-krava],[data-pakkogus],[data-tlava],[data-pakpakitud],[data-pakmargi],[data-paktagasi],[data-pakkustuta],[data-pakvalikoik],[data-valjamargi],[data-vahekanne],[data-valjatuhi],[data-valjakoik],[data-kaslink],[data-kasarvuti],[data-kaskasuta],[data-kasvoti],[data-kaseemalda],[data-kastaasta],[data-vanad],[data-kasvabasta],[data-kaskustuta],[data-kasparool],[data-kasseanss],[data-kasvaljakoik],[data-kaslukk]');
   if (!el) { if (!e.target.closest('.otsing-kast')) $('otsTulemus').classList.remove('lahti'); return; }
   const d = el.dataset;
   if (d.vaade) { UI.vaade = d.vaade; VALITUD = null; salvestaUI(); renderKoik(); return; }
@@ -7573,6 +7594,7 @@ document.addEventListener('click', e => {
   if (d.ajutava) { ajutAva(d.ajutava); return; }   // VASTUVOTT
   if (d.tooreemalda) { eemaldaToor(d.tooreemalda); return; }   // TOORAINE
   if (d.taittehtud) { taitArvutist({ op: 'tehtud', id: d.taittehtud, olek: 'tehtud' }); return; }
+  if (d.kogpakkoik) { kogPakKoik(d.kogpakkoik); return; }
   if (d.krava) { const [a, b] = d.krava.split('|'); krAva(a, b); return; }
   if (d.pakkogus) { pakKogusMuuda(d.pakkogus); return; }
   if (d.tlava) {   // TÖÖLAUD: ava olemasolev täisaken
