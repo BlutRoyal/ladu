@@ -6918,7 +6918,8 @@ function vahekandeParsi(tk) {
       const tekst = r.t.map(t => t.s).join(' ');
       const nrT = r.t.find(t => t.x < X.kood - 4 && /^\d+$/.test(t.s)), koodT = r.t.find(t => Math.abs(t.x - X.kood) < 8), uhikT = r.t.find(t => t.x >= X.uhik - 12 && t.x < X.ost - 2 && !/^[\d\s.,-]+$/.test(t.s));
       if (!nrT || !koodT || !uhikT) {
-        if (eel && r.t.every(t => t.x >= X.art - 3 && t.x < X.uhik - 60)) eel.nimi += ' ' + tekst; else v.vigased.push(tekst);
+        if (eel && r.t.every(t => t.x >= X.art - 3 && t.x < X.uhik - 60)) eel.nimi += ' ' + tekst;
+        else if (!nrT && !uhikT) { /* lisainfo rida (nt „KRUVILE Ø3,5-5,0mm“ tüübli all): jäetakse välja */ } else v.vigased.push(tekst);
         return;
       }
       const q = r.t.filter(t => /^[\d\s.,]+$/.test(t.s) && t.x + t.w <= uhikT.x + 3 && t.x >= uhikT.x - 90 && t.x > X.art + 60).sort((a, b) => a.x - b.x);
