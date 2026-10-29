@@ -582,10 +582,10 @@ header .olek { min-width: 0; overflow: hidden; text-overflow: ellipsis; }   /* R
       <button class="nupp" id="kogKasKleebiLisa">Lisa read nimekirja</button></div>
     <div id="kogEelvaade"></div>
     <!-- BUUM: tellimuse komplekteerimisleht (PDF) -> Maardu + pood -->
-    <h3 style="margin:18px 0 4px;font-size:14px">Buumi tellimus (PDF)</h3>
+    <h3 style="margin:18px 0 4px;font-size:14px">Buumi tellimus või vahekanne (PDF)</h3>
     <div class="rida" style="gap:8px">
       <input id="buumFail" type="file" accept="application/pdf,.pdf">
-      <span class="hall vaike">või lohista komplekteerimislehe PDF siia aknasse</span>
+      <span class="hall vaike">või lohista komplekteerimislehe või <b>vahekande</b> PDF siia aknasse (vahekanne → vastuvõtu nimekiri telefoni, kontroll 1:1)</span>
     </div>
     <div id="buumSisu"></div>
     <!-- MARSRUUT: lao mõõdud -> korjejärjekord. MADIS: ainult admin (Exceli üleslaadimine muudab laoplaani ja asukohti) -->
@@ -4303,6 +4303,14 @@ $('kogKasKleebiLisa').addEventListener('click', kogKasKleebi);
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.28', kp: '29.10.2026', nimi: 'Vahekanne (PDF) → vastuvõtu nimekiri',
+    lisati: ['Komplekteerimine → Buumi tellimus või vahekanne (PDF): lohista Buumi vahekande PDF aknasse, näed eelvaadet (vahekande nr, kuupäev, kust → kuhu, read) ja saadad telefoni.',
+             'Telefonis (Kogumine) on see vastuvõtu nimekiri: skänni toode, sisesta loetud kogus. Kontroll on täpselt 1:1 (5% „napilt“ ei kehti): vähem, rohkem või null on erinevus.',
+             'Pärast rida valik: Paiguta lattu / Ümber pakendama (läheb pakkimisse) / Hiljem. Midagi ei paigutata sundi.',
+             'Vaata → Erinevused: „Rida 2 - kood nimi: vahekandes 5000, loetud 4980 (puudu 20)“, „ei saabunud“ ja „üle“; Kopeeri ja Prindi, et poe pool saaks Buumis parandada.',
+             'Vastuvõtu nimekirjad ei lähe Kubjase (korje) mõõdikutesse.'],
+    kasutus: ['Arvutis lohista PDF → Saada telefoni. Telefonis Kogumine → vahekande nimekiri → loe read üle. Lõpus Lõpeta; arvutis Komplekteerimine → nimekiri → Vaata → Erinevused.',
+              'Vastupidise suuna (pood kontrollib Maardust tulnut) jaoks sama mehhanism, poe roll lisatakse hiljem.'] },
   { v: '2.27', kp: '28.10.2026', nimi: 'Napilt puudu ei ole puudu',
     lisati: ['Komplekteerimisel loetakse rida „napilt“, kui võetud on vähem kui vaja, aga vahe on kuni 5% vajalikust (nt 99 / 100). See ei lähe puudu hulka ei nimekirjas, tabelis ega mõõdikutes; näha on hall „napilt −1“.',
              'Telefonis märgitakse selline rida tehtuks (mitte puudu), teade ütleb „napilt −1“.'],
@@ -6302,7 +6310,7 @@ function renderKubjas() {
       const k = kogKokku(x.n), pikk = x.vaikus != null && x.vaikus > paus;
       return `<tr><td><b>${esc(x.n.nimi)}</b></td>
         <td>${kubKorjajad(x)}</td>
-        <td>${k.tehtud}/${k.kokku}${k.puudu ? ` <span style="color:#b26a00">· ${k.puudu} puudu</span>` : ''}${k.napilt ? ` <span class="hall" title="Kuni 5% vähem kui vaja">· ${k.napilt} napilt</span>` : ''}</td>
+        <td>${k.tehtud}/${k.kokku}${k.puudu ? ` <span style="color:#b26a00">· ${k.puudu} ${k.puuduSilt || 'puudu'}</span>` : ''}${k.napilt ? ` <span class="hall" title="Kuni 5% vähem kui vaja">· ${k.napilt} napilt</span>` : ''}</td>
         <td>${mdkSkannimata(mdkSkann(x.n.read))}</td>
         <td>${x.algus ? kubKell(x.algus) : '<span class="hall">–</span>'}</td>
         <td>${x.viimati ? kubKell(x.viimati) : '<span class="hall">–</span>'}${x.vaikus != null ? ` <span${pikk ? ' style="color:#b26a00;font-weight:700"' : ' class="hall"'} title="Aeg viimasest võetud reast">· ${kubKestus(x.vaikus)} tagasi</span>` : ''}</td>
@@ -6321,8 +6329,8 @@ const NAPILT_PIIR = 0.05;
 const kogNapilt = r => r.votetud != null && r.vaja > 0 && r.votetud < r.vaja && (r.vaja - r.votetud) / r.vaja <= NAPILT_PIIR + 1e-9;
 const kogPuudub = r => (kogPuudub(r)) && !kogNapilt(r);
 function kogKokku(n) {
-  const tehtud = n.read.filter(r => r.olek).length, puudu = n.read.filter(r => r.olek === 'puudu' && !kogNapilt(r)).length, napilt = n.read.filter(r => r.olek && kogNapilt(r)).length;
-  return { tehtud, puudu, napilt, kokku: n.read.length };
+  const vk = kogVK(n), tehtud = n.read.filter(r => r.olek).length, puudu = n.read.filter(r => r.olek === 'puudu' && (vk || !kogNapilt(r))).length, napilt = vk ? 0 : n.read.filter(r => r.olek && kogNapilt(r)).length;
+  return { tehtud, puudu, napilt, kokku: n.read.length, puuduSilt: vk ? 'erinevust' : 'puudu' };
 }
 function kogOlek(n) {
   if (n.olek === 'valmis') return `<b style="color:var(--roheline,#1a7f37)">valmis</b> <span class="hall">${kogAeg(n.lopetatud)}${n.koguja ? ' · ' + esc(n.koguja) : ''}</span>${n.asub || n.asubMarkus ? ` <span title="Tellimuse asukoht (telefonist)">📍 ${esc(n.asub || '')}${n.asubMarkus ? ' · ' + esc(n.asubMarkus) : ''}</span>` : ''}${n.valja ? ` <span title="Läks laost välja${n.valjaKes ? ' (' + esc(n.valjaKes) + ')' : ''}">🚚 ${kogAeg(n.valja)}</span>` : ''}`;   // ASUKOHT; PAKKIMINE
@@ -6337,10 +6345,10 @@ function renderKogNimekirjad() {
   $('kogNimekirjad').innerHTML = l.length ? `<table class="tabel"><tr><th>Nimekiri</th><th>Loodud</th><th>Olek</th><th>Read</th><th></th></tr>` +
     l.map(n => {
       const k = kogKokku(n);
-      return `<tr><td><b>${esc(n.nimi)}</b>${n.markus ? `<div class="hall vaike">${esc(n.markus)}</div>` : ''}</td>
+      return `<tr><td><b>${esc(n.nimi)}</b>${n.markus ? `<div class="hall vaike">${esc(kogVK(n) ? '📥 Vastuvõtt · vahekanne ' + vkMark(n).nr + ' · ' + vkMark(n).kust + ' → ' + vkMark(n).kuhu : n.markus)}</div>` : ''}</td>
         <td class="hall">${kogAeg(n.loodud)}${n.loi ? ' · ' + esc(n.loi) : ''}</td>
         <td>${kogOlek(n)}</td>
-        <td>${k.tehtud}/${k.kokku}${k.puudu ? ` <span style="color:#b26a00">· ${k.puudu} puudu</span>` : ''}${k.napilt ? ` <span class="hall" title="Kuni 5% vähem kui vaja">· ${k.napilt} napilt</span>` : ''}</td>
+        <td>${k.tehtud}/${k.kokku}${k.puudu ? ` <span style="color:#b26a00">· ${k.puudu} ${k.puuduSilt || 'puudu'}</span>` : ''}${k.napilt ? ` <span class="hall" title="Kuni 5% vähem kui vaja">· ${k.napilt} napilt</span>` : ''}</td>
         <td style="white-space:nowrap"><button class="nupp" data-kogvaata="${esc(n.id)}">${KOG_VAATA === n.id ? 'Peida' : 'Vaata'}</button>
           <button class="nupp" data-kogprindi="${esc(n.id)}">Prindi</button>
           <button class="nupp" data-kogcsv="${esc(n.id)}">CSV</button>
@@ -6350,7 +6358,19 @@ function renderKogNimekirjad() {
         (KOG_VAATA === n.id ? `<tr><td colspan="5">${kogTabel(n)}</td></tr>` : '');
     }).join('') + '</table>' : '<p class="hall">Nimekirju pole.</p>';
 }
+function kogTabelVK(n, print) {
+  const E = vkErinevused(n), ok = print ? '' : ' style="color:#b26a00"';
+  return `<div style="margin-bottom:8px"><b>Erinevused</b>${print ? '' : ` <button class="nupp" data-kogerinkop="${esc(n.id)}">Kopeeri</button>`}
+    <pre style="white-space:pre-wrap;margin:4px 0;font:inherit">${esc(E.tekst)}</pre></div>
+    <table class="tabel kog"><tr><th>Rida</th><th>Kood</th><th>Nimetus</th><th>Vahekandes</th><th>Loetud</th><th>Vahe</th>${print ? '' : '<th>Kinnitus</th>'}</tr>` +
+    n.read.map(r => {
+      const t = T.get(r.kood), l = r.votetud, vahe = r.lisatud ? l : l == null ? null : l - r.vaja;
+      return `<tr><td class="hall">${r.jrk || ''}</td><td><b>${esc(r.kood)}</b>${r.lisatud ? ' <span class="hall">(lisa)</span>' : ''}</td><td>${esc(t ? t.nimi : '')}</td><td>${r.lisatud ? '' : fmt(r.vaja)}</td>
+        <td>${l == null ? '<span class="hall">–</span>' : '<b>' + fmt(l) + '</b>'}</td><td${vahe ? ok : ''}>${vahe ? (vahe > 0 ? '+' : '') + fmt(vahe) : ''}</td>${print ? '' : `<td>${kogKinnitus(r)}</td>`}</tr>`;
+    }).join('') + '</table>';
+}
 function kogTabel(n, print) {
+  if (kogVK(n)) return kogTabelVK(n, print);   // VAHEKANNE
   const ok = print ? '' : ' style="color:#b26a00"';
   return `<table class="tabel kog"><tr><th>Kood</th><th>Nimetus</th>${print ? '' : '<th>Asukoht</th>'}<th>Vaja</th><th>Võetud</th><th>Puudu</th>${print ? '' : '<th>Kinnitus</th>'}</tr>` +
     n.read.map(r => {
@@ -6867,6 +6887,101 @@ function laePdfJs() {
   });
 }
 // PDF -> tekstitükid koos asukohaga lehel
+
+/* ---------- VAHEKANNE (2.28): Buumi vahekande PDF -> vastuvõtu nimekiri telefoni (kontroll 1:1) ----------
+   Päis: Vahekanne <nr>, Kuupäev, Ladu (kust), Sihtladu (kuhu). Read: Nr | Kood | Artikkel | Kogus | Ühik | Ostuhind | Summa.
+   Nimekiri on tavaline Komplekteerimise nimekiri, mille märkus on „VAHEKANNE|nr|kust|kuhu|kuupäev“; telefon loendab read 1:1,
+   erinevused (puudu / üle / ei saabunud) tulevad kujul „Rida 1 - …“ (Vaata → Erinevused: kopeeri või prindi). */
+const kogVK = n => /^VAHEKANNE\|/.test((n && n.markus) || '');
+const vkMark = n => { const o = String(n.markus || '').split('|'); return { nr: o[1] || '', kust: o[2] || '', kuhu: o[3] || '', kuup: o[4] || '' }; };
+let VK = null;
+function vahekandeParsi(tk) {
+  const v = { nr: '', kuup: '', kust: '', kuhu: '', read: [], vigased: [] };
+  const paremal = (re, lk) => { const s = tk.find(t => t.lk === lk && re.test(t.s)); if (!s) return '';
+    const l = tk.filter(t => t.lk === lk && t !== s && t.x > s.x + s.w - 1 && Math.abs(t.y - s.y) <= 4).sort((a, b) => a.x - b.x); return l.length ? l[0].s : ''; };
+  const lk1 = Math.min(...tk.map(t => t.lk));
+  v.nr = paremal(/^Vahekanne$/i, lk1); v.kuup = paremal(/^Kuupäev:?$/i, lk1); v.kust = paremal(/^Ladu:?$/i, lk1); v.kuhu = paremal(/^Sihtladu:?$/i, lk1);
+  let X = null;
+  [...new Set(tk.map(t => t.lk))].sort((a, b) => a - b).forEach(lk => {
+    const T1 = tk.filter(t => t.lk === lk);
+    const h = k => T1.find(t => k.test(t.s) && T1.some(u => /^Artikkel$/i.test(u.s) && Math.abs(u.y - t.y) < 3));
+    const hk = h(/^Kood$/i), ha = h(/^Artikkel$/i), hu = h(/^Ühik$/i), ho = h(/^Ostuhind$/i);
+    if (hk && ha && hu) X = { y: hk.y, kood: hk.x, art: ha.x, uhik: hu.x, ost: ho ? ho.x : hu.x + 60 };
+    if (!X) return;
+    const stop = Math.max(-1e9, ...T1.filter(t => /^(Kokku|Dokumendi|Allkiri|Võttis)/i.test(t.s)).map(t => t.y));
+    const ylem = X.y - 13, rid = [];   // päise teine rida („Kogu“ + „s“) jääb välja
+    T1.filter(t => t.y < ylem && t.y > stop + 1).sort((a, b) => b.y - a.y || a.x - b.x).forEach(t => {
+      let r = rid[rid.length - 1]; if (!r || Math.abs(r.y - t.y) > 2.5) rid.push(r = { y: t.y, t: [] }); r.t.push(t); });
+    let eel = null;
+    rid.forEach(r => {
+      r.t.sort((a, b) => a.x - b.x);
+      const tekst = r.t.map(t => t.s).join(' ');
+      const nrT = r.t.find(t => t.x < X.kood - 4 && /^\d+$/.test(t.s)), koodT = r.t.find(t => Math.abs(t.x - X.kood) < 8), uhikT = r.t.find(t => t.x >= X.uhik - 12 && t.x < X.ost - 2 && !/^[\d\s.,-]+$/.test(t.s));
+      if (!nrT || !koodT || !uhikT) {
+        if (eel && r.t.every(t => t.x >= X.art - 3 && t.x < X.uhik - 60)) eel.nimi += ' ' + tekst; else v.vigased.push(tekst);
+        return;
+      }
+      const q = r.t.filter(t => /^[\d\s.,]+$/.test(t.s) && t.x + t.w <= uhikT.x + 3 && t.x >= uhikT.x - 90 && t.x > X.art + 60).sort((a, b) => a.x - b.x);
+      const kogus = nr(q.map(t => t.s).join('').replace(/\s/g, ''));
+      const nimi = r.t.filter(t => t.x >= X.art - 3 && t.x < (q.length ? q[0].x : uhikT.x) - 1).map(t => t.s).join(' ');
+      if (!q.length || !(kogus > 0)) { v.vigased.push(tekst); eel = null; return; }
+      eel = { nr: nrT.s, kood: normKood(koodT.s), nimi, kogus, uhik: uhikT.s.toUpperCase() };
+      v.read.push(eel);
+    });
+  });
+  return v;
+}
+function vkLae(tk) {
+  const v = vahekandeParsi(tk);
+  if (!v.read.length) throw new Error('Vahekande ridu ei leitud. Kas see on Buumi vahekande PDF?');
+  VK = Object.assign(v, { saadetud: false });
+  renderVK();
+}
+function renderVK() {
+  if (!VK) return;
+  const B = VK, maardu = /maardu/i.test(B.kuhu), vana = $('vkNimi') ? $('vkNimi').value : '';
+  const nimi = vana || `Vahekanne ${B.nr} (${B.kust} → ${B.kuhu})`.substring(0, 80);
+  const koodid = new Map(); B.read.forEach(r => koodid.set(r.kood, (koodid.get(r.kood) || 0) + 1));
+  $('buumSisu').innerHTML = `<p style="margin:8px 0"><b>Vahekanne ${esc(B.nr || '?')}</b> · ${esc(B.kuup)} · ${esc(B.kust)} → <b>${esc(B.kuhu)}</b> · ${B.read.length} rida
+      <button class="nupp" data-vksulge style="min-height:24px;padding:0 8px;margin-left:6px">Tühjenda</button></p>
+    ${maardu ? '' : `<div class="hoiatus vaike" style="margin:6px 0">Sihtladu on „${esc(B.kuhu)}“, mitte Maardu. Nimekiri tehakse ikka, aga loendamine ja paigutamine on mõeldud Maardule.</div>`}
+    ${B.vigased.length ? `<div class="hoiatus vaike" style="margin:6px 0">Neid ridu ei osanud lugeda, kontrolli PDF-ist üle:<br>${B.vigased.map(esc).join('<br>')}</div>` : ''}
+    <div class="rida" style="gap:8px;flex-wrap:wrap"><input id="vkNimi" type="text" value="${esc(nimi)}" style="flex:1;min-width:240px" title="Nimekirja nimi telefonis">
+      <button class="nupp pea" data-vksaada${B.saadetud ? ' disabled' : ''}>${B.saadetud ? 'Saadetud telefoni ✓' : `Saada telefoni (${B.read.length} rida)`}</button></div>
+    <table class="tabel"><tr><th>Nr</th><th>Kood</th><th>Nimetus</th><th>Kogus</th><th>Ühik</th><th>Märkus</th></tr>${B.read.map(r => { const t = T.get(r.kood), m = [];
+      if (!t) m.push('Buumi ekspordis pole'); if (koodid.get(r.kood) > 1) m.push('kood on vahekandes mitu korda');
+      return `<tr><td class="hall">${esc(r.nr)}</td><td><b>${esc(r.kood)}</b></td><td>${esc(r.nimi)}${t && t.nimi !== r.nimi ? `<div class="hall vaike">${esc(t.nimi)}</div>` : ''}</td><td><b>${fmt(r.kogus)}</b></td><td>${esc(r.uhik)}</td><td style="color:#b26a00">${esc(m.join('; '))}</td></tr>`; }).join('')}</table>`;
+}
+async function vkSaada() {
+  const B = VK; if (!B || B.saadetud) return;
+  const nimi = ($('vkNimi').value || '').trim(); if (!nimi) { teade('Anna nimekirjale nimi', true); return; }
+  try {
+    const j = await api({ tegevus: 'looKogumine', id: 'V' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), nimi, read: B.read.map(r => ({ kood: r.kood, vaja: r.kogus })),
+      markus: ['VAHEKANNE', B.nr, B.kust, B.kuhu, B.kuup].join('|') });
+    if (!j.ok) throw new Error(j.viga);
+    B.saadetud = true; renderVK(); teade(`„${nimi}“ saadetud telefoni (${j.ridu} rida). Telefonis: Kogumine`); laeKogumised(true);
+  } catch (e) { teade('Ei saanud saata: ' + e.message, true); }
+}
+$('buumSisu').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b || !VK) return;
+  if ('vksulge' in b.dataset) { VK = null; $('buumSisu').innerHTML = ''; } else if ('vksaada' in b.dataset) vkSaada();
+});
+// erinevused: „Rida 1 - kood nimi: vahekandes X, loetud Y (puudu Z)“; poe poolne sisestaja parandab Buumis
+const vkF = x => String(Math.round(x * 1000) / 1000).replace('.', ',');
+function vkErinevused(n) {
+  const L = [], valmis = n.olek === 'valmis';
+  n.read.forEach(r => {
+    const t = T.get(r.kood), nimi = `${r.kood}${t ? ' ' + t.nimi : ''}`, rn = r.jrk || '';
+    if (r.lisatud) { L.push(`Rida ${rn} (lisa) - ${nimi}: vahekandes pole, loetud ${vkF(r.votetud || 0)}`); return; }
+    if (r.votetud == null) { if (valmis) L.push(`Rida ${rn} - ${nimi}: ei saabunud (vahekandes ${vkF(r.vaja)})`); return; }
+    if (r.votetud === 0) L.push(`Rida ${rn} - ${nimi}: ei saabunud (vahekandes ${vkF(r.vaja)})`);
+    else if (r.votetud !== r.vaja) L.push(`Rida ${rn} - ${nimi}: vahekandes ${vkF(r.vaja)}, loetud ${vkF(r.votetud)} (${r.votetud < r.vaja ? 'puudu' : 'üle'} ${vkF(Math.abs(r.vaja - r.votetud))})`);
+  });
+  const m = vkMark(n), loendamata = n.read.filter(r => r.votetud == null && !r.lisatud).length;
+  const pais = `Vahekanne ${m.nr} (${m.kust} → ${m.kuhu}, ${m.kuup}). ${valmis ? 'Kontrollitud ' + kogAeg(n.lopetatud) + (n.koguja ? ' · ' + n.koguja : '') : 'Kontroll pooleli' + (loendamata ? ', loendamata ' + loendamata + ' rida' : '')}.`;
+  return { pais, read: L, tekst: pais + '\n' + (L.length ? L.join('\n') : valmis ? 'Kõik read klapivad 1:1.' : 'Erinevusi pole (seni).') };
+}
+function vkErinTekst(id) { const n = KOG.find(x => x.id === id); return n ? vkErinevused(n).tekst : ''; }
 async function buumTukid(fail) {
   const lib = await laePdfJs();
   const doc = await lib.getDocument({ data: new Uint8Array(await fail.arrayBuffer()) }).promise;
@@ -6998,7 +7113,10 @@ async function buumLae(fail) {
   if (!T.size) { teade('Laoandmed pole veel laetud, proovi hetke pärast uuesti', true); return; }
   $('buumSisu').innerHTML = '<p class="hall">Loen PDF-i…</p>';
   try {
-    const v = buumParsi(await buumTukid(fail));
+    const tk = await buumTukid(fail);
+    if (tk.some(t => /^Vahekanne$/i.test(t.s))) { BUUM = null; vkLae(tk); return; }   // VAHEKANNE
+    VK = null;
+    const v = buumParsi(tk);
     if (!v.read.length) throw new Error('PDF-ist ei leitud tellimuse ridu. Kas see on Buumi komplekteerimise leht?');
     BUUM = Object.assign(v, { kasitsi: new Map(), valja: new Set(), nurgad: null, saadetud: false, fail: fail.name });
     renderBuum();
@@ -7636,6 +7754,7 @@ $('kogAken').addEventListener('click', e => {
   else if (d.kogvaata) { KOG_VAATA = KOG_VAATA === d.kogvaata ? null : d.kogvaata; renderKogNimekirjad(); }
   else if (d.kogprindi) kogPrindi(d.kogprindi);
   else if (d.kogcsv) kogCsv(d.kogcsv);
+  else if (d.kogerinkop) { navigator.clipboard.writeText(vkErinTekst(d.kogerinkop)).then(() => teade('Erinevused kopeeritud'), () => teade('Kopeerimine ebaõnnestus', true)); }   // VAHEKANNE
   else if ((d.kogvabasta || d.kogava || d.kogkustuta) && vaataAinult()) return;   // MADIS: nimekirjade muutmine ainult admin
   else if (d.kogvabasta) { const n = KOG.find(x => x.id === d.kogvabasta); if (n && confirm(`Vabastan „${n.nimi}“ (korjab ${n.koguja || '?'})? Tehtud read jäävad alles, nimekiri jääb pooleli ja keegi teine saab telefonis jätkata.`)) kogMuuda({ id: n.id, vabasta: true }, 'Nimekiri vabastatud, ootab jätkajat'); }   // YLEANDMINE
   else if (d.kogava) kogMuuda({ id: d.kogava, olek: 'avatud' }, 'Nimekiri avatud, telefonis saab jälle muuta');

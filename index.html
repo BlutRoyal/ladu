@@ -2626,7 +2626,7 @@ async function laeKog(vaikne) {
 const gArv = n => fmtNr(nr(n));
 function gJarjestatud(n) {
   // BUUM: tellimuse nimekiri on arvutis juba järjestatud (pakid, nurgad, muu, väikepakend)
-  if (/^BUUM/.test(n.markus || '')) return n.read.map(r => Object.assign({}, r, { k: reaKoht(r.kood) })).sort((a, b) => a.jrk - b.jrk);
+  if (/^(BUUM|VAHEKANNE\|)/.test(n.markus || '')) return n.read.map(r => Object.assign({}, r, { k: reaKoht(r.kood) })).sort((a, b) => a.jrk - b.jrk);
   const read = n.read.map(r => Object.assign({}, r, { k: reaKoht(r.kood) })), koht = r => (r.k.parim && r.k.parim.koht) || '';
   const jrk = marsruut(read.map(koht), laoMoodud());   // MARSRUUT
   return read.sort((a, b) => (jrk.get(koht(a)) - jrk.get(koht(b))) || (a.jrk - b.jrk));
@@ -2644,8 +2644,11 @@ function laoMoodud() {
 const NAPILT_PIIR = 0.05;
 const kogNapilt = r => r.votetud != null && r.vaja > 0 && r.votetud < r.vaja && (r.vaja - r.votetud) / r.vaja <= NAPILT_PIIR + 1e-9;
 const kogPuudub = r => (r.olek === 'puudu' || (r.votetud != null && r.votetud < r.vaja)) && !kogNapilt(r);
+// VAHEKANNE (2.28): Buumi vahekande PDF-ist tehtud vastuvõtu nimekiri (markus „VAHEKANNE|nr|kust|kuhu|kuupäev“); kontroll on täpselt 1:1, „napilt“ siin ei kehti
+const kogVK = n => /^VAHEKANNE\|/.test((n && n.markus) || '');
 function gKokku(n) {
-  return { tehtud: n.read.filter(r => r.olek).length, puudu: n.read.filter(r => r.olek === 'puudu' && !kogNapilt(r)).length, napilt: n.read.filter(r => r.olek && kogNapilt(r)).length, kokku: n.read.length };
+  const vk = kogVK(n);
+  return { tehtud: n.read.filter(r => r.olek).length, puudu: n.read.filter(r => r.olek === 'puudu' && (vk || !kogNapilt(r))).length, napilt: vk ? 0 : n.read.filter(r => r.olek && kogNapilt(r)).length, kokku: n.read.length, puuduSilt: vk ? 'erinevust' : 'puudu' };
 }
 
 function renderKogumine(taust) {   // taust = uuendus ei tulnud kasutaja tegevusest (KOOND)
@@ -2658,7 +2661,7 @@ function renderKogumine(taust) {   // taust = uuendus ei tulnud kasutaja tegevus
   const minu = SEADED && SEADED.kes;
   const read = gJarjestatud(n);
   let sisu = `<div class="rida-pais"><button class="nupp vaike" data-gtagasi>← Nimekirjad</button>
-      <span class="hall">${k.tehtud}/${k.kokku}${k.puudu ? ` · <span style="color:var(--punane)">${k.puudu} puudu</span>` : ''}${k.napilt ? ` · <span class="hall">${k.napilt} napilt</span>` : ''}</span></div>
+      <span class="hall">${k.tehtud}/${k.kokku}${k.puudu ? ` · <span style="color:var(--punane)">${k.puudu} ${k.puuduSilt || 'puudu'}</span>` : ''}${k.napilt ? ` · <span class="hall">${k.napilt} napilt</span>` : ''}</span></div>
     <h2 style="margin:10px 0 6px">${esc(n.nimi)}</h2>`;
   if (lukus) sisu += `<div class="logiriba" style="display:flex">✓ Lõpetatud. Muutmiseks ava see arvutis uuesti.</div>` + gAsukKaart(n);   // ASUKOHT
   // YLEANDMINE: keegi teine korjab -> enne korjamist küsi, kas võtad üle; pausil nimekiri -> info, jätkamiseks lihtsalt korja
@@ -2802,7 +2805,7 @@ function renderKogNimekirjad(L) {
       const k = gKokku(n);
       return `<button class="rida-tulemus" data-gava="${esc(n.id)}"><b>${esc(n.nimi)}</b>
         <div class="hall">${n.olek === 'valmis' ? '✓ valmis' + (n.asub ? ' · 📍 ' + esc(n.asub) : '') + (n.asubMarkus ? ' · ' + esc(n.asubMarkus) : '') : n.olek === 'kogumisel' ? 'kogumisel' + (kogAkt(n).length ? ': ' + esc(kogAkt(n).join(', ')) : n.koguja ? ': ' + esc(n.koguja) : '')
-          : n.olek === 'pooleli' ? '<b style="color:#b26a00">⏸ pooleli</b>' + (n.koguja ? ', viimati ' + esc(n.koguja) : '') : 'ootab'} · ${k.tehtud}/${k.kokku}${k.puudu ? ' · ' + k.puudu + ' puudu' : ''}${k.napilt ? ' · ' + k.napilt + ' napilt' : ''}</div></button>`;
+          : n.olek === 'pooleli' ? '<b style="color:#b26a00">⏸ pooleli</b>' + (n.koguja ? ', viimati ' + esc(n.koguja) : '') : 'ootab'} · ${k.tehtud}/${k.kokku}${k.puudu ? ' · ' + k.puudu + ' ' + (k.puuduSilt || 'puudu') : ''}${k.napilt ? ' · ' + k.napilt + ' napilt' : ''}</div></button>`;
     }).join('') : `<div class="tuhi">${laebKog ? 'Laen…' : 'Nimekirju pole. Nimekiri tehakse arvutis (Komplekteerimine).'}</div>`}
     <div class="nupud"><button class="nupp" data-guus style="flex:1">+ Ilma nimekirjata</button></div>
     ${minuPooleli(L).length ? `<div class="nupud"><button class="nupp" data-gpaevlopp style="flex:1">🏁 Lõpetan päeva</button></div>
@@ -2828,24 +2831,27 @@ function gKinnita(kohast) {
   if (!r) return;
   const tekst = $('gKogus').value.replace(/\s/g, '');
   if (!/^\d+([.,]\d+)?$/.test(tekst)) { naita('Sisesta kogus numbrina', true); $('gKogus').focus(); return; }
-  if (kohast === undefined && !r.olek && kusVaja(r)) { kusVotsid(r, k => gKinnita(k)); return; }   // PAIGUTA: tooraine -> küsi kust
+  const vkN = kogNimekirjad().find(x => x.id === gAvatud), vk = kogVK(vkN);   // VAHEKANNE
+  if (!vk && kohast === undefined && !r.olek && kusVaja(r)) { kusVotsid(r, k => gKinnita(k)); return; }   // PAIGUTA: tooraine -> küsi kust
   const votetud = nr(tekst);
-  const voetudKoht = kohast !== undefined ? kohast : ((r.k || reaKoht(r.kood)).parim || {}).koht || '';   // PAIGUTA: vaikimisi pakutud pesa
-  const olek = r.vaja && votetud < r.vaja && !kogNapilt({ vaja: r.vaja, votetud }) ? 'puudu' : 'tehtud';   // NAPILT: kuni 5% vähem ei ole puudu
+  const voetudKoht = vk ? '' : kohast !== undefined ? kohast : ((r.k || reaKoht(r.kood)).parim || {}).koht || '';   // PAIGUTA: vaikimisi pakutud pesa
+  const olek = vk ? (r.vaja && votetud !== r.vaja ? 'puudu' : 'tehtud') : r.vaja && votetud < r.vaja && !kogNapilt({ vaja: r.vaja, votetud }) ? 'puudu' : 'tehtud';   // NAPILT: kuni 5% vähem ei ole puudu
   // SKANN: kuidas õige toode tuvastati (uuesti märkimisel ilma skännita jääb varasem kinnitus)
   const t = IX && IX.tooted.get(r.kood), ok = gKontrollitud === r.id;
   const kinnitus = ok ? gKontrollViis : r.olek && r.kinnitus ? r.kinnitus : gOnRibakood(t, (r.k || reaKoht(r.kood)).parim) ? 'nupp' : 'ribakoodita';
   const skann = ok && gKontrollViis === 'vale ribakood' ? gKontrollSkann : !ok && kinnitus === 'vale ribakood' ? r.skann || '' : '';
   kogMuuda({ op: 'rida', nimekiri: gAvatud, id: r.id, kood: r.kood, vaja: r.vaja || 0, votetud, olek, kinnitus, skann, voetudKoht });
   // PAIGUTA: esmakordsel kinnitamisel vähenda koha teadaolevat kogust (absoluutne uus kogus; Buum jääb autoriteediks)
-  const vs = !r.olek && voetudKoht && (IX.seosKood.get(r.kood) || []).find(x => x.koht === voetudKoht);
+  const vs = !vk && !r.olek && voetudKoht && (IX.seosKood.get(r.kood) || []).find(x => x.koht === voetudKoht);
   if (vs && pgKogus(vs) !== null) lisaValjas({ tegevus: 'kogusKohal', kood: r.kood, asukoht: voetudKoht, kogus: Math.max(0, Math.round((pgKogus(vs) - votetud) * 1000) / 1000), vana: pgKogus(vs) });
-  naita(`${r.kood}: ${fmtNr(votetud)}` + (olek === 'puudu' ? ` (puudu ${fmtNr(r.vaja - votetud)})` : r.vaja && votetud < r.vaja ? ` (napilt −${fmtNr(r.vaja - votetud)})` : ''), false);
+  if (vk) naita(`${r.kood}: loetud ${fmtNr(votetud)}` + (olek === 'puudu' ? ` (vahekandes ${fmtNr(r.vaja)}, vahe ${votetud > r.vaja ? '+' : '−'}${fmtNr(Math.abs(r.vaja - votetud))})` : ' ✓'), olek === 'puudu');
+  else naita(`${r.kood}: ${fmtNr(votetud)}` + (olek === 'puudu' ? ` (puudu ${fmtNr(r.vaja - votetud)})` : r.vaja && votetud < r.vaja ? ` (napilt −${fmtNr(r.vaja - votetud)})` : ''), false);
   // VASTUVOTT: puudu jäi -> korjekoht on tõenäoliselt tühi
-  const pk = olek === 'puudu' && (r.k || reaKoht(r.kood)).parim;
+  const pk = !vk && olek === 'puudu' && (r.k || reaKoht(r.kood)).parim;
   if (pk && !onAjutineKoht(pk) && !taitOotel(r.kood, pk.koht) && confirm(`Kas ${pk.koht} jäi tühjaks? Lisan selle täitmise nimekirja.`)) margiTyhi(r.kood, pk.koht, 'kogumisel puudu');
   gVahele.delete(r.id); gRida = null; gUusRida = null; gKontrollitud = null; gVale = null;
   renderKogumine(); window.scrollTo(0, 0);
+  if (vk && votetud > 0) vkVorm(r.kood, votetud);   // VAHEKANNE: mis kaubaga edasi
 }
 function gLisaToode(t, skannitud) {
   const n = kogNimekirjad().find(x => x.id === gAvatud);
@@ -2991,7 +2997,7 @@ function gLopeta() {
   const n = kogNimekirjad().find(x => x.id === gAvatud);
   if (!n) return;
   const k = gKokku(n), tegemata = k.kokku - k.tehtud;
-  const kys = [tegemata ? `${tegemata} rida on tegemata (lähevad kirja kui puudu).` : '', k.puudu ? `${k.puudu} rida puudu.` : ''].filter(Boolean).join('\n');
+  const kys = [tegemata ? `${tegemata} rida on tegemata (lähevad kirja kui puudu).` : '', k.puudu ? `${k.puudu} rida ${k.puuduSilt === 'erinevust' ? 'erineb vahekandest' : 'puudu'}.` : ''].filter(Boolean).join('\n');
   const teised = kogAkt(n).filter(x => x !== (SEADED && SEADED.kes));   // OSAD
   if (!confirm((kys ? kys + '\n\n' : '') + (teised.length ? `${teised.join(', ')} korjab veel!\n` : '') + `Lõpetan „${n.nimi}“? Pärast seda on nimekiri lukus.`)) return;
   kogMuuda({ op: 'lopeta', nimekiri: n.id });
@@ -3366,11 +3372,27 @@ function pkKlikk(d) {
 document.addEventListener('click', e => {
   const b = e.target.closest('#pkVorm button');
   if (!b) { if (e.target.id === 'pkVorm') pkVormiSulge(); return; }
-  if ('pkloobu' in b.dataset) pkVormiSulge();
+  if ('pkloobu' in b.dataset || 'vkhiljem' in b.dataset) pkVormiSulge();
+  else if (b.dataset.vkpaiguta) { pkVormiSulge(); pgAvaToode(b.dataset.vkpaiguta); }
+  else if (b.dataset.vkpakkimisse) { const k = b.dataset.vkpakkimisse, q = nr(b.dataset.vkkogus); pkVormiSulge(); pkVorm({ kood: k, koht: '', allikas: 'vastuvõtt', kogus: q }); }
   else if (b.dataset.pkliik !== undefined) pkKinnita(b.dataset.pkliik);
 });
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'pkKogus') { e.target.blur(); } });
 
+
+// VAHEKANNE: pärast rea kinnitamist valik, mis loetud kaubaga edasi (kõike ei pea paigutama: katkised karbid pakitakse ümber jne)
+function vkVorm(kood, kogus) {
+  const t = IX && IX.tooted.get(kood) || {};
+  const vana = $('pkVorm'); if (vana) vana.remove();
+  const el = document.createElement('div'); el.id = 'pkVorm';
+  el.innerHTML = `<div class="leht"><b style="font-size:19px">${esc(kood)}: loetud ${esc(fmtNr(kogus))}</b><div>${esc(t.nimi || '')}</div>
+    <div class="hall" style="margin-top:6px">Mis kaubaga edasi? (Võid ka kohe järgmise rea juurde minna.)</div>
+    <div class="nupud" style="margin-top:10px;flex-direction:column">
+      <button class="nupp pea" data-vkpaiguta="${esc(kood)}" style="min-height:54px;font-size:18px">📍 Paiguta lattu</button>
+      <button class="nupp" data-vkpakkimisse="${esc(kood)}" data-vkkogus="${esc(String(kogus))}" style="min-height:48px;border-color:#e0a75a;background:#ffe7c7;color:#5c3200">→ Ümber pakendama (pakkimisse)</button>
+      <button class="nupp vaike" data-vkhiljem>Hiljem / ei paiguta</button></div></div>`;
+  document.body.appendChild(el);
+}
 /* ---------- täitmine ---------- */
 function taitRakenda(L, m, kes) {
   const i = L.findIndex(x => x.id === m.id);
