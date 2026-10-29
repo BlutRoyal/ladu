@@ -194,6 +194,25 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
 #plaanSvg .vp rect { fill: var(--kollane); stroke: var(--kol-joon); }
 #plaanSvg .muu rect { fill: none; stroke: var(--hall); stroke-dasharray: 3 3; }
 
+/* MENÜÜ (2.32) */
+#menyy { width: 190px; flex: none; border-right: 1px solid var(--joon); background: var(--paneel); padding: 8px 10px; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+#menyy .menyy-grupp, #menyy summary { font-size: 12px; font-weight: 700; color: var(--hall); text-transform: uppercase; letter-spacing: .04em; cursor: pointer; margin: 6px 0 4px; }
+#menyy details { display: flex; flex-direction: column; gap: 4px; }
+#menyy details > .nupp { text-align: left; width: 100%; margin-bottom: 4px; }
+#menyy .menyy-vahe { display: flex; flex-direction: column; gap: 4px; }
+#menyy .menyy-vahe button { text-align: left; }
+aside { display: none; }
+body.paigutus-on aside { display: flex; }
+/* TÖÖLAUD (2.31) */
+.menu { position: relative; }
+.menu-sisu { display: none; position: absolute; top: 100%; left: 0; margin-top: 4px; background: var(--paneel); border: 1px solid var(--joon); border-radius: 10px; padding: 6px; z-index: 40; flex-direction: column; gap: 4px; min-width: 190px; box-shadow: 0 6px 20px rgba(0,0,0,.2); }
+.menu.lahti .menu-sisu { display: flex; }
+.menu-sisu .nupp { text-align: left; }
+.tl-kast { border: 1px solid var(--joon); border-radius: 10px; padding: 10px 12px; margin: 10px 0; }
+.tl-kast h3 { margin: 0 0 6px; font-size: 14px; display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.tl-ruudud { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 10px; }
+.tl-arv { display: inline-block; min-width: 22px; padding: 0 7px; border-radius: 11px; background: var(--joon2); font-size: 12px; text-align: center; }
+
 /* modaalid */
 .katte { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 50; display: none; align-items: center; justify-content: center; }
 .katte.lahti { display: flex; }
@@ -328,29 +347,40 @@ header .olek { min-width: 0; overflow: hidden; text-overflow: ellipsis; }   /* R
 
 <header>
   <h1>Ladu</h1>
-  <div class="vahekaardid" role="tablist">
-    <button role="tab" data-vaade="plaan">Laoplaan</button>
-    <button role="tab" data-vaade="vp">Väikepakend</button>
-  </div>
   <div class="otsing-kast">
     <input id="ots" type="search" placeholder="Otsi koodi, EAN-i, nime või asukohta (Ctrl+K)" autocomplete="off" spellcheck="false">
     <div id="otsTulemus"></div>
   </div>
   <span class="olek" id="olek"></span>
-  <button class="nupp" id="invNupp" title="Inventuuriseansid ja loendused">Inventuur</button>
-  <button class="nupp" id="poeNupp" title="Poe inventuuri lugemisnimekirjad (pood skännib telefoniga)">Poe loendus</button>
+  <button class="nupp pea" id="toolaudNupp" title="Ülevaade: pakkimine, komplekteerimine, vastuvõtt, väljaviimine">Töölaud</button>   <!-- TÖÖLAUD (2.31) -->
   <button class="nupp" id="kogNupp" title="Komplekteerimise nimekirjad">Komplekteerimine</button>
   <button class="nupp" id="rapNupp" title="Raportid: poodi saatmine, salvestatud filtrid">Raportid</button>
-  <button class="nupp" id="mdkNupp" title="Korjamise, puuduste, inventuuri ja vastuvõtu mõõdikud">Mõõdikud</button>
-  <button class="nupp" id="peidetudNupp" title="Peidetud tooted ja Buumi kontroll">Kontroll</button>
   <button class="nupp ainult-admin" id="kasutajadNupp" title="Kasutajad ja ligipääs">Kasutajad</button>
-  <button class="nupp" id="uuenda">Uuenda</button>
   <button class="nupp" id="abiNupp" title="Abi: kus miski on ja kuidas teha">? Abi</button>   <!-- ABI (2.15) -->
-  <button class="nupp" id="uuendusedNupp" title="Mis on uut ja kuidas seda kasutada">Uuendused</button>   <!-- UUENDUSED -->
   <button class="nupp" id="seadedNupp" title="Seaded">⚙</button>
 </header>
 
 <div id="paigutus">
+  <nav id="menyy" aria-label="Peamenüü">   <!-- MENÜÜ (2.32): vasakul; toodete paneel (aside) ainult paigutamisrežiimis -->
+    <div class="menyy-grupp">Vaade</div>
+    <div class="vahekaardid menyy-vahe" role="tablist">
+      <button role="tab" data-vaade="plaan">Laoplaan</button>
+      <button role="tab" data-vaade="vp">Väikepakend</button>
+    </div>
+    <details open><summary>Töö</summary>
+      <button class="nupp" id="poeNupp" title="Poe inventuuri lugemisnimekirjad (pood skännib telefoniga)">Poe loendus</button>
+      <button class="nupp" id="invNupp" title="Inventuuriseansid ja loendused">Inventuur</button>
+    </details>
+    <details open><summary>Kontroll ja mõõdikud</summary>
+      <button class="nupp" id="mdkNupp" title="Korjamise, puuduste, inventuuri ja vastuvõtu mõõdikud">Mõõdikud</button>
+      <button class="nupp" id="peidetudNupp" title="Peidetud tooted ja Buumi kontroll">Kontroll</button>
+    </details>
+    <details open><summary>Süsteem</summary>
+      <button class="nupp" id="paigutusNupp" aria-pressed="false" title="Näitab vasakul toodete nimekirja ja paigutamise tööriistu">📍 Paigutamisrežiim</button>
+      <button class="nupp" id="uuenda">Uuenda</button>
+      <button class="nupp" id="uuendusedNupp" title="Mis on uut ja kuidas seda kasutada">Uuendused</button>   <!-- UUENDUSED -->
+    </details>
+  </nav>
   <aside>
     <div class="kast">
       <div class="rida" id="metaRida" style="margin-bottom:6px">
@@ -386,6 +416,7 @@ header .olek { min-width: 0; overflow: hidden; text-overflow: ellipsis; }   /* R
 <div class="katte" id="seadistus">
   <div class="modaal">
     <h2>Arvuti seadistus</h2>
+    <label class="linnuke" style="font-size:14px;color:var(--tekst)"><input type="checkbox" id="sPaigutus"> Paigutamisrežiim (toodete nimekiri ja paigutamise tööriistad vasakul)</label>
     <p id="sPohjus" class="hoiatus vaike" style="display:none;font-weight:400;background:var(--pun-hele);padding:8px 10px;border-radius:8px"></p>
     <label for="sUrl">Veebirakenduse URL (lõpeb /exec)</label>
     <input id="sUrl" type="url" autocomplete="off">
@@ -433,6 +464,16 @@ header .olek { min-width: 0; overflow: hidden; text-overflow: ellipsis; }   /* R
     <div id="uuendusedSisu"></div>
   </div>
 </div>
+<div class="katte" id="tlAken">
+  <div class="modaal rap">
+    <div class="rida" style="justify-content:space-between">
+      <h2 style="margin:0">Töölaud <span class="hall vaike" id="tlAeg" style="font-weight:400"></span></h2>
+      <span><button class="nupp" id="tlUuenda">Uuenda</button> <button class="nupp" id="tlSulge">Sulge</button></span>
+    </div>
+    <div id="tlSisu"></div>
+  </div>
+</div>
+
 <div class="katte" id="peidAken">
   <div class="modaal lai">
     <div class="rida" style="justify-content:space-between">
@@ -3101,7 +3142,7 @@ function seaRoll(r) {
 }
 let ANDMED = null;
 let VALJAS = loe(V.valjas, []);
-const UI = Object.assign({ vaade: 'vp', r: 1, u: 1, rida: 1, rp: 0, gruppVP: 'ALL', gruppL: 'ALL', meta: 'ALL', peida: false, auto: true, koikVP: false, koikL: false }, loe(V.ui, {}));
+const UI = Object.assign({ paigutus: false, vaade: 'vp', r: 1, u: 1, rida: 1, rp: 0, gruppVP: 'ALL', gruppL: 'ALL', meta: 'ALL', peida: false, auto: true, koikVP: false, koikL: false }, loe(V.ui, {}));
 const salvestaUI = () => kirjuta(V.ui, UI);
 const onVPvaade = () => UI.vaade === 'vp';
 
@@ -4303,6 +4344,11 @@ $('kogKasKleebiLisa').addEventListener('click', kogKasKleebi);
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.31', kp: '29.10.2026', nimi: 'Töölaud ja korrastatud menüü',
+    lisati: ['Uus nupp päises „Töölaud“: ühes vaates pakkimistahvel (1. Pakkimisel, 2. Ootel pakkimisalal, 3. Pakitud) ning all komplekteerimise nimekirjad, vastuvõtu vahekanded, laost välja viimata tellimused ja „Vahekanne tegemata“.',
+             'Töölaual saab otse: märkida pakituks, valida ootel reale pakkimise viisi (käsitsi / pakkeliin / vangla), märkida „Läks välja“ ja „Vahekanne tehtud“. „Ava →“ viib täisaknasse.',
+             'Päise nupud on grupeeritud: „Töö ▾“ (Komplekteerimine, Poe loendus, Inventuur) ja „Raportid ja kontroll ▾“ (Raportid, Mõõdikud, Kontroll).'],
+    kasutus: ['Vajuta Töölaud, et näha kõike korraga. Uuendus-nupp laeb andmed uuesti. Vanad aknad töötavad nagu enne.'] },
   { v: '2.30', kp: '29.10.2026', nimi: 'Pakkimisleht: pakkide arv ja Buumi märge',
     lisati: ['Pakendamislehel (Prindi tööleht) on igal real „pakist kotti / tükist kotti / tükist pakki“, oletatav kottide arv („ca N kotti“) ja pakist tehes pakkide arv („N pakki“).',
              'Kui kott tehakse pakist, tuleb lehele ja raporti tooraine lahtrisse märge „⚠ Buumi konverteerimine: retsepti ei kasutata, sisesta pakk + iga pakendi komponent eraldi“.'],
@@ -7295,6 +7341,7 @@ function avaTulemus(x) {
   UI.vaade = onVP(x.t) ? 'vp' : 'plaan';
   if (onVPvaade()) UI.gruppVP = 'ALL'; else { UI.gruppL = 'ALL'; UI.meta = 'ALL'; }
   VALITUD = { kood: x.t.kood };
+  if (!UI.paigutus) seaPaigutus(true);   // paigutamata toode: paigutamise paneel vajab nimekirja
   salvestaUI(); renderKoik();
   teade(x.t.kood + (onLadu() ? ' on paigutamata' : ' on paigutamata – klõpsa riiulil tühja kohta, et see paigutada'));   // MADIS
 }
@@ -7308,13 +7355,74 @@ function valgusta(selektor) {
   }, 60);
 }
 
+/* ---------- MENÜÜ (2.32): paigutamisrežiim (vasak toodete paneel) ---------- */
+function seaPaigutus(on) {
+  UI.paigutus = !!on; salvestaUI();
+  document.body.classList.toggle('paigutus-on', !!on);
+  const n = $('paigutusNupp'); if (n) n.setAttribute('aria-pressed', !!on);
+  const c = $('sPaigutus'); if (c) c.checked = !!on;
+}
+/* ---------- TÖÖLAUD (2.31): ülevaade pakkimisest, komplekteerimisest, vastuvõtust ja väljaviimisest ---------- */
+const tlAvatud = () => $('tlAken').classList.contains('lahti');
+function tlPakRida(x, nupud) {
+  const p = Math.floor((Date.now() - new Date(x.lisatud).getTime()) / 864e5);
+  return `<tr><td><b>${esc(x.kood)}</b></td><td>${esc(toode(x.kood).nimi)}</td><td class="arv">${x.kogus === '' || x.kogus == null ? '' : fmt(x.kogus)}</td>
+    <td class="hall">${x.kust ? esc(x.kust) : x.allikas === 'vastuvõtt' ? 'vastuvõtust' : ''}</td>
+    <td class="hall">${esc(x.lisas)} ${pakAeg(x.lisatud)}${p >= 1 ? ` · <b${p >= 2 && x.seis !== 'paigutatud' ? ' style="color:var(--punane)"' : ''}>${p} p</b>` : ''}</td>
+    <td style="white-space:nowrap">${nupud}</td></tr>`;
+}
+function renderToolaud() {
+  if (!tlAvatud()) return;
+  $('tlAeg').textContent = KUB_AEG ? 'uuendatud ' + new Date(KUB_AEG).toLocaleTimeString('et-EE', { hour: '2-digit', minute: '2-digit' }) : '';
+  const A = (PAKA || []).filter(x => x.seis !== 'pakitud'), V = PAKA ? PAKA.filter(x => x.seis === 'pakitud') : [];
+  const pakNupp = x => `<button class="nupp pea" data-pakpakitud="${esc(x.id)}" title="Buumis konvert tehtud, rida kaob">Pakitud</button>`;
+  const liikSelect = x => `<select data-pakliik="${esc(x.id)}"><option value="">– alusta: vali viis –</option>${Object.keys(PAK_LIIK_NIMI).map(l => `<option value="${l}">${PAK_LIIK_NIMI[l]}</option>`).join('')}</select>`;
+  const tab = (L, nupud, tuhi) => L.length ? `<table class="tabel"><tr><th>Kood</th><th>Nimetus</th><th>Kogus</th><th>Kust</th><th>Läks pakkimisse</th><th></th></tr>${L.map(x => tlPakRida(x, nupud(x))).join('')}</table>` : `<p class="hall vaike" style="margin:0">${tuhi}</p>`;
+  const pakkimisel = A.filter(x => x.seis === 'pakkimisel'), ootel = A.filter(x => x.seis === 'ootel'), laos = A.filter(x => x.seis === 'paigutatud');
+  const viisid = ['käsitsi', 'pakkeliin', 'vangla'].map(l => `${PAK_LIIK_NIMI[l]}: <b>${pakkimisel.filter(x => x.liik === l).length}</b>`).join(' · ');
+  const pak = `<div class="tl-kast"><h3><span>1. Pakkimisel <span class="tl-arv">${pakkimisel.length}</span> <span class="hall vaike" style="font-weight:400">${viisid}</span></span></h3>
+      ${PAKA === null ? '<p class="hall">Laen…</p>' : tab(pakkimisel.sort((a, b) => String(a.liik).localeCompare(String(b.liik))), x => `<span class="hall vaike">${esc(PAK_LIIK_NIMI[x.liik] || '')}</span> ${pakNupp(x)}`, 'Praegu ei pakita midagi.')}</div>
+    <div class="tl-kast"><h3><span>2. Ootel, pakkimisalal <span class="tl-arv">${ootel.length}</span></span></h3>
+      ${PAKA === null ? '' : tab(ootel, x => liikSelect(x), 'Pakkimisalal pole midagi ootel.')}</div>
+    <div class="tl-kast"><h3><span>3. Pakitud <span class="tl-arv">${laos.length}</span> <span class="hall vaike" style="font-weight:400">pakitud, laos: märgi pakituks, kui konvert on Buumis tehtud</span></span>
+      ${laos.length ? '<button class="nupp" data-pakmargi="laos">Märgi kõik pakituks</button>' : ''}</h3>
+      ${PAKA === null ? '' : tab(laos, pakNupp, 'Pakitud, laos ootel ridu pole.')}
+      ${V.length ? `<details style="margin-top:6px"><summary class="hall vaike">Pakitud viimastel päevadel (${V.length})</summary><table class="tabel">${V.map(x => `<tr class="hall"><td><b>${esc(x.kood)}</b></td><td>${esc(toode(x.kood).nimi)}</td><td class="arv">${x.kogus === '' || x.kogus == null ? '' : fmt(x.kogus)}</td><td>${esc(x.pakkis || '')} ${pakAeg(x.pakitud)}</td><td><button class="nupp" data-paktagasi="${esc(x.id)}">Võta tagasi</button></td></tr>`).join('')}</table></details>` : ''}</div>`;
+  // komplekteerimine / vastuvõtt / väljaviimine
+  const nimed = KOG.filter(n => !kogVK(n)), vkd = KOG.filter(n => kogVK(n));
+  const kAkt = nimed.filter(n => ['kogumisel', 'pooleli', 'avatud'].includes(n.olek)), vAkt = vkd.filter(n => ['kogumisel', 'pooleli', 'avatud'].includes(n.olek));
+  const kLoppenud = n => n.olek === 'valmis' && !n.valja;
+  const nimekiri = (L, tuhi) => L.length ? `<table class="tabel">${L.map(n => { const k = kogKokku(n);
+    return `<tr><td><b>${esc(n.nimi)}</b></td><td>${kogOlek(n)}</td><td>${k.tehtud}/${k.kokku}${k.puudu ? ` <span style="color:#b26a00">· ${k.puudu} ${k.puuduSilt || 'puudu'}</span>` : ''}</td></tr>`; }).join('')}</table>` : `<p class="hall vaike" style="margin:0">${tuhi}</p>`;
+  const vL = valjaOotel(), vkOotel = vahekanneOotel(), vVal = vkd.filter(n => n.olek === 'valmis' && !n.vahekanne && new Date(n.lopetatud || n.loodud).getTime() > Date.now() - 14 * 864e5);
+  const ruudud = `<div class="tl-ruudud">
+    <div class="tl-kast"><h3><span>Komplekteerimine <span class="tl-arv">${kAkt.length}</span></span><button class="nupp" data-tlava="kog">Ava →</button></h3>
+      ${nimekiri(kAkt, 'Pooleli ega töös olevaid nimekirju pole.')}</div>
+    <div class="tl-kast"><h3><span>Vastuvõtt (vahekanded) <span class="tl-arv">${vAkt.length}</span></span><button class="nupp" data-tlava="kog">Ava →</button></h3>
+      ${nimekiri(vAkt.concat(vVal), 'Vastuvõtu nimekirju pole. Lohista vahekande PDF Komplekteerimise aknasse.')}</div>
+    <div class="tl-kast"><h3><span>Valmis, laost välja viimata <span class="tl-arv">${vL.length}</span></span><button class="nupp" data-tlava="valja">Ava →</button></h3>
+      ${vL.length ? `<table class="tabel">${vL.map(n => `<tr><td><b>${esc(n.nimi)}</b></td><td class="hall">${n.asub ? '📍 ' + esc(n.asub) : 'asukohta pole'}</td><td style="white-space:nowrap"><button class="nupp pea" data-valjamargi="${esc(n.id)}">🚚 Läks välja</button></td></tr>`).join('')}</table>` : '<p class="hall vaike" style="margin:0">Kõik on välja läinud.</p>'}</div>
+    <div class="tl-kast"><h3><span>Vahekanne tegemata <span class="tl-arv">${vkOotel.length}</span></span><button class="nupp" data-tlava="valja">Ava →</button></h3>
+      ${vkOotel.length ? `<table class="tabel">${vkOotel.map(n => `<tr><td><b>${esc(n.nimi)}</b></td><td class="hall">🚚 ${kogAeg(n.valja)}</td><td><button class="nupp pea" data-vahekanne="${esc(n.id)}">☑ Vahekanne tehtud</button></td></tr>`).join('')}</table>` : '<p class="hall vaike" style="margin:0">Kõik vahekanded on tehtud.</p>'}</div>
+  </div>`;
+  $('tlSisu').innerHTML = pak + ruudud;
+}
+async function avaToolaud() {
+  $('tlAken').classList.add('lahti'); renderToolaud();
+  await Promise.all([laePakArvuti(), laeKogumised(true)]);
+  renderToolaud();
+}
+{ const e1 = renderPeidetud, e2 = renderKogNimekirjad;   // andmete muutudes uuendub ka töölaud
+  renderPeidetud = function () { e1(); renderToolaud(); };
+  renderKogNimekirjad = function () { e2(); renderToolaud(); }; }
+
 /* ============================================================
    SÜNDMUSED
    ============================================================ */
 document.addEventListener('click', e => {
   const mk = e.target.closest('[data-muudakogus]');   // KOGUS-MUUTMINE
   if (mk) { muudaKogus(mk.dataset.muudakogus, mk.dataset.kohast); return; }
-  const el = e.target.closest('[data-pesainfo],[data-pesasulge],[data-vaade],[data-kood],[data-tyhi],[data-k],[data-tegevus],[data-varv],[data-kylg],[data-pystak],[data-rida],[data-rp],[data-v25],[data-vp],[data-i],[data-jrk],[data-peida],[data-taasta],[data-peidvaade],[data-buumita],[data-fluideemalda],[data-ajutava],[data-tooreemalda],[data-taittehtud],[data-taitkustuta],[data-pakpakitud],[data-pakmargi],[data-paktagasi],[data-pakkustuta],[data-pakvalikoik],[data-valjamargi],[data-vahekanne],[data-valjatuhi],[data-valjakoik],[data-kaslink],[data-kasarvuti],[data-kaskasuta],[data-kasvoti],[data-kaseemalda],[data-kastaasta],[data-vanad],[data-kasvabasta],[data-kaskustuta],[data-kasparool],[data-kasseanss],[data-kasvaljakoik],[data-kaslukk]');
+  const el = e.target.closest('[data-pesainfo],[data-pesasulge],[data-vaade],[data-kood],[data-tyhi],[data-k],[data-tegevus],[data-varv],[data-kylg],[data-pystak],[data-rida],[data-rp],[data-v25],[data-vp],[data-i],[data-jrk],[data-peida],[data-taasta],[data-peidvaade],[data-buumita],[data-fluideemalda],[data-ajutava],[data-tooreemalda],[data-taittehtud],[data-taitkustuta],[data-tlava],[data-pakpakitud],[data-pakmargi],[data-paktagasi],[data-pakkustuta],[data-pakvalikoik],[data-valjamargi],[data-vahekanne],[data-valjatuhi],[data-valjakoik],[data-kaslink],[data-kasarvuti],[data-kaskasuta],[data-kasvoti],[data-kaseemalda],[data-kastaasta],[data-vanad],[data-kasvabasta],[data-kaskustuta],[data-kasparool],[data-kasseanss],[data-kasvaljakoik],[data-kaslukk]');
   if (!el) { if (!e.target.closest('.otsing-kast')) $('otsTulemus').classList.remove('lahti'); return; }
   const d = el.dataset;
   if (d.vaade) { UI.vaade = d.vaade; VALITUD = null; salvestaUI(); renderKoik(); return; }
@@ -7327,6 +7435,12 @@ document.addEventListener('click', e => {
   if (d.ajutava) { ajutAva(d.ajutava); return; }   // VASTUVOTT
   if (d.tooreemalda) { eemaldaToor(d.tooreemalda); return; }   // TOORAINE
   if (d.taittehtud) { taitArvutist({ op: 'tehtud', id: d.taittehtud, olek: 'tehtud' }); return; }
+  if (d.tlava) {   // TÖÖLAUD: ava olemasolev täisaken
+    $('tlAken').classList.remove('lahti');
+    if (d.tlava === 'kog') $('kogNupp').click(); else $('peidetudNupp').click();
+    if (d.tlava === 'valja') { peidVaade = 'valja'; $('pvValja').click(); }
+    return;
+  }
   if (pakKlikk(el)) return;   // PAKKIMINE
   if (d.taitkustuta) { if (confirm('Kustutan selle täitmise rea?')) taitArvutist({ op: 'kustuta', id: d.taitkustuta }); return; }
   if (onLadu() && (d.kaslink || d.kasarvuti || d.kaskasuta || d.kasvoti || d.kaseemalda || d.kastaasta || d.vanad || d.kasvabasta || d.kaskustuta || d.kasparool || d.kasseanss || d.kasvaljakoik || d.kaslukk)) return;   // MADIS
@@ -7609,6 +7723,11 @@ $('invAken').addEventListener('click', async e => {
 });
 // KOGUMINE
 $('kogNupp').addEventListener('click', () => { if (SEADED) avaKogumine(); });
+$('toolaudNupp').addEventListener('click', () => { if (SEADED) avaToolaud(); });   // TÖÖLAUD
+$('paigutusNupp').addEventListener('click', () => seaPaigutus(!UI.paigutus));   // MENÜÜ
+seaPaigutus(!!UI.paigutus);
+$('tlSulge').addEventListener('click', () => $('tlAken').classList.remove('lahti'));
+$('tlUuenda').addEventListener('click', () => avaToolaud());
 $('kogSulge').addEventListener('click', () => $('kogAken').classList.remove('lahti'));
 // MOODIKUD
 $('mdkNupp').addEventListener('click', () => { if (SEADED) avaMoodikud(); });
