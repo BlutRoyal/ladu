@@ -178,6 +178,10 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
 #plaanSvg .reasilt.akt text { fill: var(--roheline); }
 #plaanSvg .v25nr { font-size: 420px; font-weight: 600; fill: var(--hall); }
 #plaanSvg .v25markus { font-size: 600px; fill: var(--hall); font-weight: 400; }
+/* VAADE360: valitud rea ees olevad riiulid läbipaistvad; eestvaate kohakoodid */
+#plaanSvg .labi { opacity: .12; pointer-events: none; } #plaanSvg .labi text { display: none; }
+#plaanSvg .v25kood { font-size: 190px; font-weight: 700; fill: #1d2b3a; paint-order: stroke; stroke: #fff; stroke-width: 40px; stroke-linejoin: round; }
+#plaanSvg .v25kood.toode { font-weight: 500; font-size: 170px; }
 #plaanSvg .vpk { fill: var(--kollane); stroke: var(--kol-joon); stroke-width: 1; }
 #plaanSvg .vpk.kylg { filter: brightness(.85); } #plaanSvg .vpk.esi { filter: brightness(.93); }
 #plaanSvg .muuk { fill: var(--paneel); stroke: var(--hall); stroke-width: 1; }
@@ -4322,6 +4326,8 @@ function pakKlikk(el) {
 }
 document.addEventListener('change', e => {
   const t = e.target;
+  if (t.dataset && t.dataset.tlsek !== undefined) { (PAKA || []).filter(x => x.seis === ({ pakkimisel: 'pakkimisel', ootel: 'ootel', paigutatud: 'paigutatud' })[t.dataset.tlsek]).forEach(x => t.checked ? PAKA_VALI.add(x.id) : PAKA_VALI.delete(x.id)); renderPeidetud(); return; }
+  if (t.dataset && t.dataset.tlgrupp !== undefined) { (PAKA || []).filter(x => x.seis === 'ootel' && (x.markus || '') === t.dataset.tlgrupp).forEach(x => t.checked ? PAKA_VALI.add(x.id) : PAKA_VALI.delete(x.id)); renderPeidetud(); return; }
   if (t.dataset && t.dataset.pakvali !== undefined) { if (t.checked) PAKA_VALI.add(t.dataset.pakvali); else PAKA_VALI.delete(t.dataset.pakvali); renderPeidetud(); }
   else if (t.dataset && t.dataset.pakliik) {
     const x = PAKA && PAKA.find(r => r.id === t.dataset.pakliik); if (!x || !t.value) return;
@@ -4377,6 +4383,16 @@ $('kogKasKleebiLisa').addEventListener('click', kogKasKleebi);
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.39', kp: '29.10.2026', nimi: 'Mitu pakkimisrida korraga',
+    lisati: ['Töölaual on pakkimise ridadel märkeruudud. Üleval riba „Valitud: N“: vali pakkimise viis ja „Alusta pakkimist“, „Pakitud“ või „Tagasi ootele“ kõigile valitutele korraga.',
+             'Osas „Ootel, pakkimisalal“ on read vahekande (või nimekirja) kaupa grupeeritud: grupi märkeruut valib kogu vahekande. Iga osa päises on „vali kõik“.'],
+    kasutus: ['Töölaud → märgi read või terve vahekande märkeruut → vali viis → Alusta pakkimist.'] },
+  { v: '2.38', kp: '29.10.2026', nimi: '2.5D laoplaan: vaba pööramine, rida esile, eestvaade',
+    lisati: ['Laoplaani saab hiirega vabalt 360° ümber pöörata ja kallutada: hoia all parem hiireklahv (või Shift) ja lohista. Külgsuunas = pööra, üles-alla = kalluta. Tavaline lohistamine nihutab ja rullik suurendab nagu enne.',
+             'Rida esile (vaikimisi sees): valitud rea ees olevad riiulid muutuvad läbipaistvaks, nii et valitud rida on alati näha.',
+             'Eestvaade: valitud rida otse eest koos kõigi kohakoodide (ka tühjade) ja toodetega. Teine vajutus näitab rea teist poolt.',
+             'Rea number on nüüd rea tipus ja liigub pööramisel riiuliga kaasa. Kui kaks rida on seljad koos, on tagumise rea number rea teises otsas.'],
+    kasutus: ['Klõpsa riiulil või rea numbril, et rida valida, siis Eestvaade. ⟲ ⟳ pööravad 90° kaupa, ⤢ = kogu ladu ja algne kalle. 2.38 muudab ainult arvuti.html ja sw.js.'] },
   { v: '2.37', kp: '29.10.2026', nimi: 'Kogu nimekiri pakkimise ootele arvutis',
     lisati: ['Komplekteerimise nimekirjade real nupp „→ Pakkimise ootele“: kõik nimekirja (ka vahekande) read lähevad korraga pakkimise ootele (kogus = loetud, kui loetud pole, siis vaja). Juba pakkimises olevaid tooteid ei lisata uuesti. Rea akna ✎ Rida kaudu saab üksikuid ridu pakkimisele saata ja kogust muuta.'],
     kasutus: ['Komplekteerimine → nimekirja rea juures „→ Pakkimise ootele“ → kinnita.'] },
@@ -6767,7 +6783,7 @@ function renderMood() {
 /* ---------- VAADE25D: laoplaan Lao mõõtudest – 2.5D ja ülaltvaade (SVG, mm) ----------
    Kastid joonistatakse maailmas (x, y, z mm), pööratakse 90° kaupa ja projitseeritakse:
    2.5D: kaugem nihkub üles ja paremale, kõrgus üles; ülalt: lihtsalt põrand. Kaugemad joonistatakse enne. */
-const V25 = { k: 1, cx: null, cy: null, bb: null, lohk: null, liikus: false };
+const V25 = { k: 1, cx: null, cy: null, bb: null, lohk: null, liikus: false, ees: false, sobita: false, raf: 0 };
 function v25Pyst(G, r, i) {   // talade kõrgused ja alusekohad; vanades mõõtudes (ilma kõrgusteta) Asukohtade järgi
   const rr = G.read[r], kor = rr[4] && rr[4][i] && rr[4][i].length ? rr[4][i] : null, info = READ.get(+r);
   const t = kor ? kor.length : Math.max(1, (info && info.t) || 3);
@@ -6797,10 +6813,11 @@ function v25Kastid(G) {
         const korgus = Math.min(1100, (P.h[j + 1] != null ? P.h[j + 1] : zt + 1300) - zt - 150), n = P.alk[j];
         for (let a = 1; a <= n; a++) {
           const koht = `${r}-${i + 1}-${j + 1}-${a}`, t = teg && teg.get(koht), tais = teg ? (t && t.kogus > 0 ? 1 : 0) : poolKohad.get(koht) || 0;
-          if (!(teg ? t : tais) && koht !== valitud) continue;
+          const tyhi = !(teg ? t : tais) && koht !== valitud;
+          if (tyhi && !(V25.ees && +r === UI.rida)) continue;   // VAADE360: eestvaates näeb valitud rea tühje kohti
           const al = wi / n;
           const tooted = teg ? (t ? t.read.filter(x => x.kogus > 0).map(x => ({ kood: x.kood, kogus: x.kogus })) : []) : kaubad.get(koht) || [];
-          sek.alused.push({ koht, x: cx + (a - 1) * al + 40, y: y + 50, l: al - 80, s: s - 100, z: zt + (j ? 60 : 0), h: korgus, tais, t, plaan: !teg, valik: koht === valitud, tooted, taht: teg ? !!(t && t.kogus > 0) : tooted.length > 0 });
+          sek.alused.push({ koht, x: cx + (a - 1) * al + 40, y: y + 50, l: al - 80, s: s - 100, z: zt + (j ? 60 : 0), h: korgus, tais, t, tyhi, plaan: !teg, valik: koht === valitud, tooted, taht: teg ? !!(t && t.kogus > 0) : tooted.length > 0 });
         }
       });
       O.push(sek); cx += wi + post;
@@ -6818,78 +6835,132 @@ function v25Kastid(G) {
   if (G.vp) O.push({ liik: 'vp', nimi: 'Väikepakend', x: G.vp[0], y: G.vp[1], l: G.vp[2], s: G.vp[3], z: 0, h: 2400 });
   return O;
 }
+// VAADE360: vaba pööramine (nurk) ja kallutamine (kalle); maailm (x, y, z mm) pööratakse ümber lao keskpunkti ja projitseeritakse ortograafiliselt
+const v25Norm = n => { n = ((n % 360) + 360) % 360; return n > 180 ? n - 360 : n; };
+const v25Nurk = () => UI.v25nurk != null ? +UI.v25nurk : ((UI.poore || 0) & 3) * 90 - 18;   // -18° ≈ endine kaldvaade
+const v25Kalle = () => Math.min(85, Math.max(6, UI.v25kalle != null ? +UI.v25kalle : 32));
+function v25Kaamera(G) {
+  const yl = UI.p25 === 'ylalt', t = v25Nurk() * Math.PI / 180, f = (yl ? 90 : v25Kalle()) * Math.PI / 180;
+  const c = Math.cos(t), sn = Math.sin(t), sf = Math.sin(f), cf = yl ? 0 : Math.cos(f), mx = G.W / 2, my = G.H / 2;
+  const uv = (x, y) => { const dx = x - mx, dy = y - my; return [dx * c - dy * sn, dx * sn + dy * c]; };   // v = kaugus kaamerast (suurem = kaugem)
+  const pr = (x, y, z) => { const [u, v] = uv(x, y); return [u, -(v * sf + (z || 0) * cf)]; };
+  const tagasi = (sx, sy) => { const u = sx, v = -sy / sf; return [mx + u * c + v * sn, my - u * sn + v * c]; };   // ekraanipunkt põrandal -> maailm
+  return { yl, c, sn, uv, pr, tagasi };
+}
 function renderPlaan25(G) {
-  const SVG = $('plaanSvg'), yl = UI.p25 === 'ylalt', k = (UI.poore || 0) & 3, W = G.W, H = G.H;
-  const rot = (x, y) => k === 0 ? [x, y] : k === 1 ? [H - y, x] : k === 2 ? [W - x, H - y] : [y, W - x];
-  const pr = (u, v, z) => yl ? [u, -v] : [u + v * 0.32, -v * 0.5 - z * 0.8];
-  const kast = o => { const a = rot(o.x, o.y), b = rot(o.x + o.l, o.y + o.s); return { u0: Math.min(a[0], b[0]), u1: Math.max(a[0], b[0]), v0: Math.min(a[1], b[1]), v1: Math.max(a[1], b[1]), z0: o.z, z1: o.z + o.h }; };
+  const SVG = $('plaanSvg'), K = v25Kaamera(G), yl = K.yl, pr = K.pr, W = G.W, H = G.H;
+  const kast = o => ({ x0: o.x, x1: o.x + o.l, y0: o.y, y1: o.y + o.s, z0: o.z, z1: o.z + o.h });
   const pts = a => a.map(p => pr(...p).map(n => Math.round(n)).join(',')).join(' ');
+  const syv = b => K.uv((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2)[1];
+  // neli külge välisnormaaliga; nähtav, kui normaal on kaamera poole (nv < 0); esimene nähtav = esikülg
+  const kyljed = b => [[[b.x0, b.y0], [b.x1, b.y0], 0, -1], [[b.x1, b.y0], [b.x1, b.y1], 1, 0], [[b.x1, b.y1], [b.x0, b.y1], 0, 1], [[b.x0, b.y1], [b.x0, b.y0], -1, 0]]
+    .map(([p, q, nx, ny]) => ({ p, q, nv: nx * K.sn + ny * K.c }));
+  const nahtavad = b => kyljed(b).filter(x => x.nv < -1e-3).sort((a, c) => a.nv - c.nv);
+  const sein = (x, z0, z1) => [[...x.p, z0], [...x.q, z0], [...x.q, z1], [...x.p, z1]];
+  const lagi = (b, z) => [[b.x0, b.y0, z], [b.x1, b.y0, z], [b.x1, b.y1, z], [b.x0, b.y1, z]];
   const tahud = (b, kl) => yl
-    ? `<polygon class="${kl} ylem" points="${pts([[b.u0, b.v0, 0], [b.u1, b.v0, 0], [b.u1, b.v1, 0], [b.u0, b.v1, 0]])}"/>`
-    : `<polygon class="${kl} esi" points="${pts([[b.u0, b.v0, b.z0], [b.u1, b.v0, b.z0], [b.u1, b.v0, b.z1], [b.u0, b.v0, b.z1]])}"/>` +
-      `<polygon class="${kl} kylg" points="${pts([[b.u1, b.v0, b.z0], [b.u1, b.v1, b.z0], [b.u1, b.v1, b.z1], [b.u1, b.v0, b.z1]])}"/>` +
-      `<polygon class="${kl} ylem" points="${pts([[b.u0, b.v0, b.z1], [b.u1, b.v0, b.z1], [b.u1, b.v1, b.z1], [b.u0, b.v1, b.z1]])}"/>`;
-  // TAHKE-ALUS: 1 toode = terve alus, 2 = kaks poolt, 3+ = neli sektorit (4. sektor = toode 4 ja ülejäänud, 3 toote puhul hele)
+    ? `<polygon class="${kl} ylem" points="${pts(lagi(b, 0))}"/>`
+    : nahtavad(b).map((x, i) => `<polygon class="${kl} ${i ? 'kylg' : 'esi'}" points="${pts(sein(x, b.z0, b.z1))}"/>`).join('') + `<polygon class="${kl} ylem" points="${pts(lagi(b, b.z1))}"/>`;
+  // TAHKE-ALUS: 1 toode = terve alus, 2 = kaks poolt, 3+ = neli sektorit (4. sektor = toode 4 ja ülejäänud, 3 toote puhul hele); kaugem joonistatakse enne
   const sektorid = a => {
-    const n = a.taht ? a.tooted.length : 0, b = a.b, du = b.u1 - b.u0, dv = b.v1 - b.v0;
-    const sub = (i0, i1, j0, j1, t) => ({ b: { u0: b.u0 + du * i0, u1: b.u0 + du * i1, v0: b.v0 + dv * j0, v1: b.v0 + dv * j1, z0: b.z0, z1: b.z1 }, t });   // v0 = ees
-    if (n <= 1) return [sub(0, 1, 0, 1, 0)];
-    if (n === 2) return [sub(0, .5, 0, 1, 0), sub(.5, 1, 0, 1, 1)];
-    return [sub(0, .5, .5, 1, 2), sub(.5, 1, .5, 1, n === 3 ? 4 : 3), sub(0, .5, 0, .5, 0), sub(.5, 1, 0, .5, 1)];   // taga enne, ees pärast
+    const n = a.taht ? a.tooted.length : 0, b = a.b, mx = (b.x0 + b.x1) / 2, my = (b.y0 + b.y1) / 2;
+    const sub = (x0, x1, y0, y1, t) => ({ b: Object.assign({}, b, { x0, x1, y0, y1 }), t });
+    if (n <= 1) return [sub(b.x0, b.x1, b.y0, b.y1, 0)];
+    const L = n === 2
+      ? (Math.abs(K.c) >= Math.abs(K.sn) ? [sub(b.x0, mx, b.y0, b.y1, 0), sub(mx, b.x1, b.y0, b.y1, 1)] : [sub(b.x0, b.x1, b.y0, my, 0), sub(b.x0, b.x1, my, b.y1, 1)])
+      : [sub(b.x0, mx, b.y0, my, 0), sub(mx, b.x1, b.y0, my, 1), sub(b.x0, mx, my, b.y1, 2), sub(mx, b.x1, my, b.y1, n === 3 ? 4 : 3)];
+    return L.sort((p, q) => syv(q.b) - syv(p.b));
   };
-  const tekst = (u, v, z, t, kl, anc) => { const [sx, sy] = pr(u, v, z); return `<text x="${Math.round(sx)}" y="${Math.round(sy)}" class="${kl || ''}" text-anchor="${anc || 'middle'}">${esc(t)}</text>`; };
+  const tekst = (x, y, z, t, kl, anc) => { const [sx, sy] = pr(x, y, z); return `<text x="${Math.round(sx)}" y="${Math.round(sy)}" class="${kl || ''}" text-anchor="${anc || 'middle'}">${esc(t)}</text>`; };
+  const ekraan = b => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    [b.x0, b.x1].forEach(x => [b.y0, b.y1].forEach(y => [b.z0, b.z1].forEach(z => { const [sx, sy] = pr(x, y, z); x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy); y1 = Math.max(y1, sy); })));
+    return [x0, y0, x1, y1]; };
   const O = v25Kastid(G).map(o => Object.assign(o, { b: kast(o) }));
-  O.sort((a, b) => (b.b.v0 - a.b.v0) || (a.b.u0 - b.b.u0));
-  const pRot = k % 2 ? [H, W] : [W, H];
-  let s = `<polygon class="porand" points="${pts([[0, 0, 0], [pRot[0], 0, 0], [pRot[0], pRot[1], 0], [0, pRot[1], 0]])}"/>`;
+  O.forEach(o => { o.d = syv(o.b); o.u = K.uv((o.b.x0 + o.b.x1) / 2, (o.b.y0 + o.b.y1) / 2)[0]; });
+  O.sort((a, b) => (b.d - a.d) || (a.u - b.u));
+  // VAADE360: valitud rida esile – selle ees olevad (ekraanil kattuvad) riiulid läbipaistvaks
+  const valRida = O.filter(o => o.liik === 'pyst' && o.rida === UI.rida);
+  if (!yl && UI.v25esile !== false && valRida.length) {
+    const sB = valRida.map(o => ekraan(o.b)), sD = Math.min(...valRida.map(o => o.d));
+    O.forEach(o => {
+      if (o.liik === 'uks' || o.rida === UI.rida || (o.d >= sD - 100 && !V25.ees)) return;
+      const e = ekraan(o.b);
+      o.labi = (V25.ees && o.liik !== 'uks') || sB.some(r => e[0] < r[2] && e[2] > r[0] && e[1] < r[3] && e[3] > r[1]);   // eestvaates kõik teised kahvatuks
+    });
+  }
+  const labi = o => o.labi ? ' labi' : '';
+  const ees = V25.ees && !yl;
+  const nurgad = W && H ? [[0, 0], [W, 0], [W, H], [0, H]] : [];
+  let s = `<polygon class="porand" points="${pts(nurgad.map(p => [...p, 0]))}"/>`;
   const reaSilt = {};
   O.forEach(o => {
     const b = o.b;
-    if (o.liik === 'uks') { s += `<g class="uks">${tahud(b, 'uksp')}${tekst((b.u0 + b.u1) / 2, b.v0 - 1500, 0, '▲ ' + o.nimi, 'v25silt')}</g>`; return; }
-    if (o.liik === 'vp') { s += `<g class="riul vp" data-vp="1">${tahud(b, 'vpk')}${tekst((b.u0 + b.u1) / 2, (b.v0 + b.v1) / 2, b.z1 + 900, 'Väikepakend', 'v25silt')}</g>`; return; }
+    if (o.liik === 'uks') { s += `<g class="uks">${tahud(b, 'uksp')}${tekst((b.x0 + b.x1) / 2, b.y0 - 1500, 0, '▲ ' + o.nimi, 'v25silt')}</g>`; return; }
+    if (o.liik === 'vp') { s += `<g class="riul vp${labi(o)}" data-vp="1">${tahud(b, 'vpk')}${tekst((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, b.z1 + 900, 'Väikepakend', 'v25silt')}</g>`; return; }
     if (o.liik === 'muu' || o.liik === 'maaramata') {
-      s += `<g class="${o.liik === 'maaramata' ? 'riul maaramata' : 'muu25'}"${o.rida != null ? ` data-rida="${o.rida}"` : ''}>${tahud(b, 'muuk')}${tekst((b.u0 + b.u1) / 2, (b.v0 + b.v1) / 2, b.z1, o.nimi.replace(/\s*\/.*$/, ''), 'v25markus')}</g>`;
+      s += `<g class="${o.liik === 'maaramata' ? 'riul maaramata' : 'muu25'}${labi(o)}"${o.rida != null ? ` data-rida="${o.rida}"` : ''}>${tahud(b, 'muuk')}${tekst((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, b.z1, o.nimi.replace(/\s*\/.*$/, ''), 'v25markus')}</g>`;
       return;
     }
     // püstak: läbipaistev raam, alused, talad ja postid ees
     const akt = UI.rida === o.rida && (!UI.rp || UI.rp === o.p);
-    const rs = reaSilt[o.rida] = reaSilt[o.rida] || { u0: Infinity, v0: Infinity, u1: -Infinity, v1: -Infinity };
-    rs.u0 = Math.min(rs.u0, b.u0); rs.v0 = Math.min(rs.v0, b.v0); rs.u1 = Math.max(rs.u1, b.u1); rs.v1 = Math.max(rs.v1, b.v1);
-    let g = `<g class="riul pyst${akt ? ' akt' : ''}" data-rida="${o.rida}" data-rp="${o.p}"><title>Rida ${o.rida} · püstak ${o.p}</title>`;
+    const rs = reaSilt[o.rida] = reaSilt[o.rida] || { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity, z: 0, pyst: [] };
+    rs.x0 = Math.min(rs.x0, b.x0); rs.x1 = Math.max(rs.x1, b.x1); rs.y0 = Math.min(rs.y0, b.y0); rs.y1 = Math.max(rs.y1, b.y1); rs.z = Math.max(rs.z, b.z1); rs.pyst.push(b);
+    let g = `<g class="riul pyst${akt ? ' akt' : ''}${labi(o)}" data-rida="${o.rida}" data-rp="${o.p}"><title>Rida ${o.rida} · püstak ${o.p}</title>`;
     if (yl) {
       const kohti = o.P.alk.reduce((a, n) => a + n, 0), tais = UI.v25t === 'tegelik' ? 0 : new Set(o.alused.filter(a => a.tais).map(a => a.koht)).size;
-      g += tahud(b, 'raam') + `<polygon class="taitus" style="opacity:${(tais / kohti * 0.6).toFixed(2)}" points="${pts([[b.u0, b.v0, 0], [b.u1, b.v0, 0], [b.u1, b.v1, 0], [b.u0, b.v1, 0]])}"/>`;
+      g += tahud(b, 'raam') + `<polygon class="taitus" style="opacity:${(tais / kohti * 0.6).toFixed(2)}" points="${pts(lagi(b, 0))}"/>`;
       o.alused.filter(a => (a.taht || (UI.v25t === 'tegelik' && a.t)) && !a.valik).forEach(a => { g += `<g class="${v25AlusKlass(a)}"><title>${esc(v25AlusInfo(a))}</title>${sektorid(Object.assign(a, { b: kast(a) })).map(x => tahud(x.b, 'alusk t' + x.t)).join('')}</g>`; });
-      o.alused.filter(a => a.valik).forEach(a => { const ab = kast(a); g += `<polygon class="alus valik v25valgus" data-koht25="${esc(a.koht)}" points="${pts([[ab.u0, ab.v0, 0], [ab.u1, ab.v0, 0], [ab.u1, ab.v1, 0], [ab.u0, ab.v1, 0]])}"/>`; });
-      g += tekst((b.u0 + b.u1) / 2, (b.v0 + b.v1) / 2 - 220, 0, o.p, 'v25nr');
+      o.alused.filter(a => a.valik).forEach(a => { g += `<polygon class="alus valik v25valgus" data-koht25="${esc(a.koht)}" points="${pts(lagi(kast(a), 0))}"/>`; });
+      g += tekst((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, 0, o.p, 'v25nr');
     } else {
-      g += `<polygon class="raam taga" points="${pts([[b.u0, b.v1, 0], [b.u1, b.v1, 0], [b.u1, b.v1, b.z1], [b.u0, b.v1, b.z1]])}"/>`;
-      o.alused.map(a => Object.assign(a, { b: kast(a) })).sort((p, q) => (p.b.z0 - q.b.z0) || (q.b.v0 - p.b.v0) || (p.b.u0 - q.b.u0))
-        .forEach(a => { g += `<g class="${v25AlusKlass(a)}" data-koht25="${esc(a.koht)}"><title>${esc(v25AlusInfo(a))}</title>${sektorid(a).map(x => tahud(x.b, 'alusk t' + x.t)).join('')}</g>`; });
-      o.P.h.forEach(zt => { if (zt > 0) g += `<polyline class="tala" points="${pts([[b.u0, b.v0, zt], [b.u1, b.v0, zt], [b.u1, b.v1, zt]])}"/>`; });
-      [[b.u0, b.v0], [b.u1, b.v0], [b.u1, b.v1]].forEach(([u, v]) => { g += `<polyline class="post" points="${pts([[u, v, 0], [u, v, b.z1]])}"/>`; });
-      g += `<polygon class="raam ylem" points="${pts([[b.u0, b.v0, b.z1], [b.u1, b.v0, b.z1], [b.u1, b.v1, b.z1], [b.u0, b.v1, b.z1]])}"/>`;
-      g += tekst((b.u0 + b.u1) / 2, b.v0, b.z1 + 150, o.p, 'v25nr');
+      const nv = nahtavad(b);
+      kyljed(b).filter(x => x.nv > 1e-3).forEach(x => { g += `<polygon class="raam taga" points="${pts(sein(x, 0, b.z1))}"/>`; });
+      const silt = ees && o.rida === UI.rida;   // VAADE360: eestvaates valitud rea alustel kohakood ja tooted
+      o.alused.map(a => Object.assign(a, { b: kast(a) })).sort((p, q) => (p.b.z0 - q.b.z0) || (syv(q.b) - syv(p.b)))
+        .forEach(a => {
+          g += `<g class="${v25AlusKlass(a)}" data-koht25="${esc(a.koht)}"><title>${esc(v25AlusInfo(a))}</title>${sektorid(a).map(x => tahud(x.b, 'alusk t' + x.t)).join('')}`;
+          const f = silt && nahtavad(a.b)[0];
+          if (f) {
+            const mx = (f.p[0] + f.q[0]) / 2, my = (f.p[1] + f.q[1]) / 2, mz = (a.b.z0 + a.b.z1) / 2;
+            const tt = a.tooted && a.tooted.length ? a.tooted : a.t ? a.t.read.filter(x => x.kogus > 0) : [];
+            g += tekst(mx, my, mz + 120, a.koht, 'v25kood') + (tt.length ? tekst(mx, my, mz - 200, tt[0].kood + (tt.length > 1 ? ' +' + (tt.length - 1) : ''), 'v25kood toode') : '');
+          }
+          g += '</g>';
+        });
+      o.P.h.forEach(zt => { if (zt > 0) nv.forEach(x => { g += `<polyline class="tala" points="${pts([[...x.p, zt], [...x.q, zt]])}"/>`; }); });
+      const postid = new Map(); nv.forEach(x => [x.p, x.q].forEach(p => postid.set(p.join(), p)));
+      postid.forEach(([x, y]) => { g += `<polyline class="post" points="${pts([[x, y, 0], [x, y, b.z1]])}"/>`; });
+      g += `<polygon class="raam ylem" points="${pts(lagi(b, b.z1))}"/>`;
+      g += tekst((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, b.z1 + 150, o.p, 'v25nr');
     }
     s += g + '</g>';
   });
-  // PLAAN26: rea sildid = väike numbrimärk rea alguses põrandal (pikk tekst ei jookse riiulitele), nupp Sildid peidab kõik tekstid
+  // VAADE360: rea number on rea tipus (2.5D) ja liigub pööramisel riiuliga kaasa; seljad koos (teine rida kohe taga) -> märk rea teises otsas
   Object.keys(reaSilt).forEach(r => {
-    const b = reaSilt[r], pysti = b.v1 - b.v0 > b.u1 - b.u0;
-    // seljad koos (teine rida kohe ees): märk nihkub kõrvale, et paari märgid ei kattuks
-    const paar = Object.keys(reaSilt).some(q => q !== r && reaSilt[q].v1 <= b.v0 + 1 && reaSilt[q].v1 > b.v0 - 600 && reaSilt[q].u0 < b.u1 && reaSilt[q].u1 > b.u0);
-    const paarU = Object.keys(reaSilt).some(q => q !== r && reaSilt[q].u1 <= b.u0 + 1 && reaSilt[q].u1 > b.u0 - 600 && reaSilt[q].v0 < b.v1 && reaSilt[q].v1 > b.v0);
-    const nihe = (pysti ? paarU : paar) ? 1150 : 0, w = r.length > 1 ? 1100 : 800;
-    const [x, y] = pysti ? pr((b.u0 + b.u1) / 2, b.v0 - 750 - nihe, 0) : pr(b.u0 - 750 - nihe, (b.v0 + b.v1) / 2, 0);
+    if (ees && +r !== UI.rida) return;
+    const b = reaSilt[r], ym = (b.y0 + b.y1) / 2;
+    const paar = Object.keys(reaSilt).some(q => q !== r && reaSilt[q].y1 <= b.y0 + 1 && reaSilt[q].y1 > b.y0 - 700 && reaSilt[q].x0 < b.x1 && reaSilt[q].x1 > b.x0);
+    const p = b.pyst.slice().sort((a, c) => a.x0 - c.x0)[paar ? b.pyst.length - 1 : 0];
+    const xm = (p.x0 + p.x1) / 2, w = r.length > 1 ? 1100 : 800;
+    const [x, y] = yl ? pr(paar ? b.x1 + 750 : b.x0 - 750, ym, 0) : pr(xm, ym, b.z + 900);
     s += `<g class="riul reamark${UI.rida === +r && !UI.rp ? ' akt' : ''}" data-rida="${r}"><title>Rida ${r}</title>
       <rect x="${Math.round(x - w / 2)}" y="${Math.round(y - 400)}" width="${w}" height="800" rx="240"/><text x="${Math.round(x)}" y="${Math.round(y + 200)}" text-anchor="middle">${r}</text></g>`;
   });
   // vaateala: kogu ladu + varu
-  const nurgad = [[0, 0, 0], [pRot[0], 0, 0], [pRot[0], pRot[1], 0], [0, pRot[1], 0], [0, pRot[1], yl ? 0 : 5000], [pRot[0], pRot[1], yl ? 0 : 5000]].map(p => pr(...p));
-  const xs = nurgad.map(p => p[0]), ys = nurgad.map(p => p[1]), m = 2600;
+  const nn = []; nurgad.forEach(p => { nn.push(pr(p[0], p[1], 0)); if (!yl) nn.push(pr(p[0], p[1], 5000)); });
+  const xs = nn.map(p => p[0]), ys = nn.map(p => p[1]), m = 2600;
   V25.bb = [Math.min(...xs) - m, Math.min(...ys) - m, Math.max(...xs) - Math.min(...xs) + 2 * m, Math.max(...ys) - Math.min(...ys) + 2 * m];
   SVG.innerHTML = s;
   SVG.classList.toggle('pole-silte', UI.v25sildid === false);
+  if (V25.sobita) {   // VAADE360: eestvaade suumib valitud reale (või püstakule)
+    V25.sobita = false;
+    const val = valRida.filter(o => !UI.rp || o.p === UI.rp).map(o => ekraan(o.b));
+    if (val.length) {
+      const x0 = Math.min(...val.map(e => e[0])), y0 = Math.min(...val.map(e => e[1])), x1 = Math.max(...val.map(e => e[2])), y1 = Math.max(...val.map(e => e[3]));
+      V25.k = Math.min(12, Math.max(1, Math.min(V25.bb[2] / ((x1 - x0) * 1.12 || 1), V25.bb[3] / ((y1 - y0) * 1.35 || 1))));
+      V25.cx = (x0 + x1) / 2; V25.cy = (y0 + y1) / 2;
+    }
+  }
   v25ViewBox();
 }
 function v25ViewBox() {
@@ -6899,11 +6970,13 @@ function v25ViewBox() {
 // PLAAN26: Tegelik = iga koht+kood viimane inventuuri lugemine (kõik seansid); koha kogus = nende summa
 function v25AlusKlass(a) {
   if (a.valik) return 'alus valik v25valgus';
+  if (a.tyhi) return 'alus tyhi';
   if (a.plaan) return a.taht ? 'alus taht' : 'alus plaan';
   const vana = a.t && Date.now() - a.t.aeg > 30 * 864e5;
   return 'alus' + (a.t && a.t.kogus > 0 ? (vana ? ' vana' : '') : ' null');
 }
 function v25AlusInfo(a) {
+  if (a.tyhi) return a.koht + ' · tühi';
   const kg = x => x.kogus != null ? ' ' + String(x.kogus).replace('.', ',') : '';
   if (a.plaan && a.taht) return `${a.koht} · kaup kohas: ` + a.tooted.map(x => x.kood + kg(x)).join(', ');
   if (!a.t) return a.koht + (a.plaan ? ' · määratud: ' + SEOSED.filter(s => s.koht === a.koht).map(s => s.kood).join(', ') : '');
@@ -6936,31 +7009,59 @@ async function v25LaeTegelik() {
   if (UI.vaade === 'plaan') renderPlaan();
 }
 function v25Nupud(G) {
+  const yl = UI.p25 === 'ylalt';
   return G ? `<div class="v25nupud">
-    <div class="nupurida"><button class="nupp" data-v25="25d" aria-pressed="${UI.p25 !== 'ylalt'}">2.5D</button><button class="nupp" data-v25="ylalt" aria-pressed="${UI.p25 === 'ylalt'}">Ülalt</button></div>
-    <button class="nupp" data-v25="vasak" title="Pööra vasakule">⟲</button><button class="nupp" data-v25="parem" title="Pööra paremale">⟳</button>
-    <button class="nupp" data-v25="algne" title="Kogu ladu">⤢</button>
+    <div class="nupurida"><button class="nupp" data-v25="25d" aria-pressed="${!yl}">2.5D</button><button class="nupp" data-v25="ylalt" aria-pressed="${yl}">Ülalt</button></div>
+    <button class="nupp" data-v25="vasak" title="Pööra 90° vasakule">⟲</button><button class="nupp" data-v25="parem" title="Pööra 90° paremale">⟳</button>
+    <button class="nupp" data-v25="algne" title="Kogu ladu, algne kalle">⤢</button>
+    ${yl ? '' : `<button class="nupp" data-v25="ees" title="Valitud rida otse eest koos kohakoodidega; uuesti vajutades teine pool">Eestvaade</button>
+    <button class="nupp" data-v25="esile" aria-pressed="${UI.v25esile !== false}" title="Valitud rea ees olevad riiulid läbipaistvaks">Rida esile</button>`}
     <div class="nupurida"><button class="nupp" data-v25="plaan" aria-pressed="${UI.v25t !== 'tegelik'}" title="Kuhu tooted on määratud (Paigutus)">Plaan</button><button class="nupp" data-v25="tegelik" aria-pressed="${UI.v25t === 'tegelik'}" title="Mis on inventuuris päriselt loetud">Tegelik</button></div>
     ${UI.v25t === 'tegelik' ? '<button class="nupp" data-v25="laetegelik" title="Lae inventuuri lugemised uuesti">↻</button>' : ''}
     <button class="nupp" data-v25="sildid" aria-pressed="${UI.v25sildid !== false}" title="Näita või peida plaanil tekstid">Sildid</button>
-    <span class="hall vaike" id="v25Legend">${v25Legend()}</span></div>`
+    <span class="hall vaike" id="v25Legend">${v25Legend()}</span>
+    <span class="hall vaike">Pööra ja kalluta: parem hiireklahv (või Shift) all ja lohista.</span></div>`
     : `<div class="v25nupud"><span class="hall vaike">Täpne 2.5D plaan tuleb, kui Komplekteerimine → „Lao mõõdud“ on laaditud.</span></div>`;
+}
+// VAADE360: uus nurk/kalle; suurendatud vaates jääb ekraani keskel olev põrandapunkt paigale
+function v25SeaNurk(nurk, kalle) {
+  const G = laoMoodud(), w = G && V25.cx != null ? v25Kaamera(G).tagasi(V25.cx, V25.cy) : null;
+  UI.v25nurk = Math.round(v25Norm(nurk) * 10) / 10;
+  if (kalle != null) UI.v25kalle = Math.round(Math.min(85, Math.max(6, kalle)) * 10) / 10;
+  if (w) { const p = v25Kaamera(G).pr(w[0], w[1], 0); V25.cx = p[0]; V25.cy = p[1]; }
+}
+function v25Eestvaade() {   // VAADE360: valitud rida otse eest (vahekäigu poolt), madal kalle, suum reale; teine vajutus = teine pool
+  const G = laoMoodud(), R = G && G.read[UI.rida];
+  if (!R) { alert('Vali enne rida: klõpsa plaanil riiulil või rea numbril.'); return; }
+  const [, y, s] = R, teised = Object.keys(G.read).filter(r => +r !== UI.rida).map(r => G.read[r]);
+  const taga = teised.some(q => q[1] >= y + s - 1 && q[1] < y + s + 700), ees = teised.some(q => q[1] + q[2] <= y + 1 && q[1] + q[2] > y - 700);
+  let nurk = ees && !taga ? 180 : 0;   // nurk 0 = kaamera väiksema y poolt
+  if (V25.ees && V25.eesRida === UI.rida && Math.abs(v25Norm(v25Nurk() - nurk)) < 1) nurk += 180;
+  UI.p25 = '25d'; UI.v25nurk = v25Norm(nurk); UI.v25kalle = 12; V25.ees = true; V25.eesRida = UI.rida; V25.sobita = true;
+  salvestaUI(); renderPlaan();
 }
 function v25Tegevus(t) {
   if (t === 'plaan' || t === 'tegelik') { UI.v25t = t; salvestaUI(); renderPlaan(); if (t === 'tegelik' && !V25.teg) v25LaeTegelik(); return; }
   if (t === 'laetegelik') { v25LaeTegelik(); return; }
   if (t === 'peida') { UI.plaanPeidus = !(UI.plaanPeidus === true); salvestaUI(); renderPlaan(); return; }
   if (t === 'sildid') { UI.v25sildid = UI.v25sildid === false; salvestaUI(); renderPlaan(); return; }
+  if (t === 'esile') { UI.v25esile = UI.v25esile === false; salvestaUI(); renderPlaan(); return; }
+  if (t === 'ees') { v25Eestvaade(); return; }
+  V25.ees = false;
+  if (t === 'vasak' || t === 'parem') {   // 90° samm, joondub lähima põhinurga järgi
+    v25SeaNurk((Math.round((v25Nurk() + 18) / 90) + (t === 'vasak' ? -1 : 1)) * 90 - 18);
+    salvestaUI(); renderPlaan(); return;
+  }
   if (t === '25d' || t === 'ylalt') UI.p25 = t;
-  if (t === 'vasak') UI.poore = ((UI.poore || 0) + 3) & 3;
-  if (t === 'parem') UI.poore = ((UI.poore || 0) + 1) & 3;
+  if (t === 'algne') { UI.v25nurk = (Math.round((v25Nurk() + 18) / 90) * 90) - 18; UI.v25kalle = 32; }
   V25.k = 1; V25.cx = V25.cy = null;
   salvestaUI(); renderPlaan();
 }
-function v25Hiir() {   // suurendus rulliga kursori suunas, lohistamine liigutab; lohistamise järel klõpsu ei arvestata
+function v25Hiir() {   // suurendus rulliga kursori suunas, lohistamine liigutab; parem klahv / Shift + lohistamine pöörab ja kallutab; lohistamise järel klõpsu ei arvestata
   const SVG = $('plaanSvg');
   const punkt = e => { const r = SVG.getBoundingClientRect(), vb = SVG.viewBox.baseVal, sk = Math.max(vb.width / r.width, vb.height / r.height);
     return [vb.x + vb.width / 2 + (e.clientX - r.left - r.width / 2) * sk, vb.y + vb.height / 2 + (e.clientY - r.top - r.height / 2) * sk, sk]; };
+  const joonista = () => { if (V25.raf) return; V25.raf = requestAnimationFrame(() => { V25.raf = 0; const G = laoMoodud(); if (G && UI.vaade === 'plaan') renderPlaan25(G); }); };
   SVG.addEventListener('wheel', e => {
     if (!V25.bb || !laoMoodud()) return;
     e.preventDefault();
@@ -6970,14 +7071,22 @@ function v25Hiir() {   // suurendus rulliga kursori suunas, lohistamine liigutab
     if (uusK === 1) V25.cx = V25.cy = null;
     v25ViewBox();
   }, { passive: false });
-  SVG.addEventListener('pointerdown', e => { if (!V25.bb || !laoMoodud()) return; const [, , sk] = punkt(e); const vb = SVG.viewBox.baseVal; V25.lohk = { x: e.clientX, y: e.clientY, cx: vb.x + vb.width / 2, cy: vb.y + vb.height / 2, sk }; V25.liikus = false; });
+  SVG.addEventListener('contextmenu', e => { if (laoMoodud()) e.preventDefault(); });
+  SVG.addEventListener('pointerdown', e => {
+    if (!V25.bb || !laoMoodud()) return;
+    const [, , sk] = punkt(e), vb = SVG.viewBox.baseVal;
+    V25.lohk = { x: e.clientX, y: e.clientY, cx: vb.x + vb.width / 2, cy: vb.y + vb.height / 2, sk, poora: e.button === 2 || e.shiftKey, nurk: v25Nurk(), kalle: v25Kalle() };
+    V25.liikus = false;
+  });
   window.addEventListener('pointermove', e => {
     const L = V25.lohk; if (!L) return;
     const dx = e.clientX - L.x, dy = e.clientY - L.y;
     if (!V25.liikus && Math.hypot(dx, dy) < 5) return;
-    V25.liikus = true; V25.cx = L.cx - dx * L.sk; V25.cy = L.cy - dy * L.sk; v25ViewBox();
+    V25.liikus = true;
+    if (L.poora) { V25.ees = false; v25SeaNurk(L.nurk + dx * 0.4, UI.p25 === 'ylalt' ? null : L.kalle + dy * 0.3); joonista(); return; }
+    V25.cx = L.cx - dx * L.sk; V25.cy = L.cy - dy * L.sk; v25ViewBox();
   });
-  window.addEventListener('pointerup', () => { V25.lohk = null; });
+  window.addEventListener('pointerup', () => { if (V25.lohk && V25.lohk.poora && V25.liikus) salvestaUI(); V25.lohk = null; });
   SVG.addEventListener('click', e => { if (V25.liikus) { e.stopPropagation(); e.preventDefault(); V25.liikus = false; } }, true);
 }
 v25Hiir();
@@ -7525,7 +7634,7 @@ function seaPaigutus(on) {
 const tlAvatud = () => $('tlAken').classList.contains('lahti');
 function tlPakRida(x, nupud) {
   const p = Math.floor((Date.now() - new Date(x.lisatud).getTime()) / 864e5);
-  return `<tr><td><b>${esc(x.kood)}</b></td><td>${esc(toode(x.kood).nimi)}</td><td class="arv">${x.kogus === '' || x.kogus == null ? '' : fmt(x.kogus)}</td>
+  return `<tr><td><input type="checkbox" data-pakvali="${esc(x.id)}"${PAKA_VALI.has(x.id) ? ' checked' : ''}></td><td><b>${esc(x.kood)}</b></td><td>${esc(toode(x.kood).nimi)}</td><td class="arv">${x.kogus === '' || x.kogus == null ? '' : fmt(x.kogus)}</td>
     <td class="hall">${x.kust ? esc(x.kust) : x.allikas === 'vastuvõtt' ? 'vastuvõtust' : ''}</td>
     <td class="hall">${esc(x.lisas)} ${pakAeg(x.lisatud)}${p >= 1 ? ` · <b${p >= 2 && x.seis !== 'paigutatud' ? ' style="color:var(--punane)"' : ''}>${p} p</b>` : ''}</td>
     <td style="white-space:nowrap">${nupud}</td></tr>`;
@@ -7536,16 +7645,32 @@ function renderToolaud() {
   const A = (PAKA || []).filter(x => x.seis !== 'pakitud'), V = PAKA ? PAKA.filter(x => x.seis === 'pakitud') : [];
   const pakNupp = x => `<button class="nupp pea" data-pakpakitud="${esc(x.id)}" title="Buumis konvert tehtud, rida kaob">Pakitud</button> <button class="nupp" data-pakkogus="${esc(x.id)}" title="Muuda kogust">✎</button>`;
   const liikSelect = x => `<button class="nupp" data-pakkogus="${esc(x.id)}" title="Muuda kogust">✎</button> <select data-pakliik="${esc(x.id)}"><option value="">– alusta: vali viis –</option>${Object.keys(PAK_LIIK_NIMI).map(l => `<option value="${l}">${PAK_LIIK_NIMI[l]}</option>`).join('')}</select>`;
-  const tab = (L, nupud, tuhi) => L.length ? `<table class="tabel"><tr><th>Kood</th><th>Nimetus</th><th>Kogus</th><th>Kust</th><th>Läks pakkimisse</th><th></th></tr>${L.map(x => tlPakRida(x, nupud(x))).join('')}</table>` : `<p class="hall vaike" style="margin:0">${tuhi}</p>`;
+  const tab = (L, nupud, tuhi, sek, grupeeri) => {
+    if (!L.length) return `<p class="hall vaike" style="margin:0">${tuhi}</p>`;
+    const koik = L.every(x => PAKA_VALI.has(x.id));
+    let rid = '';
+    if (grupeeri) {   // vahekande / nimekirja kaupa: grupi märkeruut valib kogu vahekande
+      const G = new Map(); L.forEach(x => { const k = x.markus || ''; if (!G.has(k)) G.set(k, []); G.get(k).push(x); });
+      G.forEach((l, k) => { rid += `<tr style="background:var(--joon2)"><td><input type="checkbox" data-tlgrupp="${esc(k)}" title="Vali kogu grupp"${l.every(x => PAKA_VALI.has(x.id)) ? ' checked' : ''}></td><td colspan="6"><b>${esc(k || 'Muud (asukohast / käsitsi)')}</b> <span class="hall vaike">${l.length} rida</span></td></tr>` + l.map(x => tlPakRida(x, nupud(x))).join(''); });
+    } else rid = L.map(x => tlPakRida(x, nupud(x))).join('');
+    return `<table class="tabel"><tr><th><input type="checkbox" data-tlsek="${sek}" title="Vali kõik selles osas"${koik ? ' checked' : ''}></th><th>Kood</th><th>Nimetus</th><th>Kogus</th><th>Kust</th><th>Läks pakkimisse</th><th></th></tr>${rid}</table>`;
+  };
+  const valitud = A.filter(x => PAKA_VALI.has(x.id)).length;
+  const massi = `<div class="tl-kast" style="position:sticky;top:-20px;background:var(--paneel);z-index:5"><div class="rida" style="gap:8px"><b>Valitud: ${valitud}</b>
+      <select id="tlViis"><option value="">– pakkimise viis –</option>${Object.keys(PAK_LIIK_NIMI).map(l => `<option value="${l}">${PAK_LIIK_NIMI[l]}</option>`).join('')}</select>
+      <button class="nupp pea" data-tlalusta${valitud ? '' : ' disabled'} title="Valitud read lähevad pakkimisele">Alusta pakkimist</button>
+      <button class="nupp" data-tlpakitud${valitud ? '' : ' disabled'} title="Buumis konvert tehtud">Pakitud</button>
+      <button class="nupp" data-tlootele${valitud ? '' : ' disabled'} title="Tagasi järjekorda">Tagasi ootele</button>
+      <span class="hall vaike">Märgi read märkeruutudega või vali terve vahekanne grupi märkeruuduga.</span></div></div>`;
   const pakkimisel = A.filter(x => x.seis === 'pakkimisel'), ootel = A.filter(x => x.seis === 'ootel'), laos = A.filter(x => x.seis === 'paigutatud');
   const viisid = ['käsitsi', 'pakkeliin', 'vangla'].map(l => `${PAK_LIIK_NIMI[l]}: <b>${pakkimisel.filter(x => x.liik === l).length}</b>`).join(' · ');
-  const pak = `<div class="tl-kast"><h3><span>1. Pakkimisel <span class="tl-arv">${pakkimisel.length}</span> <span class="hall vaike" style="font-weight:400">${viisid}</span></span></h3>
-      ${PAKA === null ? '<p class="hall">Laen…</p>' : tab(pakkimisel.sort((a, b) => String(a.liik).localeCompare(String(b.liik))), x => `<span class="hall vaike">${esc(PAK_LIIK_NIMI[x.liik] || '')}</span> ${pakNupp(x)}`, 'Praegu ei pakita midagi.')}</div>
+  const pak = massi + `<div class="tl-kast"><h3><span>1. Pakkimisel <span class="tl-arv">${pakkimisel.length}</span> <span class="hall vaike" style="font-weight:400">${viisid}</span></span></h3>
+      ${PAKA === null ? '<p class="hall">Laen…</p>' : tab(pakkimisel.sort((a, b) => String(a.liik).localeCompare(String(b.liik))), x => `<span class="hall vaike">${esc(PAK_LIIK_NIMI[x.liik] || '')}</span> ${pakNupp(x)}`, 'Praegu ei pakita midagi.', 'pakkimisel')}</div>
     <div class="tl-kast"><h3><span>2. Ootel, pakkimisalal <span class="tl-arv">${ootel.length}</span></span></h3>
-      ${PAKA === null ? '' : tab(ootel, x => liikSelect(x), 'Pakkimisalal pole midagi ootel.')}</div>
+      ${PAKA === null ? '' : tab(ootel, x => liikSelect(x), 'Pakkimisalal pole midagi ootel.', 'ootel', true)}</div>
     <div class="tl-kast"><h3><span>3. Pakitud <span class="tl-arv">${laos.length}</span> <span class="hall vaike" style="font-weight:400">pakitud, laos: märgi pakituks, kui konvert on Buumis tehtud</span></span>
       ${laos.length ? '<button class="nupp" data-pakmargi="laos">Märgi kõik pakituks</button>' : ''}</h3>
-      ${PAKA === null ? '' : tab(laos, pakNupp, 'Pakitud, laos ootel ridu pole.')}
+      ${PAKA === null ? '' : tab(laos, pakNupp, 'Pakitud, laos ootel ridu pole.', 'paigutatud')}
       ${V.length ? `<details style="margin-top:6px"><summary class="hall vaike">Pakitud viimastel päevadel (${V.length})</summary><table class="tabel">${V.map(x => `<tr class="hall"><td><b>${esc(x.kood)}</b></td><td>${esc(toode(x.kood).nimi)}</td><td class="arv">${x.kogus === '' || x.kogus == null ? '' : fmt(x.kogus)}</td><td>${esc(x.pakkis || '')} ${pakAeg(x.pakitud)}</td><td><button class="nupp" data-paktagasi="${esc(x.id)}">Võta tagasi</button></td></tr>`).join('')}</table></details>` : ''}</div>`;
   // komplekteerimine / vastuvõtt / väljaviimine
   const nimed = KOG.filter(n => !kogVK(n)), vkd = KOG.filter(n => kogVK(n));
@@ -7566,6 +7691,20 @@ function renderToolaud() {
   </div>`;
   $('tlSisu').innerHTML = pak + ruudud;
 }
+// Töölaud: valitud ridade massitoiming (alusta pakkimist / pakitud / tagasi ootele)
+function tlMassi(toiming) {
+  const ids = (PAKA || []).filter(x => x.seis !== 'pakitud' && PAKA_VALI.has(x.id));
+  if (!ids.length) { teade('Märgi read märkeruutudega', true); return; }
+  if (toiming === 'alusta') {
+    const liik = $('tlViis') ? $('tlViis').value : '';
+    if (!liik) { teade('Vali pakkimise viis (käsitsi, pakkeliin, vangla)', true); return; }
+    const L = ids.filter(x => x.seis !== 'pakkimisel'); if (!L.length) { teade('Valitud read on juba pakkimisel', true); return; }
+    pakArvutist(L.map(x => ({ op: 'seis', id: x.id, seis: 'pakkimisel', liik })));
+  } else if (toiming === 'pakitud') {
+    if (!confirm(`Märgin ${ids.length} rida pakituks (Buumis tehtud)? Need kaovad nimekirjast.`)) return;
+    pakArvutist(ids.map(x => ({ op: 'seis', id: x.id, seis: 'pakitud' })));
+  } else pakArvutist(ids.filter(x => x.seis !== 'ootel').map(x => ({ op: 'seis', id: x.id, seis: 'ootel' })));
+}
 async function avaToolaud() {
   $('tlAken').classList.add('lahti'); renderToolaud();
   await Promise.all([laePakArvuti(), laeKogumised(true)]);
@@ -7581,7 +7720,7 @@ async function avaToolaud() {
 document.addEventListener('click', e => {
   const mk = e.target.closest('[data-muudakogus]');   // KOGUS-MUUTMINE
   if (mk) { muudaKogus(mk.dataset.muudakogus, mk.dataset.kohast); return; }
-  const el = e.target.closest('[data-pesainfo],[data-pesasulge],[data-vaade],[data-kood],[data-tyhi],[data-k],[data-tegevus],[data-varv],[data-kylg],[data-pystak],[data-rida],[data-rp],[data-v25],[data-vp],[data-i],[data-jrk],[data-peida],[data-taasta],[data-peidvaade],[data-buumita],[data-fluideemalda],[data-ajutava],[data-tooreemalda],[data-taittehtud],[data-taitkustuta],[data-kogpakkoik],[data-krava],[data-pakkogus],[data-tlava],[data-pakpakitud],[data-pakmargi],[data-paktagasi],[data-pakkustuta],[data-pakvalikoik],[data-valjamargi],[data-vahekanne],[data-valjatuhi],[data-valjakoik],[data-kaslink],[data-kasarvuti],[data-kaskasuta],[data-kasvoti],[data-kaseemalda],[data-kastaasta],[data-vanad],[data-kasvabasta],[data-kaskustuta],[data-kasparool],[data-kasseanss],[data-kasvaljakoik],[data-kaslukk]');
+  const el = e.target.closest('[data-pesainfo],[data-pesasulge],[data-vaade],[data-kood],[data-tyhi],[data-k],[data-tegevus],[data-varv],[data-kylg],[data-pystak],[data-rida],[data-rp],[data-v25],[data-vp],[data-i],[data-jrk],[data-peida],[data-taasta],[data-peidvaade],[data-buumita],[data-fluideemalda],[data-ajutava],[data-tooreemalda],[data-taittehtud],[data-taitkustuta],[data-tlalusta],[data-tlpakitud],[data-tlootele],[data-kogpakkoik],[data-krava],[data-pakkogus],[data-tlava],[data-pakpakitud],[data-pakmargi],[data-paktagasi],[data-pakkustuta],[data-pakvalikoik],[data-valjamargi],[data-vahekanne],[data-valjatuhi],[data-valjakoik],[data-kaslink],[data-kasarvuti],[data-kaskasuta],[data-kasvoti],[data-kaseemalda],[data-kastaasta],[data-vanad],[data-kasvabasta],[data-kaskustuta],[data-kasparool],[data-kasseanss],[data-kasvaljakoik],[data-kaslukk]');
   if (!el) { if (!e.target.closest('.otsing-kast')) $('otsTulemus').classList.remove('lahti'); return; }
   const d = el.dataset;
   if (d.vaade) { UI.vaade = d.vaade; VALITUD = null; salvestaUI(); renderKoik(); return; }
@@ -7594,6 +7733,7 @@ document.addEventListener('click', e => {
   if (d.ajutava) { ajutAva(d.ajutava); return; }   // VASTUVOTT
   if (d.tooreemalda) { eemaldaToor(d.tooreemalda); return; }   // TOORAINE
   if (d.taittehtud) { taitArvutist({ op: 'tehtud', id: d.taittehtud, olek: 'tehtud' }); return; }
+  if ('tlalusta' in d || 'tlpakitud' in d || 'tlootele' in d) { tlMassi('tlalusta' in d ? 'alusta' : 'tlpakitud' in d ? 'pakitud' : 'ootele'); return; }
   if (d.kogpakkoik) { kogPakKoik(d.kogpakkoik); return; }
   if (d.krava) { const [a, b] = d.krava.split('|'); krAva(a, b); return; }
   if (d.pakkogus) { pakKogusMuuda(d.pakkogus); return; }
