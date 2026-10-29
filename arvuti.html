@@ -4303,6 +4303,11 @@ $('kogKasKleebiLisa').addEventListener('click', kogKasKleebi);
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.29', kp: '29.10.2026', nimi: 'Vahekanne: linnuke pakkimisse, pesa-küsimus ära',
+    lisati: ['Vastuvõtul (vahekande nimekiri) on igal reakaardil linnuke „Läheb otse pakkimisse“. Kui see on märgitud, läheb loetud kogus kinnitamisel otse pakkimise järjekorda, ilma küsimata. Märgid toote kaupa, mitte kogu vahekande kohta.',
+             'Küsimus „Kas koht jäi tühjaks?“ kadus nii vastuvõtult kui komplekteerimiselt. Koha tühjaks märkimine on valikuline: reakaardil nupp „Koht jäi tühjaks“.',
+             'Vahekande lisainfo read (nt „KRUVILE Ø3,5-5,0mm“ tüübli all) jäetakse PDF-i lugemisel välja.'],
+    kasutus: ['Telefonis vahekande rida: märgi linnuke, kui toode läheb pakkimisse, sisesta kogus, Kinnita. Linnukeseta rida pakub nagu varem Paiguta / Pakkimisse / Hiljem.'] },
   { v: '2.28', kp: '29.10.2026', nimi: 'Vahekanne (PDF) → vastuvõtu nimekiri',
     lisati: ['Komplekteerimine → Buumi tellimus või vahekanne (PDF): lohista Buumi vahekande PDF aknasse, näed eelvaadet (vahekande nr, kuupäev, kust → kuhu, read) ja saadad telefoni.',
              'Telefonis (Kogumine) on see vastuvõtu nimekiri: skänni toode, sisesta loetud kogus. Kontroll on täpselt 1:1 (5% „napilt“ ei kehti): vähem, rohkem või null on erinevus.',

@@ -2375,6 +2375,7 @@ $('iReaKaupa').addEventListener('toggle', () => { renderReaKaupa(); if ($('iReaK
 let GK = loe(V.kog, { nimekirjad: [], aeg: '' });       // serveri seis
 let gAvatud = loe(V.kogAvatud, null), gRezhiim = loe(V.kogRezhiim, 'jarjest');
 let gRida = null, gUusRida = null, gKontrollitud = null, gVahele = new Set(), laebKog = false, gViga = '';
+let gVkPak = {};   // VAHEKANNE: read, mis lähevad otse pakkimisse (linnuke reakaardil)
 let gKontrollViis = 'skänn', gKontrollSkann = '', gVale = null;   // SKANN: kuidas õige toode tuvastati; viimane vale skänn
 
 /* ---------- MARSRUUT: korjejärjekord uksest 2 (Lao mõõdud, mm) ----------
@@ -2786,6 +2787,7 @@ function gKaart(r, read) {
       <input id="gKogus" data-gid="${esc(r.id)}" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" value="${r.olek ? String(r.votetud).replace('.', ',') : r.vaja ? String(r.vaja).replace('.', ',') : ''}" aria-label="Võetud kogus" style="font-size:22px;font-weight:700">
       ${ean && !ok ? '' : '<button class="skann-nupp" data-gskann="rida" aria-label="Skänni toode">⌗</button>'}
     </div>
+    ${kogVK(kogNimekirjad().find(x => x.id === gAvatud)) ? `<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:16px"><input type="checkbox" data-vkpak="${esc(r.id)}" ${gVkPak[r.id] ? 'checked' : ''} onchange="gVkPak[this.dataset.vkpak]=this.checked" style="width:22px;height:22px"> → Läheb otse pakkimisse</label>` : ''}
     ${koht ? `<div class="nupud" style="margin-top:6px"><button class="nupp vaike" data-gtyhi="${esc(r.kood + '|' + koht.koht)}">${onTooraineLiik(koht.liik) ? 'Tooraine alus sai tühjaks' : onAjutineKoht(koht) ? 'Ajutine koht jäi tühjaks' : 'Koht jäi tühjaks'}</button></div>` : ''}
     <div class="nupud"><button class="nupp${ok || !ean ? ' pea' : ''}" data-gkinnita style="flex:1">${ok || !ean ? 'Kinnita' : 'Kinnita skännimata'}</button>
       ${gUusRida ? '<button class="nupp" data-gloobu>Loobu</button>'
@@ -2847,11 +2849,16 @@ function gKinnita(kohast) {
   if (vk) naita(`${r.kood}: loetud ${fmtNr(votetud)}` + (olek === 'puudu' ? ` (vahekandes ${fmtNr(r.vaja)}, vahe ${votetud > r.vaja ? '+' : '−'}${fmtNr(Math.abs(r.vaja - votetud))})` : ' ✓'), olek === 'puudu');
   else naita(`${r.kood}: ${fmtNr(votetud)}` + (olek === 'puudu' ? ` (puudu ${fmtNr(r.vaja - votetud)})` : r.vaja && votetud < r.vaja ? ` (napilt −${fmtNr(r.vaja - votetud)})` : ''), false);
   // VASTUVOTT: puudu jäi -> korjekoht on tõenäoliselt tühi
-  const pk = !vk && olek === 'puudu' && (r.k || reaKoht(r.kood)).parim;
-  if (pk && !onAjutineKoht(pk) && !taitOotel(r.kood, pk.koht) && confirm(`Kas ${pk.koht} jäi tühjaks? Lisan selle täitmise nimekirja.`)) margiTyhi(r.kood, pk.koht, 'kogumisel puudu');
+  // (koha tühjaks märkimine on valikuline: reakaardi nupp „Koht jäi tühjaks“, enam ei küsita)
   gVahele.delete(r.id); gRida = null; gUusRida = null; gKontrollitud = null; gVale = null;
   renderKogumine(); window.scrollTo(0, 0);
-  if (vk && votetud > 0) vkVorm(r.kood, votetud);   // VAHEKANNE: mis kaubaga edasi
+  if (vk && votetud > 0) {   // VAHEKANNE: mis kaubaga edasi
+    if (gVkPak[r.id]) {   // linnuke: otse pakkimise järjekorda, küsimata
+      delete gVkPak[r.id];
+      pkMuuda({ op: 'uus', id: uusId().replace(/-/g, '').slice(0, 12), kood: r.kood, kogus: votetud, koht: '', allikas: 'vastuvõtt', seis: 'ootel', liik: '' });
+      naita(`${r.kood} → pakkimise järjekorda (${fmtNr(votetud)})`);
+    } else vkVorm(r.kood, votetud);
+  }
 }
 function gLisaToode(t, skannitud) {
   const n = kogNimekirjad().find(x => x.id === gAvatud);
