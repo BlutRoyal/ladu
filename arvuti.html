@@ -199,6 +199,7 @@ aside { width: 350px; flex: none; display: flex; flex-direction: column; border-
 #menyy .menyy-grupp, #menyy summary { font-size: 12px; font-weight: 700; color: var(--hall); text-transform: uppercase; letter-spacing: .04em; cursor: pointer; margin: 6px 0 4px; }
 #menyy details { display: flex; flex-direction: column; gap: 4px; }
 #menyy details > .nupp { text-align: left; width: 100%; margin-bottom: 4px; }
+#menyy > .nupp { text-align: left; }
 #menyy .menyy-vahe { display: flex; flex-direction: column; gap: 4px; }
 #menyy .menyy-vahe button { text-align: left; }
 aside { display: none; }
@@ -362,6 +363,13 @@ header .olek { min-width: 0; overflow: hidden; text-overflow: ellipsis; }   /* R
 
 <div id="paigutus">
   <nav id="menyy" aria-label="Peamenüü">   <!-- MENÜÜ (2.32): vasakul; toodete paneel (aside) ainult paigutamisrežiimis -->
+    <div class="menyy-grupp">Põhinupud</div>
+    <button class="nupp" data-menyyklikk="toolaudNupp">Töölaud</button>
+    <button class="nupp" data-menyyklikk="kogNupp">Komplekteerimine</button>
+    <button class="nupp" data-menyyklikk="rapNupp">Raportid</button>
+    <button class="nupp ainult-admin" data-menyyklikk="kasutajadNupp">Kasutajad</button>
+    <button class="nupp" data-menyyklikk="abiNupp">? Abi</button>
+    <button class="nupp" data-menyyklikk="seadedNupp">⚙ Seaded</button>
     <div class="menyy-grupp">Vaade</div>
     <div class="vahekaardid menyy-vahe" role="tablist">
       <button role="tab" data-vaade="plaan">Laoplaan</button>
@@ -4221,15 +4229,15 @@ function renderPakkArvuti() {
       <td><button class="nupp" data-paktagasi="${esc(x.id)}" title="Pane tagasi nimekirja">Võta tagasi</button></td></tr>`).join('')}</table>` : '');
 }
 // komplekteeritud, laost välja viimata nimekirjad (vaikimisi ainult need, kus asukoht on märgitud: laadimisala / pakkimisala jne)
-const valjaOotel = () => KOG.filter(n => n.olek === 'valmis' && !n.valja && (VALJA_KOIK || n.asub));
-const vahekanneOotel = () => KOG.filter(n => n.olek === 'valmis' && n.valja && !n.vahekanne);
+const valjaOotel = () => KOG.filter(n => n.olek === 'valmis' && !n.valja && !kogVK(n) && (VALJA_KOIK || n.asub));   // vastuvõtu (vahekande) nimekirjad ei lähe laost välja
+const vahekanneOotel = () => KOG.filter(n => n.olek === 'valmis' && n.valja && !n.vahekanne && !kogVK(n));
 const valjaVormiAeg = () => { const d = new Date(Date.now() - new Date().getTimezoneOffset() * 6e4); return d.toISOString().slice(0, 16); };
 function renderValjaArvuti() {
   $('peidSelgitus').textContent = 'Komplekteeritud tellimused (telefonis märgitud asukohaga, nt Laadimisala), mis pole veel laost välja läinud. Vajuta „Läks välja“, kui kaup on laost ära viidud (kellaaega saab muuta).';
   const L = valjaOotel().sort((a, b) => String(a.lopetatud).localeCompare(String(b.lopetatud)));
   const piir = Date.now() - 3 * 864e5;
   const vk = vahekanneOotel().sort((a, b) => String(a.valja).localeCompare(String(b.valja)));
-  const v = KOG.filter(n => n.olek === 'valmis' && n.valja && n.vahekanne && new Date(n.valja).getTime() > piir).sort((a, b) => String(b.valja).localeCompare(String(a.valja)));
+  const v = KOG.filter(n => n.olek === 'valmis' && !kogVK(n) && n.valja && n.vahekanne && new Date(n.valja).getTime() > piir).sort((a, b) => String(b.valja).localeCompare(String(a.valja)));
   const koht = n => n.asub || n.asubMarkus ? `📍 ${esc(n.asub || '')}${n.asubMarkus ? ' · ' + esc(n.asubMarkus) : ''}${n.asubAeg ? ' <span class="hall">' + kogAeg(n.asubAeg) + '</span>' : ''}` : '<span class="hall">asukohta pole märgitud</span>';
   const k = n => kogKokku(n);
   $('peidSisu').innerHTML = `<label class="hall vaike"><input type="checkbox" data-valjakoik${VALJA_KOIK ? ' checked' : ''}> näita ka valmis nimekirju, millel asukohta pole märgitud</label>` +
@@ -4344,6 +4352,11 @@ $('kogKasKleebiLisa').addEventListener('click', kogKasKleebi);
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.33', kp: '29.10.2026', nimi: 'Vahekanne pakkimise ootele, parandused',
+    lisati: ['Vahekande PDF eelvaates saab märkida read (veerg „→ Pakk.“) ja saata need otse pakkimise ootele, loendamata. Kogused on vahekandest.',
+             'Vastuvõtu (vahekande) nimekirjad ei ilmu enam „Valmis, laost välja viimata“ ega „Vahekanne tegemata“ nimekirjadesse (need on väljaminevate tellimuste jaoks).',
+             'Põhinupud (Töölaud, Komplekteerimine, Raportid, Kasutajad, Abi, Seaded) on ka vasakus menüüs.'],
+    kasutus: ['„Läks välja“ märkimisel liigub tellimus ise nimekirja „Vahekanne tegemata“, kuni märgid „Vahekanne tehtud“.'] },
   { v: '2.31', kp: '29.10.2026', nimi: 'Töölaud ja korrastatud menüü',
     lisati: ['Uus nupp päises „Töölaud“: ühes vaates pakkimistahvel (1. Pakkimisel, 2. Ootel pakkimisalal, 3. Pakitud) ning all komplekteerimise nimekirjad, vastuvõtu vahekanded, laost välja viimata tellimused ja „Vahekanne tegemata“.',
              'Töölaual saab otse: märkida pakituks, valida ootel reale pakkimise viisi (käsitsi / pakkeliin / vangla), märkida „Läks välja“ ja „Vahekanne tehtud“. „Ava →“ viib täisaknasse.',
@@ -7007,9 +7020,11 @@ function renderVK() {
     ${B.vigased.length ? `<div class="hoiatus vaike" style="margin:6px 0">Neid ridu ei osanud lugeda, kontrolli PDF-ist üle:<br>${B.vigased.map(esc).join('<br>')}</div>` : ''}
     <div class="rida" style="gap:8px;flex-wrap:wrap"><input id="vkNimi" type="text" value="${esc(nimi)}" style="flex:1;min-width:240px" title="Nimekirja nimi telefonis">
       <button class="nupp pea" data-vksaada${B.saadetud ? ' disabled' : ''}>${B.saadetud ? 'Saadetud telefoni ✓' : `Saada telefoni (${B.read.length} rida)`}</button></div>
-    <table class="tabel"><tr><th>Nr</th><th>Kood</th><th>Nimetus</th><th>Kogus</th><th>Ühik</th><th>Märkus</th></tr>${B.read.map(r => { const t = T.get(r.kood), m = [];
+    <div class="rida" style="gap:8px;margin:8px 0"><button class="nupp" data-vkpakkimisele title="Märgitud read lähevad otse pakkimise ootele (loendamata)">→ Märgitud read pakkimise ootele (<span id="vkPakArv">0</span>)</button>
+      <label class="hall vaike"><input type="checkbox" data-vkpakkoik> märgi kõik</label></div>
+    <table class="tabel"><tr><th title="Pakkimise ootele">→ Pakk.</th><th>Nr</th><th>Kood</th><th>Nimetus</th><th>Kogus</th><th>Ühik</th><th>Märkus</th></tr>${B.read.map(r => { const t = T.get(r.kood), m = [];
       if (!t) m.push('Buumi ekspordis pole'); if (koodid.get(r.kood) > 1) m.push('kood on vahekandes mitu korda');
-      return `<tr><td class="hall">${esc(r.nr)}</td><td><b>${esc(r.kood)}</b></td><td>${esc(r.nimi)}${t && t.nimi !== r.nimi ? `<div class="hall vaike">${esc(t.nimi)}</div>` : ''}</td><td><b>${fmt(r.kogus)}</b></td><td>${esc(r.uhik)}</td><td style="color:#b26a00">${esc(m.join('; '))}</td></tr>`; }).join('')}</table>`;
+      return `<tr><td><input type="checkbox" data-vkpakrida="${esc(r.nr)}"${B.pakValik && B.pakValik[r.nr] ? ' checked' : ''}></td><td class="hall">${esc(r.nr)}</td><td><b>${esc(r.kood)}</b></td><td>${esc(r.nimi)}${t && t.nimi !== r.nimi ? `<div class="hall vaike">${esc(t.nimi)}</div>` : ''}</td><td><b>${fmt(r.kogus)}</b></td><td>${esc(r.uhik)}</td><td style="color:#b26a00">${esc(m.join('; '))}</td></tr>`; }).join('')}</table>`;
 }
 async function vkSaada() {
   const B = VK; if (!B || B.saadetud) return;
@@ -7021,8 +7036,29 @@ async function vkSaada() {
     B.saadetud = true; renderVK(); teade(`„${nimi}“ saadetud telefoni (${j.ridu} rida). Telefonis: Kogumine`); laeKogumised(true);
   } catch (e) { teade('Ei saanud saata: ' + e.message, true); }
 }
+async function vkPakkimisele() {
+  const B = VK; if (!B) return;
+  const V = B.pakValik || {}, L = B.read.filter(r => V[r.nr]);
+  if (!L.length) { teade('Märgi read, mis lähevad pakkimise ootele', true); return; }
+  if (!confirm(`Lisan ${L.length} rida pakkimise ootele (vahekanne ${B.nr})? Kogused on vahekandest, loendamata.`)) return;
+  const id = () => Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-5);
+  try {
+    const j = await api({ tegevus: 'pakkimine', muudatused: L.map(r => ({ op: 'uus', id: id(), kood: r.kood, kogus: r.kogus, koht: '', allikas: 'vastuvõtt', seis: 'ootel', liik: '', aeg: new Date().toISOString(), markus: 'Vahekanne ' + B.nr })) });
+    const v = !j.ok ? j.viga : (j.tulemused || []).filter(t => !t.ok).map(t => t.viga)[0];
+    if (v) throw new Error(v);
+    B.pakValik = {}; renderVK(); teade(`${L.length} rida pakkimise ootel`); laePakArvuti();
+  } catch (e) { teade('Ei saanud pakkimisele panna: ' + e.message, true); }
+}
+$('buumSisu').addEventListener('change', e => {
+  if (!VK) return; const d = e.target.dataset;
+  if (d.vkpakrida) { (VK.pakValik = VK.pakValik || {})[d.vkpakrida] = e.target.checked; }
+  else if ('vkpakkoik' in d) { VK.pakValik = {}; if (e.target.checked) VK.read.forEach(r => VK.pakValik[r.nr] = true); renderVK(); return; }
+  else return;
+  $('vkPakArv').textContent = Object.values(VK.pakValik).filter(Boolean).length;
+});
 $('buumSisu').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b || !VK) return;
+  if ('vkpakkimisele' in b.dataset) { vkPakkimisele(); return; }
   if ('vksulge' in b.dataset) { VK = null; $('buumSisu').innerHTML = ''; } else if ('vksaada' in b.dataset) vkSaada();
 });
 // erinevused: „Rida 1 - kood nimi: vahekandes X, loetud Y (puudu Z)“; poe poolne sisestaja parandab Buumis
@@ -7724,6 +7760,7 @@ $('invAken').addEventListener('click', async e => {
 // KOGUMINE
 $('kogNupp').addEventListener('click', () => { if (SEADED) avaKogumine(); });
 $('toolaudNupp').addEventListener('click', () => { if (SEADED) avaToolaud(); });   // TÖÖLAUD
+$('menyy').addEventListener('click', e => { const b = e.target.closest('[data-menyyklikk]'); if (b) $(b.dataset.menyyklikk).click(); });
 $('paigutusNupp').addEventListener('click', () => seaPaigutus(!UI.paigutus));   // MENÜÜ
 seaPaigutus(!!UI.paigutus);
 $('tlSulge').addEventListener('click', () => $('tlAken').classList.remove('lahti'));
