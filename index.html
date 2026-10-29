@@ -444,19 +444,21 @@ function loe(k, vaikimisi) { try { const s = localStorage.getItem(k); return s ?
 // MALU: localStorage kvoot (~5 MB). Kui täis, vabasta kõigepealt vähem olulised vahemälud ja proovi uuesti
 function kirjuta(k, v) {
   const s = JSON.stringify(v);
-  try { localStorage.setItem(k, s); return true; } catch (e) {}
+  let viga = null;
+  try { localStorage.setItem(k, s); return true; } catch (e) { viga = e; }
   for (let samm = 1; samm <= 2; samm++) {
     malupuhasta(samm, k);
-    try { localStorage.setItem(k, s); return true; } catch (e) {}
+    try { localStorage.setItem(k, s); return true; } catch (e) { viga = e; }
   }
-  naita(`Telefoni mälu on täis (${k}, ${Math.round(s.length / 1024)} KB). Seaded → Telefoni mälu → Puhasta vahemälu`, true);
+  console.warn('localStorage', k, viga && viga.name, viga && viga.message);
+  naita(`Telefoni mälu on täis (${k}, ${Math.round(s.length / 1024)} KB${viga && viga.name && viga.name !== 'QuotaExceededError' ? ', ' + viga.name : ''}). Seaded → Telefoni mälu → Puhasta vahemälu`, true);
   return false;
 }
 // samm 1: vana andmekoopia, vastuvõttude ajalugu, saadetud inventuuri loendused; samm 2: uuesti laaditavad nimekirjad (laetakse serverist tagasi)
 function malupuhasta(samm, valja) {
   const kustuta = k => { if (k !== valja) { try { localStorage.removeItem(k); } catch (e) {} } };
   if (samm >= 1) {
-    kustuta('ladu_andmed');
+    kustuta('ladu_andmed'); kustuta('ladu_arvuti_andmed');   // arvutivaate suur andmekoopia (sama aadress, laaditakse vajadusel uuesti) võtab telefoni 5 MB kvoodist ruumi
     if (valja !== 'ladu_vastu') { try { localStorage.setItem('ladu_vastu', JSON.stringify((loe('ladu_vastu', []) || []).slice(0, 20))); } catch (e) {} }
     if (valja !== 'ladu_inv' && typeof pruuniInv === 'function') { pruuniInv(20); try { localStorage.setItem('ladu_inv', JSON.stringify(INV)); } catch (e) {} }
   }
@@ -1616,13 +1618,13 @@ function renderSeaded() {
   renderMalu();
 }
 // MALU: mis telefoni mälus ruumi võtab
-const MALU_NIMED = { ladu_seaded: 'sisselogimine', ladu_andmed: 'vana andmekoopia', ladu_valjas: 'saatmata muudatused', ladu_inv: 'inventuuri loendused', ladu_kog: 'korjenimekirjad', ladu_vastu: 'vastuvõtud', ladu_tait: 'täitmine', ladu_invseansid: 'inventuuri seansid', ladu_seanss: 'seansi nimi' };
+const MALU_NIMED = { ladu_seaded: 'sisselogimine', ladu_andmed: 'vana andmekoopia', ladu_valjas: 'saatmata muudatused', ladu_inv: 'inventuuri loendused', ladu_kog: 'korjenimekirjad', ladu_vastu: 'vastuvõtud', ladu_tait: 'täitmine', ladu_invseansid: 'inventuuri seansid', ladu_seanss: 'seansi nimi', ladu_arvuti_andmed: 'arvutivaate andmekoopia (puhastatav)' };
 function renderMalu() {
   const el = $('aMalu');
   if (!el) return;
   let osad = [], kokku = 0;
   try {
-    Object.keys(localStorage).filter(k => k.indexOf('ladu_') === 0 && k.indexOf('ladu_arvuti_') !== 0).forEach(k => { const n = k.length + (localStorage.getItem(k) || '').length; kokku += n; osad.push([k, n]); });
+    Object.keys(localStorage).forEach(k => { const n = k.length + (localStorage.getItem(k) || '').length; kokku += n; osad.push([k, n]); });
   } catch (e) { el.textContent = ''; return; }
   osad.sort((a, b) => b[1] - a[1]);
   const kb = n => n >= 1024 ? Math.round(n / 102.4) / 10 + ' KB' : n + ' B';
