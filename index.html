@@ -2646,6 +2646,7 @@ const NAPILT_PIIR = 0.05;
 const kogNapilt = r => r.votetud != null && r.vaja > 0 && r.votetud < r.vaja && (r.vaja - r.votetud) / r.vaja <= NAPILT_PIIR + 1e-9;
 const kogPuudub = r => (r.olek === 'puudu' || (r.votetud != null && r.votetud < r.vaja)) && !kogNapilt(r);
 // VAHEKANNE (2.28): Buumi vahekande PDF-ist tehtud vastuvõtu nimekiri (markus „VAHEKANNE|nr|kust|kuhu|kuupäev“); kontroll on täpselt 1:1, „napilt“ siin ei kehti
+const vkNr = n => String((n && n.markus) || '').split('|')[1] || '';
 const kogVK = n => /^VAHEKANNE\|/.test((n && n.markus) || '');
 function gKokku(n) {
   const vk = kogVK(n);
@@ -2855,7 +2856,7 @@ function gKinnita(kohast) {
   if (vk && votetud > 0) {   // VAHEKANNE: mis kaubaga edasi
     if (gVkPak[r.id]) {   // linnuke: otse pakkimise järjekorda, küsimata
       delete gVkPak[r.id];
-      pkMuuda({ op: 'uus', id: uusId().replace(/-/g, '').slice(0, 12), kood: r.kood, kogus: votetud, koht: '', allikas: 'vastuvõtt', seis: 'ootel', liik: '' });
+      pkMuuda({ op: 'uus', id: uusId().replace(/-/g, '').slice(0, 12), kood: r.kood, kogus: votetud, koht: '', allikas: 'vastuvõtt', seis: 'ootel', liik: '', markus: 'Vahekanne ' + vkNr(vkN) });
       naita(`${r.kood} → pakkimise järjekorda (${fmtNr(votetud)})`);
     } else vkVorm(r.kood, votetud);
   }
@@ -2997,6 +2998,7 @@ function gAsukSalvesta(asub) {
   const mark = ($('gAsukMarkus') ? $('gAsukMarkus').value : n.asubMarkus || '').trim();
   kogMuuda({ op: 'asukoht', nimekiri: n.id, asub, markus: mark });
   gAsukKysi = null;
+  if (kogVK(n) && /pakkimis/i.test(asub || '')) vkPakkimisalaVorm(n);
   naita(asub ? '📍 ' + asub : 'Salvestatud');
   renderKogumine();
 }
@@ -3286,7 +3288,7 @@ function pkKinnita(liik) {
   const tekst = ($('pkKogus').value || '').replace(/\s/g, '').replace(',', '.');
   if (!/^\d+(\.\d+)?$/.test(tekst) || Number(tekst) <= 0) { naita('Sisesta kogus numbrina, nt 12', true); $('pkKogus').focus(); return; }
   const kogus = Math.round(Number(tekst) * 1000) / 1000;
-  pkMuuda({ op: 'uus', id: uusId().replace(/-/g, '').slice(0, 12), kood: o.kood, kogus, koht: o.koht || '', allikas: o.allikas || 'asukoht', seis: liik ? 'pakkimisel' : 'ootel', liik });
+  pkMuuda({ op: 'uus', id: uusId().replace(/-/g, '').slice(0, 12), kood: o.kood, kogus, koht: o.koht || '', allikas: o.allikas || 'asukoht', seis: liik ? 'pakkimisel' : 'ootel', liik, markus: o.markus || '' });
   if (o.koht) pkVahenda(o.kood, o.koht, kogus);
   pkVormiSulge();
   naita(`${o.kood} → ${liik ? pkLiikNimi(liik).toLowerCase() + ' pakkimine' : 'pakkimise järjekorda'} (${fmtNr(kogus)})`);
@@ -3381,13 +3383,32 @@ document.addEventListener('click', e => {
   if (!b) { if (e.target.id === 'pkVorm') pkVormiSulge(); return; }
   if ('pkloobu' in b.dataset || 'vkhiljem' in b.dataset) pkVormiSulge();
   else if (b.dataset.vkpaiguta) { pkVormiSulge(); pgAvaToode(b.dataset.vkpaiguta); }
-  else if (b.dataset.vkpakkimisse) { const k = b.dataset.vkpakkimisse, q = nr(b.dataset.vkkogus); pkVormiSulge(); pkVorm({ kood: k, koht: '', allikas: 'vastuvõtt', kogus: q }); }
+  else if (b.dataset.vkpakkimisse) { const k = b.dataset.vkpakkimisse, q = nr(b.dataset.vkkogus); pkVormiSulge(); const nn = kogNimekirjad().find(x => x.id === gAvatud); pkVorm({ kood: k, koht: '', allikas: 'vastuvõtt', kogus: q, markus: nn ? 'Vahekanne ' + vkNr(nn) : '' }); }
   else if (b.dataset.pkliik !== undefined) pkKinnita(b.dataset.pkliik);
 });
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'pkKogus') { e.target.blur(); } });
 
 
 // VAHEKANNE: pärast rea kinnitamist valik, mis loetud kaubaga edasi (kõike ei pea paigutama: katkised karbid pakitakse ümber jne)
+// VAHEKANNE: nimekiri pandi pakkimisalale -> vali read, mis lähevad pakkimise ootele (tooted, mida juba lisatud pole)
+function vkPakkimisalaVorm(n) {
+  const mk = 'Vahekanne ' + vkNr(n);
+  const kirjas = new Set((PK.read || []).concat(VALJAS.filter(o => o.tegevus === 'pakkimine' && o.m.op === 'uus').map(o => o.m)).filter(x => x.markus === mk).map(x => x.kood));
+  const L = n.read.filter(r => r.votetud > 0 && !kirjas.has(r.kood));
+  if (!L.length) return;
+  const vana = $('pkVorm'); if (vana) vana.remove();
+  const el = document.createElement('div'); el.id = 'pkVorm';
+  el.innerHTML = `<div class="leht"><b style="font-size:19px">Mis läheb pakkimise ootele?</b>
+    <div class="hall" style="margin:4px 0 8px">Vahekanne ${esc(vkNr(n))} pandi pakkimisalale. Märgi read, mis tuleb pakkida (loetud kogustega).</div>
+    <div style="max-height:46vh;overflow:auto">${L.map(r => { const t = IX && IX.tooted.get(r.kood) || {}; return `<label style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--joon2)"><input type="checkbox" data-vkpaka="${esc(r.id)}" checked style="width:22px;height:22px"><span><b>${esc(r.kood)}</b> ${esc(t.nimi || '')}<br><span class="hall">${esc(fmtNr(r.votetud))} ${esc(t.uhik || '')}</span></span></label>`; }).join('')}</div>
+    <div class="nupud" style="margin-top:10px"><button class="nupp pea" data-vkpakalisa style="flex:1;min-height:50px">Lisa pakkimise ootele</button><button class="nupp vaike" data-vkhiljem>Ei lisa</button></div></div>`;
+  document.body.appendChild(el);
+  el.querySelector('[data-vkpakalisa]').addEventListener('click', () => {
+    const ids = new Set([...el.querySelectorAll('[data-vkpaka]:checked')].map(c => c.dataset.vkpaka)), V = L.filter(r => ids.has(r.id));
+    V.forEach(r => pkMuuda({ op: 'uus', id: uusId().replace(/-/g, '').slice(0, 12), kood: r.kood, kogus: r.votetud, koht: '', allikas: 'vastuvõtt', seis: 'ootel', liik: '', markus: mk }));
+    el.remove(); naita(V.length ? `${V.length} rida pakkimise ootele` : 'Ühtegi rida ei lisatud');
+  });
+}
 function vkVorm(kood, kogus) {
   const t = IX && IX.tooted.get(kood) || {};
   const vana = $('pkVorm'); if (vana) vana.remove();

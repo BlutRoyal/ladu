@@ -362,31 +362,30 @@ header .olek { min-width: 0; overflow: hidden; text-overflow: ellipsis; }   /* R
 </header>
 
 <div id="paigutus">
-  <nav id="menyy" aria-label="Peamenüü">   <!-- MENÜÜ (2.32): vasakul; toodete paneel (aside) ainult paigutamisrežiimis -->
-    <div class="menyy-grupp">Põhinupud</div>
-    <button class="nupp" data-menyyklikk="toolaudNupp">Töölaud</button>
-    <button class="nupp" data-menyyklikk="kogNupp">Komplekteerimine</button>
-    <button class="nupp" data-menyyklikk="rapNupp">Raportid</button>
-    <button class="nupp ainult-admin" data-menyyklikk="kasutajadNupp">Kasutajad</button>
-    <button class="nupp" data-menyyklikk="abiNupp">? Abi</button>
-    <button class="nupp" data-menyyklikk="seadedNupp">⚙ Seaded</button>
+  <nav id="menyy" aria-label="Peamenüü">   <!-- MENÜÜ (2.32/2.34): vasakul; toodete paneel (aside) ainult paigutamisrežiimis -->
     <div class="menyy-grupp">Vaade</div>
     <div class="vahekaardid menyy-vahe" role="tablist">
       <button role="tab" data-vaade="plaan">Laoplaan</button>
       <button role="tab" data-vaade="vp">Väikepakend</button>
     </div>
     <details open><summary>Töö</summary>
+      <button class="nupp" data-menyyklikk="toolaudNupp">Töölaud</button>
+      <button class="nupp" data-menyyklikk="kogNupp">Komplekteerimine</button>
       <button class="nupp" id="poeNupp" title="Poe inventuuri lugemisnimekirjad (pood skännib telefoniga)">Poe loendus</button>
       <button class="nupp" id="invNupp" title="Inventuuriseansid ja loendused">Inventuur</button>
     </details>
-    <details open><summary>Kontroll ja mõõdikud</summary>
+    <details open><summary>Raportid ja kontroll</summary>
+      <button class="nupp" data-menyyklikk="rapNupp">Raportid</button>
       <button class="nupp" id="mdkNupp" title="Korjamise, puuduste, inventuuri ja vastuvõtu mõõdikud">Mõõdikud</button>
       <button class="nupp" id="peidetudNupp" title="Peidetud tooted ja Buumi kontroll">Kontroll</button>
     </details>
     <details open><summary>Süsteem</summary>
       <button class="nupp" id="paigutusNupp" aria-pressed="false" title="Näitab vasakul toodete nimekirja ja paigutamise tööriistu">📍 Paigutamisrežiim</button>
+      <button class="nupp ainult-admin" data-menyyklikk="kasutajadNupp">Kasutajad</button>
       <button class="nupp" id="uuenda">Uuenda</button>
       <button class="nupp" id="uuendusedNupp" title="Mis on uut ja kuidas seda kasutada">Uuendused</button>   <!-- UUENDUSED -->
+      <button class="nupp" data-menyyklikk="abiNupp">? Abi</button>
+      <button class="nupp" data-menyyklikk="seadedNupp">⚙ Seaded</button>
     </details>
   </nav>
   <aside>
@@ -4352,6 +4351,11 @@ $('kogKasKleebiLisa').addEventListener('click', kogKasKleebi);
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.34', kp: '29.10.2026', nimi: 'Vastuvõtt pakkimisalale',
+    lisati: ['Kui vastuvõtu (vahekande) nimekirjale märgitakse asukohaks „Pakkimisala“, küsib telefon, millised read lähevad pakkimise ootele (kõik märgitud, loetud kogustega). Juba lisatud tooteid ei lisata uuesti.',
+             'Toote kaupa töötab nagu varem: reakaardil linnuke „Läheb otse pakkimisse“ või pärast rida „Ümber pakendama“. Need read saavad märkuseks „Vahekanne nr“.',
+             'Vasaku menüü põhinupud on grupeeritud oma teemade alla (Töö, Raportid ja kontroll, Süsteem).'],
+    kasutus: ['Vahekanne loetud → Lõpeta → Kus tellimus nüüd on? → Pakkimisala → märgi pakkimist vajavad read → Lisa pakkimise ootele.'] },
   { v: '2.33', kp: '29.10.2026', nimi: 'Vahekanne pakkimise ootele, parandused',
     lisati: ['Vahekande PDF eelvaates saab märkida read (veerg „→ Pakk.“) ja saata need otse pakkimise ootele, loendamata. Kogused on vahekandest.',
              'Vastuvõtu (vahekande) nimekirjad ei ilmu enam „Valmis, laost välja viimata“ ega „Vahekanne tegemata“ nimekirjadesse (need on väljaminevate tellimuste jaoks).',
