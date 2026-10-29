@@ -1,7 +1,7 @@
 // Laoäpi teenustöötaja: hoiab lehe ja skänneri teegi telefonis, et need avaneksid ka ilma võrguta.
 // Oma lehe failid: võrgus alati uusim, võrguta salvestatud koopia.
 // Skänneri teek (CDN): esimesel korral laaditakse, edaspidi võetakse telefonist.
-const VAHEMALU = 'ladu-v35';   // 2.29: vahekanne linnuke pakkimisse, pesa-küsimus ära;   // VAHEKANNE (2.28);   // NAPILT (2.27);   // UUENDUSED (2.26);   // POELOENDUS (2.25) + PAKKIMINE (2.24): index.html + arvuti.html;   // TAHKE-ALUS (2.22): arvuti.html;   // ASUKOHT+QRLEHT+SEO: ladu-v22 (pystak ja asukoht eraldi: v21); ABI ABI (2.15): uus versioon (arvuti.html: „Miks?“ ja „? Abi“); MADIS (2.14): ladu-v18
+const VAHEMALU = 'ladu-v36';   // 2.30: pakkimisleht (arvuti.html);   // 2.29: vahekanne linnuke pakkimisse, pesa-küsimus ära;   // VAHEKANNE (2.28);   // NAPILT (2.27);   // UUENDUSED (2.26);   // POELOENDUS (2.25) + PAKKIMINE (2.24): index.html + arvuti.html;   // TAHKE-ALUS (2.22): arvuti.html;   // ASUKOHT+QRLEHT+SEO: ladu-v22 (pystak ja asukoht eraldi: v21); ABI ABI (2.15): uus versioon (arvuti.html: „Miks?“ ja „? Abi“); MADIS (2.14): ladu-v18
 const FAILID = ['./', './index.html'];
 const LISAFAILID = ['./manifest.json', './ikoon-192.png'];   // puudumine ei takista paigaldust
 const CDN = ['cdn.jsdelivr.net', 'unpkg.com'];

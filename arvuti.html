@@ -4303,6 +4303,10 @@ $('kogKasKleebiLisa').addEventListener('click', kogKasKleebi);
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.30', kp: '29.10.2026', nimi: 'Pakkimisleht: pakkide arv ja Buumi märge',
+    lisati: ['Pakendamislehel (Prindi tööleht) on igal real „pakist kotti / tükist kotti / tükist pakki“, oletatav kottide arv („ca N kotti“) ja pakist tehes pakkide arv („N pakki“).',
+             'Kui kott tehakse pakist, tuleb lehele ja raporti tooraine lahtrisse märge „⚠ Buumi konverteerimine: retsepti ei kasutata, sisesta pakk + iga pakendi komponent eraldi“.'],
+    kasutus: ['Pakkimisraport → märgi read → Prindi tööleht. Pakendi komponendid (kott, päis, suurus, silt) lisatakse lehele hiljem.'] },
   { v: '2.29', kp: '29.10.2026', nimi: 'Vahekanne: linnuke pakkimisse, pesa-küsimus ära',
     lisati: ['Vastuvõtul (vahekande nimekiri) on igal reakaardil linnuke „Läheb otse pakkimisse“. Kui see on märgitud, läheb loetud kogus kinnitamisel otse pakkimise järjekorda, ilma küsimata. Märgid toote kaupa, mitte kogu vahekande kohta.',
              'Küsimus „Kas koht jäi tühjaks?“ kadus nii vastuvõtult kui komplekteerimiselt. Koha tühjaks märkimine on valikuline: reakaardil nupp „Koht jäi tühjaks“.',
@@ -5632,7 +5636,7 @@ function rapPakRida(r, i) {
   const t = T.get(r.kood) || toode(r.kood), tt = T.get(r.toor) || toode(r.toor), yh = pakYh(r);
   return `<tr data-pakrida="${i}"${r.valik ? '' : ' class="maha"'}><td><input type="checkbox" data-rapvali="${i}"${r.valik ? ' checked' : ''}>${abiNupp(r.kood)}</td><td><b>${esc(r.kood)}</b></td><td>${esc(t.nimi)}<br><span class="hall vaike">${esc(t.grupp)}</span></td>
     <td class="arv">${fmt(r.kuus)}</td><td>${pakJatkub(r)}</td><td class="arv">${fmt(r.vajadus)}</td><td class="arv">${fmt(r.uld)}</td><td class="arv"><b>${fmt(r.puudu)}</b></td>
-    <td title="${esc(tt.nimi)}${r.yhine.length ? ' · sama tooraine ka: ' + esc(r.yhine.join(', ')) : ''}" style="white-space:nowrap"><b>${esc(r.toor)}</b> <span class="pak-silt">${r.allikas}${r.allikas === 'PAKK' ? ' ' + fmt(r.pakis) + ' tk' : ''}</span>${r.yhine.length ? ' <span class="pak-silt">+' + r.yhine.length + '</span>' : ''}</td>
+    <td title="${esc(tt.nimi)}${r.yhine.length ? ' · sama tooraine ka: ' + esc(r.yhine.join(', ')) : ''}" style="white-space:nowrap"><b>${esc(r.toor)}</b> <span class="pak-silt">${r.allikas}${r.allikas === 'PAKK' ? ' ' + fmt(r.pakis) + ' tk' : ''}</span>${r.allikas === 'PAKK' && RAP.info.alam !== 'pakk' ? ' <span class="pak-silt" title="Pakist kotti: Buumis ei sobi retsept, sisesta pakk ja iga pakendi komponent eraldi">⚠ Buum: eraldi</span>' : ''}${r.yhine.length ? ' <span class="pak-silt">+' + r.yhine.length + '</span>' : ''}</td>
     <td>${pakKohtHtml(r)}</td>
     <td class="arv">${fmt(r.md)}</td><td class="arv">${fmt(r.pd)}</td>
     <td class="arv"${r.pakPuudu ? ' style="color:#b26a00" title="Pakendi suurus puudub (Ühiku kirjeldus, nimetus): arvestatud 1"' : ''}>${fmt(r.suurus)}${r.pakPuudu ? '?' : ''}</td><td class="arv">${fmt(r.saab)}</td>
@@ -5698,9 +5702,12 @@ function rapPakPrindi() {
     L.map((r, i) => {
       const t = T.get(r.kood) || toode(r.kood), yh = pakYh(r);
       const kust = [r.maardust ? `${fmt(r.maardust)} ${yh} Maardust` : '', r.poest ? `${fmt(r.poest)} ${yh} poest` : '', r.toorPuudu ? `PUUDU ${fmt(r.toorPuudu)} ${yh}` : ''].filter(Boolean).join(', ');
-      return `<tr><td>${i + 1}</td><td style="width:5mm">☐</td><td><b>${esc(r.kood)}</b></td><td>${esc(t.nimi)}</td><td>${esc(r.toor)} (${r.allikas})</td>
-        <td>${esc(pakKohtTekst(r))}</td><td>${fmt(r.suurus)}</td><td style="background:#fff2cc"><b>${fmt(r.vaja)}</b></td>
-        <td><b>${fmt(r.toorVaja)} ${yh}</b>${kust ? '<br>' + kust : ''}</td><td style="width:16mm"></td></tr>`;
+      const mida = I.alam === 'pakk' ? 'pakki' : 'kotti', paki = r.allikas === 'PAKK';   // PAKKIMINE (2.30): paki arv, oletatav kogus, Buumi märge
+      const kuidas = I.alam === 'pakk' ? 'tükist pakki' : paki ? 'pakist kotti' : 'tükist kotti';
+      return `<tr><td>${i + 1}</td><td style="width:5mm">☐</td><td><b>${esc(r.kood)}</b></td><td>${esc(t.nimi)}</td><td>${esc(r.toor)} (${r.allikas})<br><span class="vaike">${kuidas}</span></td>
+        <td>${esc(pakKohtTekst(r))}</td><td>${fmt(r.suurus)}</td><td style="background:#fff2cc"><b>${fmt(r.vaja)}</b><br><span class="vaike">ca ${fmt(r.vaja)} ${mida}</span></td>
+        <td><b>${fmt(r.toorVaja)} ${yh}</b>${paki ? ` <span class="vaike">(${fmt(r.toorVaja)} pakki)</span>` : ''}${kust ? '<br>' + kust : ''}</td><td style="width:16mm"></td></tr>` +
+        (paki && I.alam !== 'pakk' ? `<tr><td></td><td></td><td colspan="8" class="vaike"><b>⚠ Buumi konverteerimine:</b> paki puhul retsepti ei kasutata, sisesta pakk + iga pakendi komponent eraldi (${esc(r.kood)}: ${fmt(r.toorVaja)} pakki → ca ${fmt(r.vaja)} kotti).</td></tr>` : '');
     }).join('') + '</table>';
   prindi([{ pealkiri: 'Pakendamisleht ' + kogTana(), markus: `Pakendaja: ________________________ · ${I.filter || PAK_ALAM[I.alam]} · ${L.length} rida`, html }], { pysti: I.alam !== 'pakk' });
 }
