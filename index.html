@@ -77,7 +77,7 @@ label { display: block; font-size: 13px; color: var(--hall); margin: 12px 0 4px;
 .parool-rida { position: relative; }
 .parool-rida input { padding-right: 52px; }
 .parool-rida button { position: absolute; right: 4px; top: 4px; bottom: 4px; width: 44px; border: 0; background: none; font-size: 20px; cursor: pointer; }
-#laadimine { position: fixed; inset: 0; z-index: 40; background: var(--bg); display: none; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; }
+#laadimine { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 40; background: var(--bg); display: none; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; }
 #laadimine.lahti { display: flex; }
 #laadimine .ratas { width: 44px; height: 44px; border-radius: 50%; border: 4px solid var(--roh-joon); border-top-color: var(--roheline); animation: keera 0.9s linear infinite; }
 @keyframes keera { to { transform: rotate(360deg); } }
@@ -95,9 +95,9 @@ body.paig-lahti { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
 .muuda-kogus { display: inline-block; margin-left: 8px; padding: 2px 8px; border: 1px solid var(--joon, #bbb); border-radius: 12px; font-size: 13px; color: var(--roheline, #2f6b3b); cursor: pointer; }
 .kogus-kokku { margin-top: 8px; font-size: 15px; }
 /* PAIGUTA: paigutamise ja „kust võtsid“ aknad */
-#pkVorm { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.45); }   /* PAKKIMINE */
+#pkVorm { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 60; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.45); }   /* PAKKIMINE */
 #pkVorm .leht { width: 100%; max-width: 520px; max-height: 92vh; overflow: auto; background: var(--kaart); color: var(--tekst); border-radius: 18px 18px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); }
-#pgAken, #kusAken { position: fixed; inset: 0; z-index: 30; display: none; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.45); }
+#pgAken, #kusAken { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 30; display: none; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.45); }
 #pgAken.lahti, #kusAken.lahti { display: flex; }
 #pgAken .leht, #kusAken .leht { width: 100%; max-width: 520px; max-height: 92vh; overflow: auto; background: var(--kaart); color: var(--tekst); border-radius: 18px 18px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); }
 .pg-kood { font-size: 28px; font-weight: 800; letter-spacing: 1px; }
@@ -105,7 +105,7 @@ body.paig-lahti { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
 .pg-soovitus { margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: var(--kaart); border: 1px solid var(--roheline); font-size: 14px; }
 .pg-viga { margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: #fde2e2; color: #6b1010; border: 1px solid #d98a8a; font-size: 14px; }
 @media (prefers-color-scheme: dark) { .pg-hoiatus { background: #43301a; color: #ffd9a0; border-color: #8a6230; } .pg-viga { background: #4a1f1f; color: #ffc9c9; border-color: #8a3a3a; } }
-#paigJuhis { position: fixed; inset: 0; z-index: 30; display: none; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.45); }
+#paigJuhis { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 30; display: none; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.45); }
 #paigJuhis.lahti { display: flex; }
 #paigJuhis .leht { width: 100%; max-width: 520px; background: var(--kaart); color: var(--tekst); border-radius: 18px 18px 0 0; padding: 18px 18px calc(18px + env(safe-area-inset-bottom)); }
 #paigJuhis h3 { margin: 0 0 4px; font-size: 19px; }
@@ -205,9 +205,9 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
 .otsirida input { flex: 1; min-width: 0; }
 .skann-nupp { flex: none; width: 52px; border-radius: 12px; border: 1px solid var(--roheline); background: var(--roheline); color: #fff; font-size: 22px; cursor: pointer; }
 @media (prefers-color-scheme: dark) { .skann-nupp { color: #10200f; } }
-#skanner { position: fixed; inset: 0; z-index: 50; background: #000; display: none; flex-direction: column; }
+#skanner { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 50; background: #000; display: none; flex-direction: column; }
 #skanner.lahti { display: flex; }
-#skanner video { flex: 1; width: 100%; min-height: 0; object-fit: cover; }
+#skanner video { flex: 1; width: 100%; height: 100%; min-height: 0; object-fit: cover; }
 #skanner .raam { position: absolute; left: 12%; right: 12%; top: 30%; height: 26%; border: 3px solid rgba(255,255,255,.85); border-radius: 16px; box-shadow: 0 0 0 9999px rgba(0,0,0,.35); pointer-events: none; }
 #skanner .ulal { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; padding: calc(12px + env(safe-area-inset-top)) 16px 12px; color: #fff; }
 #skanner .ulal button { background: rgba(0,0,0,.5); color: #fff; border: 1px solid rgba(255,255,255,.4); border-radius: 12px; min-height: 44px; padding: 0 14px; font-size: 16px; }
@@ -415,12 +415,12 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
   <div class="ulal">
     <button id="skannSulge">✕ Sulge</button>
     <span style="display:flex;gap:6px">
-      <button id="skannSuum" style="display:none">2×</button>
-      <button id="skannValgus" style="display:none">Taskulamp</button>
+      <button id="skannSuum" style="display:none;margin-left:6px">Suum 2×</button>
+      <button id="skannValgus" style="display:none;margin-left:6px">Taskulamp</button>
     </span>
   </div>
   <div class="all"><div id="skannTekst">Suuna kaamera ribakoodile või QR-ile</div>
-    <button id="skannPildista" style="margin-top:10px;background:rgba(0,0,0,.5);color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:12px;min-height:44px;padding:0 16px;font-size:16px">📷 Ei loe? Pildista</button>
+    <button id="skannKaamera" style="display:none;margin:10px 6px 0 0;background:rgba(0,0,0,.5);color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:12px;min-height:44px;padding:0 16px;font-size:16px">⇄ Vaheta kaamerat</button><button id="skannPildista" style="margin-top:10px;background:rgba(0,0,0,.5);color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:12px;min-height:44px;padding:0 16px;font-size:16px">📷 Ei loe? Pildista</button>
   </div>
 </div>
 <input type="file" id="skannFoto" accept="image/*" capture="environment" style="display:none">
@@ -1614,8 +1614,17 @@ function renderSeaded() {
   $('aKaamera').textContent = 'Skänner: ' + (otse ? 'otsekaamera' : 'fotorežiim (brauser ei luba otsekaamerat)') +
     ' · ' + ('BarcodeDetector' in window ? 'sisseehitatud lugeja' : 'ZXing') +
     ' · ' + (window.isSecureContext ? 'https ok' : 'EI OLE turvaline ühendus') +
-    (window.navigator.standalone ? ' · avakuva äpp' : '');
+    (window.navigator.standalone ? ' · avakuva äpp' : '') + brauseriInfo();
   renderMalu();
+}
+// Brauseri versioon + viimati kasutatud kaamera (vanade telefonide vigade leidmiseks)
+function brauseriInfo() {
+  const ua = navigator.userAgent;
+  const m = ua.match(/SamsungBrowser\/(\d+)/) || ua.match(/(?:Chrome|CriOS)\/(\d+)/) || ua.match(/Version\/(\d+)[^ ]* (?:Mobile\/\S+ )?Safari/);
+  const nimi = /SamsungBrowser/.test(ua) ? 'Samsung Internet' : /Chrome|CriOS/.test(ua) ? 'Chrome' : /Safari/.test(ua) ? 'Safari' : 'brauser';
+  const a = ua.match(/Android (\d+)/);
+  const kaamera = loe('ladu_kaamera_nimi', '');
+  return ' · ' + nimi + (m ? ' ' + m[1] : '') + (a ? ' (Android ' + a[1] + ')' : '') + (kaamera ? ' · kaamera: ' + kaamera : '');
 }
 // MALU: mis telefoni mälus ruumi võtab
 const MALU_NIMED = { ladu_seaded: 'sisselogimine', ladu_andmed: 'vana andmekoopia', ladu_valjas: 'saatmata muudatused', ladu_inv: 'inventuuri loendused', ladu_kog: 'korjenimekirjad', ladu_vastu: 'vastuvõtud', ladu_tait: 'täitmine', ladu_invseansid: 'inventuuri seansid', ladu_seanss: 'seansi nimi', ladu_arvuti_andmed: 'arvutivaate andmekoopia (puhastatav)' };
@@ -1682,7 +1691,7 @@ const ZXING_URLID = [
   'https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js',
   'https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js'
 ];
-const SK = { tagasi: null, voog: null, taimer: 0, zx: null, tootab: false, detektor: null, foto: false, qrAeg: 0 };
+const SK = { tagasi: null, voog: null, taimer: 0, zx: null, tootab: false, detektor: null, foto: false, qrAeg: 0, vihje: '' };
 
 function laeSkript(url) {
   return new Promise((ok, viga) => {
@@ -1721,10 +1730,11 @@ async function avaSkanner(tagasi, vihje) {
     return;
   }
   SK.foto = false; SK.qrAeg = 0;
-  SK.tagasi = tagasi; SK.tootab = true;
+  SK.tagasi = tagasi; SK.tootab = true; SK.vihje = vihje || '';
   $('skannTekst').textContent = vihje || 'Suuna kaamera ribakoodile või QR-ile';
   $('skannValgus').style.display = 'none';
   $('skannSuum').style.display = 'none';
+  $('skannKaamera').style.display = 'none';
   $('skanner').classList.add('lahti');
   const video = $('skannVideo');
   try {
@@ -1734,7 +1744,7 @@ async function avaSkanner(tagasi, vihje) {
       if (!SK.tootab) { SK.voog.getTracks().forEach(t => t.stop()); SK.voog = null; return; }
       video.srcObject = SK.voog;
       await video.play();
-      naitaTaskulamp(); naitaSuum(); seaFookus();
+      naitaTaskulamp(); naitaSuum(); seaFookus(); kaameraValmis();
       const tsukkel = async () => {
         if (!SK.tootab) return;
         try {
@@ -1753,6 +1763,16 @@ async function avaSkanner(tagasi, vihje) {
       if (!SK.tootab) return;
       const iOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       $('skannTekst').textContent = (vihje || 'Suuna kaamera ribakoodile või QR-ile') + (iOS ? ' · hoia 15–25 cm kaugusel' : '');
+      if (!iOS) {
+        // VANA-ANDROID (2.41): sisseehitatud lugejat pole (Chrome < 83). Väiksem pilt ja loeme ainult raami ümbrust -> kiirem.
+        SK.voog = await avaAndroidKaamera(1280, 720);
+        if (!SK.tootab) { peata(SK.voog); SK.voog = null; return; }
+        video.srcObject = SK.voog;
+        await video.play();
+        naitaTaskulamp(); naitaSuum(); seaFookus(); kaameraValmis();
+        zxRaamiTsukkel(ZX, video);
+        return;
+      }
       const kaamera = await valiKaamera();
       if (!SK.tootab) return;
       const vihjed = new Map();
@@ -1781,7 +1801,7 @@ async function avaSkanner(tagasi, vihje) {
         await kaivita(null);
       }
       SK.voog = video.srcObject || null;
-      naitaTaskulamp(); naitaSuum(); seaFookus();
+      naitaTaskulamp(); naitaSuum(); seaFookus(); kaameraValmis();
     }
   } catch (e) {
     const nimi = e && e.name;
@@ -1791,6 +1811,92 @@ async function avaSkanner(tagasi, vihje) {
     sulgeSkanner();
     naita(msg, true);
   }
+}
+
+// ZXingi leitud tekst (sama loogika mõlemas ZXingi harus)
+function zxTulemus(t) {
+  if (!SK.tootab || !t) return;
+  if (epoodSlug(t)) { if (epoodQrOota()) skannLeitud(t); return; }   // e-poe QR: anna ribakoodile 0,4 s aega
+  if (onLink(t) && !onAsukohaQR(t)) { tundmatuQrVihje(); return; }
+  skannLeitud(t);
+}
+// VANA-ANDROID: loe kaadrist ainult raami ala (+ varu ümber). Iga 4. kaader terve pilt, et suur QR ka leitaks.
+function zxRaamiTsukkel(ZX, video) {
+  const F = ZX.BarcodeFormat;
+  const vihjed = new Map();
+  vihjed.set(ZX.DecodeHintType.POSSIBLE_FORMATS, [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.QR_CODE]);
+  vihjed.set(ZX.DecodeHintType.TRY_HARDER, true);
+  const lugeja = new ZX.MultiFormatReader();
+  lugeja.setHints(vihjed);
+  const cv = document.createElement('canvas'), ctx = cv.getContext('2d');
+  let n = 0;
+  const samm = () => {
+    if (!SK.tootab) return;
+    try {
+      const vw = video.videoWidth, vh = video.videoHeight;
+      if (video.readyState >= 2 && vw && vh) {
+        let x = 0, y = 0, w = vw, h = vh;
+        if (n++ % 4 !== 3) {
+          const ala = raamVideoPikslites(video, vw, vh);
+          if (ala) ({ x, y, w, h } = ala);
+        }
+        const k = Math.min(1, 960 / Math.max(w, h));
+        cv.width = Math.max(1, Math.round(w * k)); cv.height = Math.max(1, Math.round(h * k));
+        ctx.drawImage(video, x, y, w, h, 0, 0, cv.width, cv.height);
+        const bmp = new ZX.BinaryBitmap(new ZX.HybridBinarizer(new ZX.HTMLCanvasElementLuminanceSource(cv)));
+        let t = '';
+        try { t = lugeja.decodeWithState(bmp).getText(); } catch (e) { /* koodi pole selles kaadris */ }
+        if (t) { zxTulemus(t); if (!SK.tootab) return; }
+      }
+    } catch (e) { /* üksik kaader ebaõnnestus */ }
+    SK.taimer = setTimeout(samm, 80);
+  };
+  samm();
+}
+// Ekraanil oleva raami asukoht video pikslites (video on object-fit: cover). Varu: laiuses 10%, kõrguses 35% kummalegi poole.
+function raamVideoPikslites(video, vw, vh) {
+  const raam = document.querySelector('#skanner .raam');
+  if (!raam) return null;
+  const b = video.getBoundingClientRect(), r = raam.getBoundingClientRect();
+  if (!b.width || !b.height || !r.width) return null;
+  const s = Math.max(b.width / vw, b.height / vh);
+  const ox = b.left + (b.width - vw * s) / 2, oy = b.top + (b.height - vh * s) / 2;
+  let x = (r.left - ox) / s, y = (r.top - oy) / s, w = r.width / s, h = r.height / s;
+  x -= w * 0.1; w *= 1.2; y -= h * 0.35; h *= 1.7;
+  const x1 = Math.max(0, x), y1 = Math.max(0, y), x2 = Math.min(vw, x + w), y2 = Math.min(vh, y + h);
+  if (x2 - x1 < 40 || y2 - y1 < 40) return null;
+  return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+}
+
+// Pärast kaamera käivitumist: nimi meelde (Seaded näitab) ja „Vaheta kaamerat“ nähtavaks, kui tagakaameraid on mitu.
+async function kaameraValmis() {
+  try {
+    const rada = skannRada();
+    if (rada) kirjuta('ladu_kaamera_nimi', rada.label || '');
+    const taga = await tagakaamerad();
+    $('skannKaamera').style.display = SK.tootab && taga.length > 1 ? '' : 'none';
+  } catch (e) { /* jääb peitu */ }
+}
+async function tagakaamerad() {
+  const k = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+  const taga = k.filter(d => /back|rear|environment|taga/i.test(d.label));
+  return taga.length ? taga : k;
+}
+// Järgmine tagakaamera; valik jääb meelde (mõlemale harule).
+async function vahetaKaamerat() {
+  if (!SK.tootab) return;
+  try {
+    const taga = await tagakaamerad();
+    if (taga.length < 2) return;
+    const rada = skannRada();
+    const praegune = rada && rada.getSettings ? rada.getSettings().deviceId : '';
+    const i = taga.findIndex(d => d.deviceId === praegune);
+    const jargmine = taga[(i + 1) % taga.length].deviceId;
+    const tagasi = SK.tagasi, vihje = SK.vihje;
+    sulgeSkanner();
+    kirjuta(KAAMERA_ANDROID, jargmine); kirjuta('ladu_kaamera', jargmine);
+    avaSkanner(tagasi, vihje);
+  } catch (e) { naita('Kaamerat ei saanud vahetada', true); }
 }
 
 // Foto -> vähendatud pilt -> BarcodeDetector või ZXing
@@ -1872,9 +1978,9 @@ const onPidevFookus = voog => {
   catch (e) { return false; }
 };
 const peata = voog => { try { voog.getTracks().forEach(t => t.stop()); } catch (e) {} };
-async function avaAndroidKaamera() {
+async function avaAndroidKaamera(laius, korgus) {
   const piirang = id => ({ video: Object.assign(id ? { deviceId: { exact: id } } : { facingMode: { ideal: 'environment' } },
-                                                { width: { ideal: 1920 }, height: { ideal: 1080 } }), audio: false });
+                                                { width: { ideal: laius || 1920 }, height: { ideal: korgus || 1080 } }), audio: false });
   const gum = id => navigator.mediaDevices.getUserMedia(piirang(id));
   const meeles = loe(KAAMERA_ANDROID, null);
   if (meeles) {
@@ -1956,12 +2062,13 @@ function naitaSuum() {
     const v = rada && rada.getCapabilities ? rada.getCapabilities() : {};
     if (!v.zoom || !(v.zoom.max > 1)) return;
     const b = $('skannSuum'); let suur = false;
-    const sihtSuum = Math.min(2, v.zoom.max);
-    b.style.display = ''; b.textContent = sihtSuum.toFixed(0) + '×';
+    const sihtSuum = Math.min(2, v.zoom.max), vaike = Math.max(1, v.zoom.min || 1);
+    rada.applyConstraints({ advanced: [{ zoom: vaike }] }).catch(() => {});   // avamisel alati 1×
+    b.style.display = ''; b.textContent = 'Suum ' + sihtSuum.toFixed(0) + '×';
     b.onclick = () => {
       suur = !suur;
-      rada.applyConstraints({ advanced: [{ zoom: suur ? sihtSuum : Math.max(1, v.zoom.min || 1) }] }).catch(() => {});
-      b.textContent = suur ? '1×' : sihtSuum.toFixed(0) + '×';
+      rada.applyConstraints({ advanced: [{ zoom: suur ? sihtSuum : vaike }] }).catch(() => {});
+      b.textContent = suur ? 'Suum 1×' : 'Suum ' + sihtSuum.toFixed(0) + '×';
     };
   } catch (e) { /* suumi pole */ }
 }
@@ -1999,6 +2106,7 @@ function sulgeSkanner() {
   clearTimeout(fookusTaimer); $('skannFookus').classList.remove('lahti');
   $('skannValgus').textContent = 'Taskulamp';
   $('skannSuum').style.display = 'none';
+  $('skannKaamera').style.display = 'none';
 }
 
 // Ribakood on alati tähtsam kui QR. Järjekord: 1) ribakood, 2) meie asukoha-QR (…?asukoht=…),
@@ -3657,6 +3765,7 @@ $('otsing').addEventListener('input', () => { otsingValitud = null; renderOtsing
 $('skannOtsing').addEventListener('click', skanniOtsing);
 $('skannInv').addEventListener('click', skanniInventuur);
 $('skannSulge').addEventListener('click', sulgeSkanner);
+$('skannKaamera').addEventListener('click', vahetaKaamerat);
 $('skannVideo').addEventListener('click', teravustaPuudutusega);
 $('skannPildista').addEventListener('click', () => {
   const tagasi = SK.tagasi;
