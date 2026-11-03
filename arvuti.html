@@ -4383,6 +4383,9 @@ $('kogKasKleebiLisa').addEventListener('click', kogKasKleebi);
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.42', kp: '03.11.2026', nimi: 'Vahekanne: pikk tootja kood leiab toote',
+    lisati: ['Vahekande koodid nagu 001587940000050000 võrreldakse Lao Andmetega ilma eesolevate nullideta (Excel kustutab need), nii leitakse toode ja nimetus.'],
+    kasutus: ['Varem imporditud vahekande nimekirjad jäävad endiseks: kustuta need ja lohista PDF uuesti. 2.42 muudab arvuti.html ja sw.js.'] },
   { v: '2.41', kp: '02.11.2026', nimi: 'Telefoni skänner töötab vanadel Androididel (nt Galaxy A40, Chrome 74)',
     lisati: ['Skänneri aken katab nüüd ka vanas Chrome\'is terve ekraani: pilt on keskel, „Pildista“ ja „Sulge“ on ekraanil.', 'Vanal telefonil (sisseehitatud lugejat pole) loeb skänner väiksemat pilti ja ainult raami ümbrust, nii on lugemine kiirem.', 'Skänneris nupp „⇄ Vaheta kaamerat“, kui telefonil on mitu tagakaamerat. Valik jääb meelde.', 'Suumi nupp on nüüd „Suum 2×“ ja skänner avaneb alati 1× suumiga.', 'Telefoni Seadetes on näha brauseri versioon ja viimati kasutatud kaamera.'],
     kasutus: ['Kui pilt on udune, vajuta skänneris „⇄ Vaheta kaamerat“. 2.41 muudab index.html, arvuti.html (ainult see uuenduste kirje) ja sw.js.'] },
@@ -7157,6 +7160,8 @@ function vahekandeParsi(tk) {
 }
 function vkLae(tk) {
   const v = vahekandeParsi(tk);
+  // 2.42: pikk number-kood (nt 001587940000050000) on Lao Andmetes Exceli tõttu ilma eesolevate nullideta
+  v.read.forEach(r => { if (!T.has(r.kood) && /^0+\d/.test(r.kood)) { const k = r.kood.replace(/^0+/, ''); if (T.has(k)) r.kood = k; } });
   if (!v.read.length) throw new Error('Vahekande ridu ei leitud. Kas see on Buumi vahekande PDF?');
   VK = Object.assign(v, { saadetud: false });
   renderVK();
