@@ -322,6 +322,8 @@ header .olek { min-width: 0; overflow: hidden; text-overflow: ellipsis; }   /* R
 .sildileht:last-child { break-after: auto; page-break-after: auto; }
 .apsilt { position: absolute; width: 64.6mm; height: 33.8mm; box-sizing: border-box; display: flex; align-items: center; gap: 1.5mm; padding: 0 1.5mm 0 2.5mm; overflow: hidden; color: #000; background: #fff; }
 .apsilt svg { flex: none; }
+.apsilt .sv { display: flex; flex-direction: column; justify-content: center; min-width: 0; padding-bottom: 3mm; }
+.apsilt .st { font: 600 3.4mm system-ui, "Segoe UI", Arial, sans-serif; line-height: 1.1; margin-top: 1.2mm; white-space: nowrap; }
 .apsilt .sk { font-family: system-ui, "Segoe UI", Arial, sans-serif; font-weight: 800; line-height: 1; white-space: nowrap; }
 .apsilt.test { border: .25mm solid #000; justify-content: center; font: 700 9pt system-ui, sans-serif; }
 .apsilt.test small { font: 400 6.5pt system-ui, sans-serif; }
@@ -465,7 +467,11 @@ header .olek { min-width: 0; overflow: hidden; text-overflow: ellipsis; }   /* R
 <div class="katte" id="sildiAken">
   <div class="modaal">
     <h2>Prindi asukohasildid (APLI 01226)</h2>
-    <p class="hall vaike" id="sildiInfo"></p>
+    <div class="rida" style="gap:10px;flex-wrap:wrap;margin-top:8px">
+      <label>Read <input type="text" id="sildiRead" placeholder="nt 6, 8-11 või kõik" style="width:170px"></label>
+      <span class="hall vaike" id="sildiRidaVihje"></span>
+    </div>
+    <p class="hall vaike" id="sildiInfo" style="margin-top:6px"></p>
     <div class="rida" style="gap:10px;flex-wrap:wrap;margin-top:8px">
       <label>Nihe paremale (mm) <input type="number" id="sildiX" step="0.1" value="0" style="width:70px"></label>
       <label>Nihe alla (mm) <input type="number" id="sildiY" step="0.1" value="0" style="width:70px"></label>
@@ -4415,6 +4421,9 @@ $('kogKasKleebiLisa').addEventListener('click', kogKasKleebi);
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.47', kp: '05.11.2026', nimi: 'Sildid: mitu rida korraga ja tala märge',
+    lisati: ['Siltide aknas väli „Read“: nt 6, 8-11 või „kõik“. Sildid trükitakse järjest, nii et lehel ei jää tühja ruumi (vähem paberiraiskamist).', 'Silt: asukohakood veidi kõrgemal ja selle all väike tekst „Tala N“ (tala 1 = põrand).'],
+    kasutus: ['Ava Laoplaanis „Prindi sildid“, kirjuta read ja prindi. Poolik leht: „Alusta sildist nr“. 2.47 muudab ainult arvuti.html ja sw.js.'] },
   { v: '2.46', kp: '05.11.2026', nimi: 'Siltide sammu kalibreerimine',
     lisati: ['Siltide printimisel saab nihke kõrval seada ka sammu laiuse ja kõrguse (mm), et sildid jaguneksid lehel täpselt (alumine ja parem äär võrdsed ülemise ja vasakuga). Väärtused jäävad meelde, „Vaikeväärtused“ lähtestab.'],
     kasutus: ['Prindi testleht, vaata viimase rea nihet ja jaga see 7-ga, siis paranda sammu kõrgust. 2.46 muudab ainult arvuti.html ja sw.js.'] },
@@ -7521,19 +7530,45 @@ const SILT = { w: 64.6, h: 33.8, veerge: 3, ridu: 8, vasak: 8.1, ules: 13.3 };
 function sildiNihe() {
   try { const o = JSON.parse(localStorage.getItem('ladu_sildinihe') || '{}'); return { x: +o.x || 0, y: +o.y || 0, w: +o.w || SILT.w, h: +o.h || SILT.h }; } catch (e) { return { x: 0, y: 0, w: SILT.w, h: SILT.h }; }
 }
+function sildiReadList() {
+  const koik = [...READ.keys()].map(Number).sort((a, b) => a - b);
+  const t = ($('sildiRead').value || '').trim().toLowerCase();
+  if (!t) return [UI.rida];
+  if (t === 'kõik' || t === 'koik') return koik;
+  const out = new Set();
+  t.split(/[,;\s]+/).filter(Boolean).forEach(osa => {
+    const m = osa.match(/^(\d+)\s*[-–]\s*(\d+)$/);
+    if (m) { for (let r = +m[1]; r <= +m[2]; r++) out.add(r); } else if (/^\d+$/.test(osa)) out.add(+osa);
+  });
+  return [...out].sort((a, b) => a - b);
+}
 function sildiKoodid() {
-  const eesl = UI.rida + '-' + (UI.rp ? UI.rp + '-' : '');
-  return [...KOHAD.keys()].filter(k => k.startsWith(eesl)).sort((a, b) => CN.compare(a, b));
+  const read = sildiReadList(), uks = read.length === 1 && read[0] === UI.rida && UI.rp;
+  const koodid = [];
+  read.forEach(r => {
+    const eesl = r + '-' + (uks ? UI.rp + '-' : '');
+    koodid.push(...[...KOHAD.keys()].filter(k => k.startsWith(eesl)).sort((a, b) => CN.compare(a, b)));
+  });
+  return koodid;
+}
+function sildiInfoUuenda() {
+  const read = sildiReadList(), n = sildiKoodid().length, n24 = Math.ceil(n / 24);
+  const uks = read.length === 1 && read[0] === UI.rida && UI.rp;
+  $('sildiInfo').textContent = `Read ${read.join(', ') || '–'}${uks ? ', püstak ' + UI.rp : ''}: ${n} silti, ${n24} leht${n24 === 1 ? '' : 'e'} (24 silti lehel, read järjest, tühja ruumi ei jää).`;
+}
+function sildiLooPuuduvad(read) {
+  const kokku = read.reduce((n, r) => n + puuduvadKohad(r).length, 0);
+  if (!kokku) return true;
+  if (vaataAinult()) return false;
+  if (!confirm(`Ridade ${read.join(', ')} asukohti puudub Sheetsist ${kokku} tk (mõõdud on olemas). Loon need mõõtude põhjal?`)) return false;
+  read.forEach(r => looPuuduvadKohad(r));
+  return true;
 }
 function avaSildid() {
-  const puud = puuduvadKohad(UI.rida);
-  if (puud.length) {
-    if (vaataAinult()) return;
-    if (!confirm(`Rea ${UI.rida} asukohti puudub Sheetsist ${puud.length} tk (mõõdud on olemas). Loon need mõõtude põhjal?`)) return;
-    looPuuduvadKohad(UI.rida);
-  }
-  const n = sildiKoodid().length, n24 = Math.ceil(n / 24);
-  $('sildiInfo').textContent = `Rida ${UI.rida}${UI.rp ? ', püstak ' + UI.rp : ' (kogu rida)'}: ${n} silti, ${n24} leht${n24 === 1 ? '' : 'e'} (24 silti lehel).`;
+  $('sildiRead').value = String(UI.rida);
+  $('sildiRidaVihje').textContent = `saadaval: ${[...READ.keys()].map(Number).sort((a, b) => a - b).join(', ')}`;
+  if (!sildiLooPuuduvad([UI.rida])) return;
+  sildiInfoUuenda();
   const o = sildiNihe(); $('sildiX').value = o.x; $('sildiY').value = o.y; $('sildiW').value = o.w; $('sildiH').value = o.h;
   $('sildiAken').classList.add('lahti');
 }
@@ -7551,8 +7586,10 @@ function sildiHtml(koodid, test) {
       const st = `left:${(SILT.vasak + c * o.w + o.x).toFixed(2)}mm;top:${(SILT.ules + r * o.h + o.y).toFixed(2)}mm`;
       if (test) h += `<div class="apsilt test" style="${st}"><div style="text-align:center">${esc(k)}<br><small>${SILT.w} × ${SILT.h} mm</small></div></div>`;
       else {
-        const em = [...k].reduce((n, ch) => n + (ch === '-' ? 0.4 : 0.62), 0), fm = Math.min(10, 31 / em);
-        h += `<div class="apsilt" style="${st}">${qrSvg(k, 28)}<span class="sk" style="font-size:${fm.toFixed(2)}mm">${esc(k)}</span></div>`;
+        const em = [...k].reduce((n, ch) => n + (ch === '-' ? 0.42 : 0.72), 0), fm = Math.min(10, 30 / em);
+        const tala = +String(k).split('-')[2] || 0;
+        const tk = tala ? `Tala ${tala}${tala === 1 ? ' (põrand)' : ''}` : '';
+        h += `<div class="apsilt" style="${st}">${qrSvg(k, 28)}<div class="sv"><span class="sk" style="font-size:${fm.toFixed(2)}mm">${esc(k)}</span><span class="st">${esc(tk)}</span></div></div>`;
       }
     }
     h += '</section>';
@@ -7560,6 +7597,7 @@ function sildiHtml(koodid, test) {
   return h;
 }
 function prindiSildid(test) {
+  if (!test && !sildiLooPuuduvad(sildiReadList())) return;
   const koodid = sildiKoodid();
   if (!test && !koodid.length) { teade('Sellel real pole asukohti', true); return; }
   const html = sildiHtml(koodid, test);
@@ -7890,6 +7928,7 @@ $('auto').addEventListener('change', e => { UI.auto = e.target.checked; salvesta
 $('koik').addEventListener('change', e => { UI[onVPvaade() ? 'koikVP' : 'koikL'] = e.target.checked; salvestaUI(); renderAside(); });
 $('jrkNupp').addEventListener('click', avaJrk);
 $('sildiVaike').addEventListener('click', () => { $('sildiX').value = 0; $('sildiY').value = 0; $('sildiW').value = SILT.w; $('sildiH').value = SILT.h; });
+$('sildiRead').addEventListener('input', sildiInfoUuenda);
 $('sildiLoobu').addEventListener('click', () => $('sildiAken').classList.remove('lahti'));
 $('sildiTest').addEventListener('click', () => prindiSildid(true));
 $('sildiPrindi').addEventListener('click', () => prindiSildid(false));
