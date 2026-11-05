@@ -471,6 +471,12 @@ header .olek { min-width: 0; overflow: hidden; text-overflow: ellipsis; }   /* R
       <label>Nihe alla (mm) <input type="number" id="sildiY" step="0.1" value="0" style="width:70px"></label>
       <label>Alusta sildist nr <input type="number" id="sildiStart" min="1" max="24" value="1" style="width:60px"></label>
     </div>
+    <div class="rida" style="gap:10px;flex-wrap:wrap;margin-top:8px">
+      <label>Sammu laius (mm) <input type="number" id="sildiW" step="0.01" value="64.6" style="width:70px"></label>
+      <label>Sammu kõrgus (mm) <input type="number" id="sildiH" step="0.01" value="33.8" style="width:70px"></label>
+      <button class="nupp" id="sildiVaike" type="button">Vaikeväärtused</button>
+    </div>
+    <p class="hall vaike" style="margin-top:8px">Kui read nihkuvad lehe lõpu poole, korrigeeri sammu kõrgust: vahe viimase (8.) rea nihkest ÷ 7 (kui viimane rida jääb liiga ülespoole, suurenda). Veergude puhul sama: 3. veeru nihe ÷ 2.</p>
     <p class="hall vaike" style="margin-top:8px">Prindi esmalt testleht tavalisele paberile, hoia APLI lehe vastu valgust ja vaata, kas raamid jäävad siltide peale. Nihke sisesta siia, see jääb meelde. Chrome'i printimisel: A4, mõõtkava 100%, veerised puuduvad. Silthainad pane käsisöötmise salve (paberitüüp Labels).</p>
     <div class="rida" style="margin-top:14px;justify-content:flex-end">
       <button class="nupp" id="sildiLoobu">Sulge</button>
@@ -4409,6 +4415,9 @@ $('kogKasKleebiLisa').addEventListener('click', kogKasKleebi);
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.46', kp: '05.11.2026', nimi: 'Siltide sammu kalibreerimine',
+    lisati: ['Siltide printimisel saab nihke kõrval seada ka sammu laiuse ja kõrguse (mm), et sildid jaguneksid lehel täpselt (alumine ja parem äär võrdsed ülemise ja vasakuga). Väärtused jäävad meelde, „Vaikeväärtused“ lähtestab.'],
+    kasutus: ['Prindi testleht, vaata viimase rea nihet ja jaga see 7-ga, siis paranda sammu kõrgust. 2.46 muudab ainult arvuti.html ja sw.js.'] },
   { v: '2.45', kp: '05.11.2026', nimi: 'Siltide veerised parandatud',
     lisati: ['Asukohasiltide veerised arvutatakse nüüd lehe mõõtudest: vasakul 8,1 mm ja üleval 13,3 mm ((210 − 3 × 64,6) / 2 ja (297 − 8 × 33,8) / 2).'],
     kasutus: ['Prindi testleht uuesti ja vaata, kas raamid on siltidel. Vajadusel paranda nihet. 2.45 muudab ainult arvuti.html ja sw.js.'] },
@@ -7510,7 +7519,7 @@ window.addEventListener('afterprint', () => { $('prindiAla').innerHTML = ''; con
 /* ---------- SILDID: APLI 01226 (64,6 x 33,8 mm, 3 x 8, veeris üleval 14 mm, vasakul 10 mm, vahesid pole) ---------- */
 const SILT = { w: 64.6, h: 33.8, veerge: 3, ridu: 8, vasak: 8.1, ules: 13.3 };
 function sildiNihe() {
-  try { const o = JSON.parse(localStorage.getItem('ladu_sildinihe') || '{}'); return { x: +o.x || 0, y: +o.y || 0 }; } catch (e) { return { x: 0, y: 0 }; }
+  try { const o = JSON.parse(localStorage.getItem('ladu_sildinihe') || '{}'); return { x: +o.x || 0, y: +o.y || 0, w: +o.w || SILT.w, h: +o.h || SILT.h }; } catch (e) { return { x: 0, y: 0, w: SILT.w, h: SILT.h }; }
 }
 function sildiKoodid() {
   const eesl = UI.rida + '-' + (UI.rp ? UI.rp + '-' : '');
@@ -7525,11 +7534,11 @@ function avaSildid() {
   }
   const n = sildiKoodid().length, n24 = Math.ceil(n / 24);
   $('sildiInfo').textContent = `Rida ${UI.rida}${UI.rp ? ', püstak ' + UI.rp : ' (kogu rida)'}: ${n} silti, ${n24} leht${n24 === 1 ? '' : 'e'} (24 silti lehel).`;
-  const o = sildiNihe(); $('sildiX').value = o.x; $('sildiY').value = o.y;
+  const o = sildiNihe(); $('sildiX').value = o.x; $('sildiY').value = o.y; $('sildiW').value = o.w; $('sildiH').value = o.h;
   $('sildiAken').classList.add('lahti');
 }
 function sildiHtml(koodid, test) {
-  const o = { x: +$('sildiX').value || 0, y: +$('sildiY').value || 0 };
+  const o = { x: +$('sildiX').value || 0, y: +$('sildiY').value || 0, w: +$('sildiW').value || SILT.w, h: +$('sildiH').value || SILT.h };
   try { localStorage.setItem('ladu_sildinihe', JSON.stringify(o)); } catch (e) {}
   const a = Math.max(1, Math.min(24, +$('sildiStart').value || 1)) - 1;
   const jada = test ? Array.from({ length: 24 }, (_, i) => 'Silt ' + (i + 1)) : Array(a).fill(null).concat(koodid);
@@ -7539,7 +7548,7 @@ function sildiHtml(koodid, test) {
     for (let j = 0; j < 24 && i + j < jada.length; j++) {
       const k = jada[i + j]; if (k === null) continue;
       const c = j % SILT.veerge, r = Math.floor(j / SILT.veerge);
-      const st = `left:${(SILT.vasak + c * SILT.w + o.x).toFixed(2)}mm;top:${(SILT.ules + r * SILT.h + o.y).toFixed(2)}mm`;
+      const st = `left:${(SILT.vasak + c * o.w + o.x).toFixed(2)}mm;top:${(SILT.ules + r * o.h + o.y).toFixed(2)}mm`;
       if (test) h += `<div class="apsilt test" style="${st}"><div style="text-align:center">${esc(k)}<br><small>${SILT.w} × ${SILT.h} mm</small></div></div>`;
       else {
         const em = [...k].reduce((n, ch) => n + (ch === '-' ? 0.4 : 0.62), 0), fm = Math.min(10, 31 / em);
@@ -7880,6 +7889,7 @@ $('peida').addEventListener('change', e => { UI.peida = e.target.checked; salves
 $('auto').addEventListener('change', e => { UI.auto = e.target.checked; salvestaUI(); });
 $('koik').addEventListener('change', e => { UI[onVPvaade() ? 'koikVP' : 'koikL'] = e.target.checked; salvestaUI(); renderAside(); });
 $('jrkNupp').addEventListener('click', avaJrk);
+$('sildiVaike').addEventListener('click', () => { $('sildiX').value = 0; $('sildiY').value = 0; $('sildiW').value = SILT.w; $('sildiH').value = SILT.h; });
 $('sildiLoobu').addEventListener('click', () => $('sildiAken').classList.remove('lahti'));
 $('sildiTest').addEventListener('click', () => prindiSildid(true));
 $('sildiPrindi').addEventListener('click', () => prindiSildid(false));
