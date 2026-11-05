@@ -2873,6 +2873,16 @@ function piiks(ok) {
   } catch (e) {}
 }
 
+// KOHT (2.44): kust kaup tegelikult võeti (kogus läheb sellest kohast maha); vaikimisi pakutud koht
+let gKohtValik = {};
+function gKohtRida(r, k, pakutud) {
+  if (kogVK(kogNimekirjad().find(x => x.id === gAvatud))) return '';
+  const nimi = gKohtValik[r.id] || (pakutud && pakutud.koht) || '';
+  const x = k.koik.find(y => y.koht === nimi), q = x ? pgKogus(x) : null;
+  const muudetud = !!gKohtValik[r.id] && (!pakutud || gKohtValik[r.id] !== pakutud.koht);
+  return `<div class="hall" style="margin-top:6px;${muudetud ? 'color:var(--roheline)' : ''}">Võtan kohast: <b>${esc(nimi || 'koht puudub')}</b>${q !== null ? ' · kohas ' + fmtNr(q) : ''}${muudetud ? ' (vahetatud)' : ''}</div>
+    <div class="nupud" style="margin-top:4px"><button class="nupp vaike" data-gkohtvali="${esc(r.id)}" style="flex:1">Vaheta koht</button><button class="nupp vaike" data-gkohtskann="${esc(r.id)}" style="flex:1">⌗ Skänni koht</button></div>`;
+}
 function gKaart(r, read) {
   const t = IX && IX.tooted.get(r.kood);
   const k = r.k || reaKoht(r.kood);
@@ -2887,6 +2897,7 @@ function gKaart(r, read) {
     ${koht && onTooraineLiik(koht.liik) ? `<div class="tooraine-info">Tooraine alus ${esc((IX.seosKoht.get(koht.koht) || []).filter(s => !onTooraineLiik(s.liik) && !onAjutineLiik(s.liik)).map(s => s.kood).join(', '))} kohal</div>` : ''}
     ${koht && kohaTooraine(koht.koht, r.kood).length ? `<div class="tooraine-info">Pesas on tooraine ${esc(kohaTooraine(koht.koht, r.kood).map(s => s.kood).join(', '))}; pakitud kaupa ei pruugi olla</div>` : ''}
     ${muud.length ? `<div class="hall vaike">Ka: ${muud.map(x => esc(x.koht)).join(', ')}</div>` : ''}
+    ${gKohtRida(r, k, koht)}
     <div class="g-toode">${gKast(kin)}<div><b>${esc(r.kood)}</b> ${esc(t ? t.nimi : 'Buumi ekspordis pole')}</div></div>
     <div class="g-vaja">${r.vaja ? `Vaja <b>${gArv(r.vaja)}</b>` : 'Uus rida'} ${esc(t && t.uhik || '')}
       ${t ? `<span class="hall"> · laos ${gArv(t.maardu)}</span>` : ''}</div>
@@ -2945,9 +2956,9 @@ function gKinnita(kohast) {
   const tekst = $('gKogus').value.replace(/\s/g, '');
   if (!/^\d+([.,]\d+)?$/.test(tekst)) { naita('Sisesta kogus numbrina', true); $('gKogus').focus(); return; }
   const vkN = kogNimekirjad().find(x => x.id === gAvatud), vk = kogVK(vkN);   // VAHEKANNE
-  if (!vk && kohast === undefined && !r.olek && kusVaja(r)) { kusVotsid(r, k => gKinnita(k)); return; }   // PAIGUTA: tooraine -> küsi kust
+  if (!vk && kohast === undefined && !r.olek && !gKohtValik[r.id] && kusVaja(r)) { kusVotsid(r, k => gKinnita(k)); return; }   // PAIGUTA: tooraine -> küsi kust
   const votetud = nr(tekst);
-  const voetudKoht = vk ? '' : kohast !== undefined ? kohast : ((r.k || reaKoht(r.kood)).parim || {}).koht || '';   // PAIGUTA: vaikimisi pakutud pesa
+  const voetudKoht = vk ? '' : kohast !== undefined ? kohast : gKohtValik[r.id] ? gKohtValik[r.id] : ((r.k || reaKoht(r.kood)).parim || {}).koht || '';   // PAIGUTA: vaikimisi pakutud pesa
   const olek = vk ? (r.vaja && votetud !== r.vaja ? 'puudu' : 'tehtud') : r.vaja && votetud < r.vaja && !kogNapilt({ vaja: r.vaja, votetud }) ? 'puudu' : 'tehtud';   // NAPILT: kuni 5% vähem ei ole puudu
   // SKANN: kuidas õige toode tuvastati (uuesti märkimisel ilma skännita jääb varasem kinnitus)
   const t = IX && IX.tooted.get(r.kood), ok = gKontrollitud === r.id;
@@ -2961,7 +2972,7 @@ function gKinnita(kohast) {
   else naita(`${r.kood}: ${fmtNr(votetud)}` + (olek === 'puudu' ? ` (puudu ${fmtNr(r.vaja - votetud)})` : r.vaja && votetud < r.vaja ? ` (napilt −${fmtNr(r.vaja - votetud)})` : ''), false);
   // VASTUVOTT: puudu jäi -> korjekoht on tõenäoliselt tühi
   // (koha tühjaks märkimine on valikuline: reakaardi nupp „Koht jäi tühjaks“, enam ei küsita)
-  gVahele.delete(r.id); gRida = null; gUusRida = null; gKontrollitud = null; gVale = null;
+  gVahele.delete(r.id); delete gKohtValik[r.id]; gRida = null; gUusRida = null; gKontrollitud = null; gVale = null;
   renderKogumine(); window.scrollTo(0, 0);
   if (vk && votetud > 0) {   // VAHEKANNE: mis kaubaga edasi
     if (gVkPak[r.id]) {   // linnuke: otse pakkimise järjekorda, küsimata
@@ -3128,6 +3139,8 @@ function gLopeta() {
 $('v-kogumine').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   const d = b.dataset;
+  if (d.gkohtvali) { const r = gAktiivneRida(); if (r) kusVotsid(r, k => { gKohtValik[r.id] = k; renderKogumine(); }); return; }
+  if (d.gkohtskann) { const r = gAktiivneRida(); if (r) avaSkanner(async v => { const t = await tolgendaTaielik(v); if (t.koht) { gKohtValik[r.id] = t.koht; renderKogumine(); } else naita('See pole asukoha kood', true); }, 'Skänni koha QR, kust võtad'); return; }
   if (d.gtyhi) { const [kood, koht] = d.gtyhi.split('|'); tyhiKoht(kood, koht); return; }   // VASTUVOTT
   if ('gtait' in d) { tVaade = true; renderKogumine(); laeTait(); window.scrollTo(0, 0); return; }
   if ('ttagasi' in d) { tVaade = false; renderKogumine(); return; }
