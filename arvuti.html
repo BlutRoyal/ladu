@@ -317,6 +317,14 @@ header .olek { min-width: 0; overflow: hidden; text-overflow: ellipsis; }   /* R
 .leht table.kog.kompakt td, .leht table.kog.kompakt th { padding: 0.6mm 1.2mm; }
 .leht table.kog.kompakt th { font-size: 8pt; }
 .leht table.kog.kompakt tr { page-break-inside: avoid; }
+/* SILDID: APLI 01226 siltide leht (64,6 x 33,8 mm, 3 x 8) */
+.sildileht { position: relative; width: 210mm; height: 296mm; overflow: hidden; break-after: page; page-break-after: always; }
+.sildileht:last-child { break-after: auto; page-break-after: auto; }
+.apsilt { position: absolute; width: 64.6mm; height: 33.8mm; box-sizing: border-box; display: flex; align-items: center; gap: 1.5mm; padding: 0 1.5mm 0 2.5mm; overflow: hidden; color: #000; background: #fff; }
+.apsilt svg { flex: none; }
+.apsilt .sk { font-family: system-ui, "Segoe UI", Arial, sans-serif; font-weight: 800; line-height: 1; white-space: nowrap; }
+.apsilt.test { border: .25mm solid #000; justify-content: center; font: 700 9pt system-ui, sans-serif; }
+.apsilt.test small { font: 400 6.5pt system-ui, sans-serif; }
 /* QRLEHT: püstaku QR-leht */
 .leht .qr-ruut { display: grid; gap: 1.5mm; }
 .leht .qr-silt, .leht .qr-lahter { border: 1px solid #000; background: #fff; color: #000; }
@@ -454,6 +462,23 @@ header .olek { min-width: 0; overflow: hidden; text-overflow: ellipsis; }   /* R
   </div>
 </div>
 
+<div class="katte" id="sildiAken">
+  <div class="modaal">
+    <h2>Prindi asukohasildid (APLI 01226)</h2>
+    <p class="hall vaike" id="sildiInfo"></p>
+    <div class="rida" style="gap:10px;flex-wrap:wrap;margin-top:8px">
+      <label>Nihe paremale (mm) <input type="number" id="sildiX" step="0.1" value="0" style="width:70px"></label>
+      <label>Nihe alla (mm) <input type="number" id="sildiY" step="0.1" value="0" style="width:70px"></label>
+      <label>Alusta sildist nr <input type="number" id="sildiStart" min="1" max="24" value="1" style="width:60px"></label>
+    </div>
+    <p class="hall vaike" style="margin-top:8px">Prindi esmalt testleht tavalisele paberile, hoia APLI lehe vastu valgust ja vaata, kas raamid jäävad siltide peale. Nihke sisesta siia, see jääb meelde. Chrome'i printimisel: A4, mõõtkava 100%, veerised puuduvad. Silthainad pane käsisöötmise salve (paberitüüp Labels).</p>
+    <div class="rida" style="margin-top:14px;justify-content:flex-end">
+      <button class="nupp" id="sildiLoobu">Sulge</button>
+      <button class="nupp" id="sildiTest">Prindi testleht</button>
+      <button class="nupp pea" id="sildiPrindi">Prindi sildid</button>
+    </div>
+  </div>
+</div>
 <!-- gruppide järjekord -->
 <div class="katte" id="pesaAken"><div class="modaal" id="pesaSisu"></div></div>
 <div class="katte" id="jrkAken">
@@ -3828,6 +3853,7 @@ function renderTooala() {
       <span class="hall vaike">püstak 1 vasakul · tala 1 = põrand · kollane = ajutine koht</span>
       <button class="nupp" data-tegevus="prindiRida">Prindi ${UI.rp ? 'püstak' : 'rida'}</button>
       <button class="nupp" data-tegevus="prindiQr" title="A4 leht asukohakoodide QR-idega: skänni koht, siis toode">Prindi QR-leht</button>
+      <button class="nupp" data-tegevus="sildid" title="Asukohasildid APLI 01226 lehtedele (QR + kood)">Prindi sildid</button>
       ${onLadu() ? '' : `<button class="nupp" data-tegevus="reaAjutiseks" title="Kõik selle rea asukohad ajutiseks, et telefon saaks siduda">${readAjutine().koik ? 'Rida püsivaks' : 'Rida ajutiseks'}</button>`}`;
     $('lava').innerHTML = reaRuudustik(UI.rida, UI.rp, false);
   }
@@ -4383,6 +4409,9 @@ $('kogKasKleebiLisa').addEventListener('click', kogKasKleebi);
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.43', kp: '05.11.2026', nimi: 'Asukohasildid APLI 01226 lehtedele',
+    lisati: ['Laoplaanis nupp „Prindi sildid“: igale asukohale silt (QR vasakul, suur kood paremal), 24 silti A4 lehel, mõõdud 64,6 × 33,8 mm, veeris üleval 14 mm ja vasakul 10 mm.', 'Testleht raamidega nihke kontrolliks, nihe (mm) jääb meelde. „Alusta sildist nr“ lubab poolikut lehte lõpuni kasutada.'],
+    kasutus: ['Vali rida (ja soovi korral püstak), vajuta „Prindi sildid“, prindi esmalt testleht tavalisele paberile. Chrome\'is A4, mõõtkava 100%, veerised puuduvad. 2.43 muudab arvuti.html ja sw.js.'] },
   { v: '2.42', kp: '03.11.2026', nimi: 'Vahekanne: pikk tootja kood leiab toote',
     lisati: ['Vahekande koodid nagu 001587940000050000 võrreldakse Lao Andmetega ilma eesolevate nullideta (Excel kustutab need), nii leitakse toode ja nimetus.'],
     kasutus: ['Varem imporditud vahekande nimekirjad jäävad endiseks: kustuta need ja lohista PDF uuesti. 2.42 muudab arvuti.html ja sw.js.'] },
@@ -7469,7 +7498,64 @@ function prindi(lehed, { pysti = false } = {}) {
   $('prindiAla').innerHTML = lehed.map(x => `<section class="leht"><h2>${esc(x.pealkiri)} <span style="font-size:10pt;font-weight:400">${esc(x.markus || '')}</span></h2>${x.html}</section>`).join('');
   window.print();
 }
-window.addEventListener('afterprint', () => { $('prindiAla').innerHTML = ''; const st = $('prindiPysti'); if (st) st.remove(); });
+window.addEventListener('afterprint', () => { $('prindiAla').innerHTML = ''; const st = $('prindiPysti'); if (st) st.remove(); const ss = $('prindiSildid'); if (ss) ss.remove(); });
+
+
+/* ---------- SILDID: APLI 01226 (64,6 x 33,8 mm, 3 x 8, veeris üleval 14 mm, vasakul 10 mm, vahesid pole) ---------- */
+const SILT = { w: 64.6, h: 33.8, veerge: 3, ridu: 8, vasak: 10, ules: 14 };
+function sildiNihe() {
+  try { const o = JSON.parse(localStorage.getItem('ladu_sildinihe') || '{}'); return { x: +o.x || 0, y: +o.y || 0 }; } catch (e) { return { x: 0, y: 0 }; }
+}
+function sildiKoodid() {
+  const eesl = UI.rida + '-' + (UI.rp ? UI.rp + '-' : '');
+  return [...KOHAD.keys()].filter(k => k.startsWith(eesl)).sort((a, b) => CN.compare(a, b));
+}
+function avaSildid() {
+  const puud = puuduvadKohad(UI.rida);
+  if (puud.length) {
+    if (vaataAinult()) return;
+    if (!confirm(`Rea ${UI.rida} asukohti puudub Sheetsist ${puud.length} tk (mõõdud on olemas). Loon need mõõtude põhjal?`)) return;
+    looPuuduvadKohad(UI.rida);
+  }
+  const n = sildiKoodid().length, n24 = Math.ceil(n / 24);
+  $('sildiInfo').textContent = `Rida ${UI.rida}${UI.rp ? ', püstak ' + UI.rp : ' (kogu rida)'}: ${n} silti, ${n24} leht${n24 === 1 ? '' : 'e'} (24 silti lehel).`;
+  const o = sildiNihe(); $('sildiX').value = o.x; $('sildiY').value = o.y;
+  $('sildiAken').classList.add('lahti');
+}
+function sildiHtml(koodid, test) {
+  const o = { x: +$('sildiX').value || 0, y: +$('sildiY').value || 0 };
+  try { localStorage.setItem('ladu_sildinihe', JSON.stringify(o)); } catch (e) {}
+  const a = Math.max(1, Math.min(24, +$('sildiStart').value || 1)) - 1;
+  const jada = test ? Array.from({ length: 24 }, (_, i) => 'Silt ' + (i + 1)) : Array(a).fill(null).concat(koodid);
+  let h = '';
+  for (let i = 0; i < jada.length; i += 24) {
+    h += '<section class="sildileht">';
+    for (let j = 0; j < 24 && i + j < jada.length; j++) {
+      const k = jada[i + j]; if (k === null) continue;
+      const c = j % SILT.veerge, r = Math.floor(j / SILT.veerge);
+      const st = `left:${(SILT.vasak + c * SILT.w + o.x).toFixed(2)}mm;top:${(SILT.ules + r * SILT.h + o.y).toFixed(2)}mm`;
+      if (test) h += `<div class="apsilt test" style="${st}"><div style="text-align:center">${esc(k)}<br><small>${SILT.w} × ${SILT.h} mm</small></div></div>`;
+      else {
+        const em = [...k].reduce((n, ch) => n + (ch === '-' ? 0.4 : 0.62), 0), fm = Math.min(10, 31 / em);
+        h += `<div class="apsilt" style="${st}">${qrSvg(k, 28)}<span class="sk" style="font-size:${fm.toFixed(2)}mm">${esc(k)}</span></div>`;
+      }
+    }
+    h += '</section>';
+  }
+  return h;
+}
+function prindiSildid(test) {
+  const koodid = sildiKoodid();
+  if (!test && !koodid.length) { teade('Sellel real pole asukohti', true); return; }
+  const html = sildiHtml(koodid, test);
+  const st = $('prindiSildid'); if (st) st.remove();
+  const e = document.createElement('style'); e.id = 'prindiSildid';
+  e.textContent = '@media print { @page { size: A4 portrait; margin: 0; } html, body { height: auto !important; margin: 0; background: #fff !important; } }';
+  document.head.appendChild(e);
+  $('prindiAla').innerHTML = html;
+  $('sildiAken').classList.remove('lahti');
+  window.print();
+}
 
 /* ---------- gruppide järjekord ---------- */
 let jrkMustand = [];
@@ -7768,6 +7854,7 @@ document.addEventListener('click', e => {
     prindi(p.map(u => ({ pealkiri: `Väikepakend V-${UI.r}-${u}`, markus: '(tala 1 = alumine)', html: vpRuudustik(UI.r, u, true) }))); return;
   }
   if (d.tegevus === 'prindiQr') { prindiQr(); return; }   // QRLEHT
+  if (d.tegevus === 'sildid') { avaSildid(); return; }   // SILDID
   if (d.tegevus === 'reaAjutiseks') { reaAjutiseks(); return; }   // QRLEHT
   if (d.tegevus === 'prindiRida') { prindi([{ pealkiri: `Rida ${UI.rida}${UI.rp ? ', püstak ' + UI.rp : ''}`, markus: '(tala 1 = põrand · punktiir = ajutine koht)', html: reaRuudustik(UI.rida, UI.rp, true) }]); return; }
   if (d.varv !== undefined) { maaraVarv(+d.varv); return; }
@@ -7787,6 +7874,9 @@ $('peida').addEventListener('change', e => { UI.peida = e.target.checked; salves
 $('auto').addEventListener('change', e => { UI.auto = e.target.checked; salvestaUI(); });
 $('koik').addEventListener('change', e => { UI[onVPvaade() ? 'koikVP' : 'koikL'] = e.target.checked; salvestaUI(); renderAside(); });
 $('jrkNupp').addEventListener('click', avaJrk);
+$('sildiLoobu').addEventListener('click', () => $('sildiAken').classList.remove('lahti'));
+$('sildiTest').addEventListener('click', () => prindiSildid(true));
+$('sildiPrindi').addEventListener('click', () => prindiSildid(false));
 $('jrkLoobu').addEventListener('click', () => $('jrkAken').classList.remove('lahti'));
 $('jrkSalvesta').addEventListener('click', () => {
   muuda({ tegevus: 'salvestaSeade', seade: 'Väikepakendi grupijärjekord', vaartus: jrkMustand.concat(GJRK.filter(g => !jrkMustand.includes(g))) });
