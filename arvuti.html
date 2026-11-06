@@ -466,8 +466,13 @@ header .olek { min-width: 0; overflow: hidden; text-overflow: ellipsis; }   /* R
 
 <div class="katte" id="sildiAken">
   <div class="modaal">
-    <h2>Prindi asukohasildid (APLI 01226)</h2>
-    <div class="rida" style="gap:10px;flex-wrap:wrap;margin-top:8px">
+    <h2 id="sildiPealkiri">Prindi asukohasildid (APLI 01226)</h2>
+    <div class="rida" id="sildiVpRida" style="gap:10px;flex-wrap:wrap;margin-top:8px;display:none">
+      <label>Külg <input type="text" id="sildiVpKylg" placeholder="1, 2 või kõik" style="width:90px"></label>
+      <label>Püstakud <input type="text" id="sildiVpPystak" placeholder="nt 1-3 või kõik" style="width:120px"></label>
+      <span class="hall vaike">iga kast = 2 silti (vasak ja parem pool)</span>
+    </div>
+    <div class="rida" id="sildiReadRida" style="gap:10px;flex-wrap:wrap;margin-top:8px">
       <label>Read <input type="text" id="sildiRead" placeholder="nt 6, 8-11 või kõik" style="width:170px"></label>
       <span class="hall vaike" id="sildiRidaVihje"></span>
     </div>
@@ -475,7 +480,7 @@ header .olek { min-width: 0; overflow: hidden; text-overflow: ellipsis; }   /* R
     <div class="rida" style="gap:10px;flex-wrap:wrap;margin-top:8px">
       <label>Nihe paremale (mm) <input type="number" id="sildiX" step="0.1" value="0" style="width:70px"></label>
       <label>Nihe alla (mm) <input type="number" id="sildiY" step="0.1" value="0" style="width:70px"></label>
-      <label>Alusta sildist nr <input type="number" id="sildiStart" min="1" max="24" value="1" style="width:60px"></label>
+      <label>Alusta sildist nr <input type="number" id="sildiStart" min="1" max="48" value="1" style="width:60px"></label>
     </div>
     <div class="rida" style="gap:10px;flex-wrap:wrap;margin-top:8px">
       <label>Sammu laius (mm) <input type="number" id="sildiW" step="0.01" value="64.6" style="width:70px"></label>
@@ -520,6 +525,17 @@ header .olek { min-width: 0; overflow: hidden; text-overflow: ellipsis; }   /* R
       <span><button class="nupp" id="tlUuenda">Uuenda</button> <button class="nupp" id="tlSulge">Sulge</button></span>
     </div>
     <div id="tlSisu"></div>
+  </div>
+</div>
+
+<div class="katte" id="nrAken">   <!-- NIMEKIRI-AKEN (2.50): nimekirja read Töölaualt -->
+  <div class="modaal lai">
+    <div class="rida" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <h2 style="margin:0" id="nrPais"></h2>
+      <span id="nrNupud" style="display:flex;gap:6px;flex-wrap:wrap"></span>
+    </div>
+    <div class="hall vaike" id="nrMeta" style="margin:4px 0 10px"></div>
+    <div id="nrSisu"></div>
   </div>
 </div>
 
@@ -3131,7 +3147,7 @@ function koodLeia(m, k) {
   const kk = x.idx.get(koodVoti(k));
   return kk === undefined ? undefined : m.get(kk);
 }
-const normKoht = s => normKood(s).replace(/\s+/g, '');
+const normKoht = s => normKood(s).replace(/\s+/g, '').replace(/^(V-\d+-\d+-\d+-\d+)-[VP]$/i, '$1');   // SILDID: väikepakendi poole kood (…-V / …-P) = sama kast
 const nr = x => { const n = Number(String(x).replace(',', '.')); return isFinite(n) ? n : 0; };
 const fmt = n => (Math.round(n * 10) / 10).toLocaleString('et-EE');
 const CN = new Intl.Collator('et', { numeric: true, sensitivity: 'base' });
@@ -3848,6 +3864,7 @@ function renderTooala() {
       <select id="sihtPystak">${[1, 2, 3, 4, 5, 6, 7, 8].map(x => `<option>${x}</option>`).join('')}</select>
       <button class="nupp" data-tegevus="teisalda" title="Kui sihtpüstak pole tühi, vahetatakse need omavahel">Teisalda</button>`}
       <button class="nupp" data-tegevus="prindiPystak">Prindi püstak</button>
+      <button class="nupp" data-tegevus="vpSildid" title="Väikepakendi kastide sildid (APLI 12112), igale kastile 2 silti">Prindi sildid</button>
       <button class="nupp" data-tegevus="prindiKylg">Prindi külg</button>`;
     $('lava').innerHTML = vpRuudustik(UI.r, UI.u, false);
   } else {
@@ -4263,6 +4280,8 @@ async function pakArvutist(ml) {
   laePakArvuti();
 }
 const pakAeg = v => v ? new Date(v).toLocaleString('et-EE', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+// 2.49: pakkimisest väljuv toode (märgitakse telefonis); sama kood = jääb tooraineks
+const pakValjaSilt = x => !x.valja ? '<div class="hall vaike">väljund märkimata</div>' : x.valja === x.kood ? '<div class="hall vaike">jääb tooraineks</div>' : `<div class="vaike">→ <b>${esc(x.valja)}</b> ${esc(toode(x.valja).nimi || '')}</div>`;
 const PAK_LIIK_NIMI = { käsitsi: 'Käsitsi', pakkeliin: 'Pakkeliin', vangla: 'Vangla' };
 const PAK_SEIS_NIMI = { ootel: 'ootel (pakkimisalal)', pakkimisel: 'pakkimisel', paigutatud: 'pakitud, laos', pakitud: 'pakitud' };
 function renderPakkArvuti() {
@@ -4278,7 +4297,7 @@ function renderPakkArvuti() {
   const paevi = x => Math.floor((Date.now() - new Date(x.lisatud).getTime()) / 864e5);
   const rida = x => { const p = paevi(x), vana = x.seis !== 'paigutatud' && p >= 2;
     return `<tr${x.seis === 'paigutatud' ? ' style="background:rgba(60,140,60,.08)"' : ''}><td><input type="checkbox" data-pakvali="${esc(x.id)}"${PAKA_VALI.has(x.id) ? ' checked' : ''}></td>
-      <td>${esc(PAK_SEIS_NIMI[x.seis] || x.seis)}</td><td><b>${esc(x.kood)}</b></td><td>${esc(toode(x.kood).nimi)}</td><td class="arv">${x.kogus === '' || x.kogus == null ? '' : fmt(x.kogus)}</td>
+      <td>${esc(PAK_SEIS_NIMI[x.seis] || x.seis)}</td><td><b>${esc(x.kood)}</b>${pakValjaSilt(x)}</td><td>${esc(toode(x.kood).nimi)}</td><td class="arv">${x.kogus === '' || x.kogus == null ? '' : fmt(x.kogus)}</td>
       <td class="hall">${x.kust ? esc(x.kust) : x.allikas === 'vastuvõtt' ? 'vastuvõtust' : ''}</td>
       <td><select data-pakliik="${esc(x.id)}"><option value="">–</option>${Object.keys(PAK_LIIK_NIMI).map(l => `<option value="${l}"${x.liik === l ? ' selected' : ''}>${PAK_LIIK_NIMI[l]}</option>`).join('')}</select></td>
       <td class="hall">${esc(x.lisas)} ${pakAeg(x.lisatud)}${p >= 1 ? ` · <b${vana ? ' style="color:var(--punane)"' : ''}>${p} p</b>` : ''}</td>
@@ -4310,10 +4329,10 @@ function renderValjaArvuti() {
   $('peidSisu').innerHTML = `<label class="hall vaike"><input type="checkbox" data-valjakoik${VALJA_KOIK ? ' checked' : ''}> näita ka valmis nimekirju, millel asukohta pole märgitud</label>` +
     (L.length ? `<table class="tabel"><tr><th>Nimekiri</th><th>Valmis</th><th>Asukoht</th><th>Read</th><th>Läks välja</th></tr>` + L.map(n => `<tr><td><b>${esc(n.nimi)}</b></td>
       <td class="hall">${kogAeg(n.lopetatud)}${n.koguja ? ' · ' + esc(n.koguja) : ''}</td><td>${koht(n)}</td><td>${k(n).tehtud}/${k(n).kokku}</td>
-      <td style="white-space:nowrap"><input type="datetime-local" data-valjaaeg="${esc(n.id)}" value="${valjaVormiAeg()}" style="width:180px"> <button class="nupp pea" data-valjamargi="${esc(n.id)}">🚚 Läks välja</button></td></tr>`).join('') + '</table>'
+      <td style="white-space:nowrap"><button class="nupp" data-nrava="${esc(n.id)}" title="Nimekirja read: prindi, Excel">📋 Ava</button> <input type="datetime-local" data-valjaaeg="${esc(n.id)}" value="${valjaVormiAeg()}" style="width:180px"> <button class="nupp pea" data-valjamargi="${esc(n.id)}">🚚 Läks välja</button></td></tr>`).join('') + '</table>'
       : '<p class="hall">Kõik komplekteeritud kaup on laost välja läinud (või asukohta pole märgitud).</p>') +
     (vk.length ? `<h3 style="margin:16px 0 4px;font-size:14px">Läks välja, vahekanne tegemata (${vk.length})</h3><table class="tabel">${vk.map(n => `<tr><td><b>${esc(n.nimi)}</b></td><td>${koht(n)}</td><td>🚚 ${kogAeg(n.valja)}${n.valjaKes ? ' · ' + esc(n.valjaKes) : ''}</td>
-      <td style="white-space:nowrap"><button class="nupp pea" data-vahekanne="${esc(n.id)}">☑ Vahekanne tehtud</button> <button class="nupp" data-valjatuhi="${esc(n.id)}" title="Võta väljaviimise märge maha">Võta tagasi</button></td></tr>`).join('')}</table>` : '') +
+      <td style="white-space:nowrap"><button class="nupp" data-nrava="${esc(n.id)}" title="Nimekirja read: prindi, Excel">📋 Ava</button> <button class="nupp pea" data-vahekanne="${esc(n.id)}">☑ Vahekanne tehtud</button> <button class="nupp" data-valjatuhi="${esc(n.id)}" title="Võta väljaviimise märge maha">Võta tagasi</button></td></tr>`).join('')}</table>` : '') +
     (v.length ? `<h3 style="margin:16px 0 4px;font-size:14px">Välja ja vahekanne tehtud (viimased 3 päeva)</h3><table class="tabel">${v.map(n => `<tr class="hall"><td><b>${esc(n.nimi)}</b></td><td>${koht(n)}</td><td>🚚 ${kogAeg(n.valja)}${n.valjaKes ? ' · ' + esc(n.valjaKes) : ''}</td><td class="hall">☑ vahekanne ${kogAeg(n.vahekanne)}${n.vahekanneKes ? ' · ' + esc(n.vahekanneKes) : ''}</td>
       <td><button class="nupp" data-vahekanne="${esc(n.id)}" data-tuhista="1" title="Võta vahekande märge maha">Võta tagasi</button></td></tr>`).join('')}</table>` : '');
 }
@@ -4419,8 +4438,69 @@ $('kogKasKleebi').addEventListener('click', () => { const k = $('kogKasKleebiKas
 $('kogKasKleebiLisa').addEventListener('click', kogKasKleebi);
 
 
+/* ---------- NIMEKIRI-AKEN (2.50): nimekirja read hüpikaknas (Töölaud, Väljaviimine), Prindi / Excel / CSV / Kopeeri ---------- */
+let NR_ID = null;
+function nrAva(id) {
+  const n = KOG.find(x => x.id === id); if (!n) return;
+  NR_ID = id;
+  const k = kogKokku(n);
+  $('nrPais').textContent = n.nimi;
+  $('nrMeta').innerHTML = `${n.olek === 'valmis' ? 'Komplekteeritud ' + kogAeg(n.lopetatud) : esc(n.olek || '')}${n.koguja ? ' · ' + esc(n.koguja) : ''}${n.asub ? ' · 📍 ' + esc(n.asub) : ''}${n.valja ? ' · 🚚 läks välja ' + kogAeg(n.valja) : ''}${n.vahekanne ? ' · ☑ vahekanne ' + kogAeg(n.vahekanne) : ''} · ${k.kokku} rida`;
+  $('nrNupud').innerHTML = `<button class="nupp" data-nrprindi="1">🖨 Prindi</button><button class="nupp" data-nrxlsx="1">Excel (.xlsx)</button><button class="nupp" data-nrcsv="1">CSV</button><button class="nupp" data-nrkop="1">Kopeeri</button>` +
+    (n.valja && !n.vahekanne && !kogVK(n) ? `<button class="nupp pea" data-vahekanne="${esc(n.id)}" data-nrsulge="1">☑ Vahekanne tehtud</button>` : '') + `<button class="nupp" data-nrsulge="1">Sulge</button>`;
+  $('nrSisu').innerHTML = kogTabel(n, true);
+  $('nrAken').classList.add('lahti');
+}
+const nrRead = n => n.read.map(r => {
+  const t = T.get(r.kood), vk = kogVK(n);
+  const vaja = r.lisatud ? '' : r.vaja, l = r.votetud == null ? '' : r.votetud;
+  const puudu = vk ? (r.lisatud ? l : l === '' ? '' : l - r.vaja) : (r.votetud == null ? r.vaja : Math.max(0, r.vaja - r.votetud));
+  return [r.jrk || '', r.kood, t ? t.nimi : '', vaja, l, puudu];
+});
+const nrNimi = n => 'nimekiri_' + n.nimi.replace(/[^\wäöüõšž-]+/gi, '_');
+function nrFail(blob, nimi) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nimi; document.body.appendChild(a); a.click(); a.remove(); }
+async function nrXlsx(n) {
+  try {
+    const X = await laeXlsx(), vk = kogVK(n);
+    const ws = X.utils.aoa_to_sheet([['Rida', 'Kood', 'Nimetus', vk ? 'Vahekandes' : 'Vaja', vk ? 'Loetud' : 'Võetud', vk ? 'Vahe' : 'Puudu']].concat(nrRead(n)));
+    ws['!cols'] = [{ wch: 6 }, { wch: 22 }, { wch: 50 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
+    const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, 'Nimekiri');
+    X.writeFile(wb, nrNimi(n) + '.xlsx');
+  } catch (e) { teade('Excel: ' + e.message, true); }
+}
+function nrCsv(n) {
+  const vk = kogVK(n), q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const csv = '﻿' + [['Rida', 'Kood', 'Nimetus', vk ? 'Vahekandes' : 'Vaja', vk ? 'Loetud' : 'Võetud', vk ? 'Vahe' : 'Puudu']].concat(nrRead(n))
+    .map(r => r.map((v, i) => i >= 3 ? String(v).replace('.', ',') : q(v)).join(';')).join('\r\n');
+  nrFail(new Blob([csv], { type: 'text/csv;charset=utf-8' }), nrNimi(n) + '.csv');
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-nrava],[data-nrprindi],[data-nrxlsx],[data-nrcsv],[data-nrkop],[data-nrsulge]'); if (!b) return;
+  const d = b.dataset, n = KOG.find(x => x.id === (d.nrava || NR_ID));
+  if (d.nrava) { nrAva(d.nrava); return; }
+  if (d.nrsulge) $('nrAken').classList.remove('lahti');
+  if (!n) return;
+  if (d.nrprindi) kogPrindi(n.id);
+  else if (d.nrxlsx) nrXlsx(n);
+  else if (d.nrcsv) nrCsv(n);
+  else if (d.nrkop) navigator.clipboard.writeText(nrRead(n).map(r => r.join('\t')).join('\n')).then(() => teade('Kopeeritud'), () => teade('Kopeerimine ebaõnnestus', true));
+});
+$('nrAken').addEventListener('mousedown', e => { if (e.target === $('nrAken')) $('nrAken').classList.remove('lahti'); });
+
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.51', kp: '06.11.2026', nimi: 'Väikepakendi sildid APLI 12112 lehtedele',
+    lisati: ['Väikepakendi vaates nupp „Prindi sildid“: igale kastile 2 silti (V-1-2-3-4-V vasak pool, V-1-2-3-4-P parem pool), 48 silti lehel (4 × 12, 45,7 × 21,2 mm), QR + kood + „vasak/parem pool“.', 'Süsteem loeb mõlemad koodid sama kasti kohaks (kogus, komplekteerimine, aruanded). Külje ja püstakute valik, nihe ning sammu kalibreerimine nagu suurel laol (eraldi väärtused).'],
+    kasutus: ['Ava Väikepakend, vajuta „Prindi sildid“, vali külg ja püstakud, prindi esmalt testleht. 2.51 muudab telefoni, arvutit ja serverit: paigalda ka Apps Script.'] },
+  { v: '2.50', kp: '06.11.2026', nimi: 'Nimekirja read Töölaualt',
+    lisati: ['Töölaual (ja Väljaviimise aknas) on nimekirjade real nupp „📋 Ava“: hüpikaken näitab nimekirja read, et poleks vaja Komplekteerimisse minna.', 'Aknas Prindi, Excel (.xlsx), CSV ja Kopeeri; „Vahekanne tehtud“ saab märkida samas aknas.'],
+    kasutus: ['Töölaud → „Vahekanne tegemata“ → 📋 Ava. Excel laeb Exceli lugeja internetist (nagu Lao mõõdud). Muutub ainult arvuti.html ja sw.js.'] },
+  { v: '2.49', kp: '05.11.2026', nimi: 'Pakkimisest väljuv toode',
+    lisati: ['Telefonis „Läks pakkimisse“ vormis valid, mis pakkimisest välja tuleb: kott (…KP), pakk (…PP), sama toode (jääb tooraineks, nt mutrid ja seibid) või muu toode.', 'Pakkimise nimekirjas (telefon, arvuti Töölaud ja Pakkimisel) on väljuv toode nähtav. „Pakitud, võtan lattu“ avab paigutamise väljuva tootega, mitte tooraine koodiga.', 'Pakkide puhul jääb toode pärast iga paigutatud alust valituks (mitu alust erineva kogusega); kottide puhul mitte.'],
+    kasutus: ['Arvutist või vahekandest pakkimisse pandud ridadel väljund puudub: telefonis küsitakse see „Pakitud, võtan lattu“ juures (või ⋯ → Muuda väljuvat toodet).', 'Server muutus: Pakkimine lehele tuleb veerg „Väljund“, Apps Script tuleb uuesti paigaldada.'] },
+  { v: '2.48', kp: '05.11.2026', nimi: 'Sildid: ainult Lao mõõtudes olevad asukohad',
+    lisati: ['Siltide printimisel jäetakse välja asukohad, mida Lao mõõdud ei sisalda (nt Sheetsi jäänud 4-9-* pärast Exceli parandamist).'],
+    kasutus: ['Üleliigsed asukohad jäävad Sheeti alles, kustuta need vajadusel käsitsi. 2.48 muudab ainult arvuti.html ja sw.js.'] },
   { v: '2.47', kp: '05.11.2026', nimi: 'Sildid: mitu rida korraga ja tala märge',
     lisati: ['Siltide aknas väli „Read“: nt 6, 8-11 või „kõik“. Sildid trükitakse järjest, nii et lehel ei jää tühja ruumi (vähem paberiraiskamist).', 'Silt: asukohakood veidi kõrgemal ja selle all väike tekst „Tala N“ (tala 1 = põrand).'],
     kasutus: ['Ava Laoplaanis „Prindi sildid“, kirjuta read ja prindi. Poolik leht: „Alusta sildist nr“. 2.47 muudab ainult arvuti.html ja sw.js.'] },
@@ -7526,9 +7606,17 @@ window.addEventListener('afterprint', () => { $('prindiAla').innerHTML = ''; con
 
 
 /* ---------- SILDID: APLI 01226 (64,6 x 33,8 mm, 3 x 8, veeris üleval 14 mm, vasakul 10 mm, vahesid pole) ---------- */
-const SILT = { w: 64.6, h: 33.8, veerge: 3, ridu: 8, vasak: 8.1, ules: 13.3 };
+const FORMAAT = {
+  suur: { nimi: 'APLI 01226', w: 64.6, h: 33.8, veerge: 3, ridu: 8, vasak: 8.1, ules: 13.3, gap: 0, qr: 28 },
+  vp: { nimi: 'APLI 12112', w: 45.7, h: 21.2, veerge: 4, ridu: 12, vasak: 9.5, ules: 21.5, gap: 2, qr: 19 }
+};
+let SILTMOOD = 'suur';
+const F = () => FORMAAT[SILTMOOD];
+const sildiLehel = () => F().veerge * F().ridu;
+const sildiVoti = () => 'ladu_sildinihe' + (SILTMOOD === 'vp' ? '_vp' : '');
 function sildiNihe() {
-  try { const o = JSON.parse(localStorage.getItem('ladu_sildinihe') || '{}'); return { x: +o.x || 0, y: +o.y || 0, w: +o.w || SILT.w, h: +o.h || SILT.h }; } catch (e) { return { x: 0, y: 0, w: SILT.w, h: SILT.h }; }
+  const f = F(), v = { x: 0, y: 0, w: f.w + f.gap, h: f.h };
+  try { const o = JSON.parse(localStorage.getItem(sildiVoti()) || '{}'); return { x: +o.x || 0, y: +o.y || 0, w: +o.w || v.w, h: +o.h || v.h }; } catch (e) { return v; }
 }
 function sildiReadList() {
   const koik = [...READ.keys()].map(Number).sort((a, b) => a - b);
@@ -7542,19 +7630,42 @@ function sildiReadList() {
   });
   return [...out].sort((a, b) => a - b);
 }
+// VP: "1-3", "2,5", "kõik" -> numbrid 1..max
+function sildiNrList(t, max) {
+  t = String(t || '').trim().toLowerCase();
+  if (!t || t === 'kõik' || t === 'koik') return Array.from({ length: max }, (_, i) => i + 1);
+  const out = new Set();
+  t.split(/[,;\s]+/).filter(Boolean).forEach(osa => {
+    const m = osa.match(/^(\d+)\s*[-–]\s*(\d+)$/);
+    if (m) { for (let r = +m[1]; r <= Math.min(max, +m[2]); r++) out.add(r); } else if (/^\d+$/.test(osa) && +osa <= max) out.add(+osa);
+  });
+  return [...out].sort((a, b) => a - b);
+}
+// VÄIKEPAKEND: iga kast 2 silti (…-V vasak pool, …-P parem pool); süsteem loeb mõlemad sama kasti kohaks
+function sildiKoodidVp() {
+  const out = [];
+  sildiNrList($('sildiVpKylg').value, 2).forEach(k => sildiNrList($('sildiVpPystak').value, 8).forEach(u => {
+    for (let l = 1; l <= 8; l++) for (let b = 1; b <= 8; b++) { const kood = vpKood(k, u, l, b); out.push(kood + '-V', kood + '-P'); }
+  }));
+  return out;
+}
 function sildiKoodid() {
+  if (SILTMOOD === 'vp') return sildiKoodidVp();
   const read = sildiReadList(), uks = read.length === 1 && read[0] === UI.rida && UI.rp;
   const koodid = [];
+  // Kui Lao mõõdud on olemas, prinditakse ainult mõõtudes olevad kohad (Sheetsi jäänud üleliigsed, nt 4-9-*, jäetakse välja)
+  const moodus = MOOD && MOOD.read ? new Set(moodKohadG(MOOD).map(k => k.Asukoht)) : null;
   read.forEach(r => {
     const eesl = r + '-' + (uks ? UI.rp + '-' : '');
-    koodid.push(...[...KOHAD.keys()].filter(k => k.startsWith(eesl)).sort((a, b) => CN.compare(a, b)));
+    koodid.push(...[...KOHAD.keys()].filter(k => k.startsWith(eesl) && (!moodus || moodus.has(k))).sort((a, b) => CN.compare(a, b)));
   });
   return koodid;
 }
 function sildiInfoUuenda() {
-  const read = sildiReadList(), n = sildiKoodid().length, n24 = Math.ceil(n / 24);
-  const uks = read.length === 1 && read[0] === UI.rida && UI.rp;
-  $('sildiInfo').textContent = `Read ${read.join(', ') || '–'}${uks ? ', püstak ' + UI.rp : ''}: ${n} silti, ${n24} leht${n24 === 1 ? '' : 'e'} (24 silti lehel, read järjest, tühja ruumi ei jää).`;
+  const n = sildiKoodid().length, nl = sildiLehel(), n24 = Math.ceil(n / nl);
+  if (SILTMOOD === 'vp') { $('sildiInfo').textContent = `Väikepakend: ${n} silti (${n / 2} kasti × 2), ${n24} leht${n24 === 1 ? '' : 'e'} (${nl} silti lehel, järjest, tühja ruumi ei jää).`; return; }
+  const read = sildiReadList(), uks = read.length === 1 && read[0] === UI.rida && UI.rp;
+  $('sildiInfo').textContent = `Read ${read.join(', ') || '–'}${uks ? ', püstak ' + UI.rp : ''}: ${n} silti, ${n24} leht${n24 === 1 ? '' : 'e'} (${nl} silti lehel, read järjest, tühja ruumi ei jää).`;
 }
 function sildiLooPuuduvad(read) {
   const kokku = read.reduce((n, r) => n + puuduvadKohad(r).length, 0);
@@ -7564,32 +7675,48 @@ function sildiLooPuuduvad(read) {
   read.forEach(r => looPuuduvadKohad(r));
   return true;
 }
-function avaSildid() {
-  $('sildiRead').value = String(UI.rida);
-  $('sildiRidaVihje').textContent = `saadaval: ${[...READ.keys()].map(Number).sort((a, b) => a - b).join(', ')}`;
-  if (!sildiLooPuuduvad([UI.rida])) return;
+function avaSildid(mood) {
+  SILTMOOD = mood === 'vp' ? 'vp' : 'suur';
+  const vp = SILTMOOD === 'vp';
+  $('sildiPealkiri').textContent = `Prindi asukohasildid (${F().nimi}${vp ? ', väikepakend' : ''})`;
+  $('sildiReadRida').style.display = vp ? 'none' : '';
+  $('sildiVpRida').style.display = vp ? '' : 'none';
+  $('sildiStart').max = sildiLehel();
+  $('sildiStart').value = 1;
+  if (vp) { if (!$('sildiVpKylg').value) $('sildiVpKylg').value = 'kõik'; if (!$('sildiVpPystak').value) $('sildiVpPystak').value = 'kõik'; }
+  else {
+    $('sildiRead').value = String(UI.rida);
+    $('sildiRidaVihje').textContent = `saadaval: ${[...READ.keys()].map(Number).sort((a, b) => a - b).join(', ')}`;
+    if (!sildiLooPuuduvad([UI.rida])) return;
+  }
   sildiInfoUuenda();
   const o = sildiNihe(); $('sildiX').value = o.x; $('sildiY').value = o.y; $('sildiW').value = o.w; $('sildiH').value = o.h;
   $('sildiAken').classList.add('lahti');
 }
 function sildiHtml(koodid, test) {
-  const o = { x: +$('sildiX').value || 0, y: +$('sildiY').value || 0, w: +$('sildiW').value || SILT.w, h: +$('sildiH').value || SILT.h };
-  try { localStorage.setItem('ladu_sildinihe', JSON.stringify(o)); } catch (e) {}
-  const a = Math.max(1, Math.min(24, +$('sildiStart').value || 1)) - 1;
-  const jada = test ? Array.from({ length: 24 }, (_, i) => 'Silt ' + (i + 1)) : Array(a).fill(null).concat(koodid);
+  const f = F(), nl = sildiLehel();
+  const o = { x: +$('sildiX').value || 0, y: +$('sildiY').value || 0, w: +$('sildiW').value || f.w + f.gap, h: +$('sildiH').value || f.h };
+  try { localStorage.setItem(sildiVoti(), JSON.stringify(o)); } catch (e) {}
+  const a = Math.max(1, Math.min(nl, +$('sildiStart').value || 1)) - 1;
+  const jada = test ? Array.from({ length: nl }, (_, i) => 'Silt ' + (i + 1)) : Array(a).fill(null).concat(koodid);
+  const mm = `width:${f.w}mm;height:${f.h}mm;`;
   let h = '';
-  for (let i = 0; i < jada.length; i += 24) {
+  for (let i = 0; i < jada.length; i += nl) {
     h += '<section class="sildileht">';
-    for (let j = 0; j < 24 && i + j < jada.length; j++) {
+    for (let j = 0; j < nl && i + j < jada.length; j++) {
       const k = jada[i + j]; if (k === null) continue;
-      const c = j % SILT.veerge, r = Math.floor(j / SILT.veerge);
-      const st = `left:${(SILT.vasak + c * o.w + o.x).toFixed(2)}mm;top:${(SILT.ules + r * o.h + o.y).toFixed(2)}mm`;
-      if (test) h += `<div class="apsilt test" style="${st}"><div style="text-align:center">${esc(k)}<br><small>${SILT.w} × ${SILT.h} mm</small></div></div>`;
-      else {
+      const c = j % f.veerge, r = Math.floor(j / f.veerge);
+      const st = `${mm}left:${(f.vasak + c * o.w + o.x).toFixed(2)}mm;top:${(f.ules + r * o.h + o.y).toFixed(2)}mm`;
+      if (test) h += `<div class="apsilt test" style="${st}"><div style="text-align:center">${esc(k)}<br><small>${f.w} × ${f.h} mm</small></div></div>`;
+      else if (SILTMOOD === 'vp') {
+        const pool = /-V$/.test(k) ? 'vasak pool' : 'parem pool', baas = k.replace(/-[VP]$/, '');
+        const em = [...baas].reduce((n, ch) => n + (ch === '-' ? 0.42 : 0.72), 0), fm = Math.min(5, (f.w - f.qr - 3.5) / em);
+        h += `<div class="apsilt vp" style="${st}">${qrSvg(k, f.qr)}<div class="sv" style="padding-bottom:0"><span class="sk" style="font-size:${fm.toFixed(2)}mm">${esc(baas)}</span><span class="st" style="font-size:2.6mm;margin-top:.6mm">${pool}</span></div></div>`;
+      } else {
         const em = [...k].reduce((n, ch) => n + (ch === '-' ? 0.42 : 0.72), 0), fm = Math.min(10, 30 / em);
         const tala = +String(k).split('-')[2] || 0;
         const tk = tala ? `Tala ${tala}${tala === 1 ? ' (põrand)' : ''}` : '';
-        h += `<div class="apsilt" style="${st}">${qrSvg(k, 28)}<div class="sv"><span class="sk" style="font-size:${fm.toFixed(2)}mm">${esc(k)}</span><span class="st">${esc(tk)}</span></div></div>`;
+        h += `<div class="apsilt" style="${st}">${qrSvg(k, f.qr)}<div class="sv"><span class="sk" style="font-size:${fm.toFixed(2)}mm">${esc(k)}</span><span class="st">${esc(tk)}</span></div></div>`;
       }
     }
     h += '</section>';
@@ -7597,9 +7724,9 @@ function sildiHtml(koodid, test) {
   return h;
 }
 function prindiSildid(test) {
-  if (!test && !sildiLooPuuduvad(sildiReadList())) return;
+  if (!test && SILTMOOD !== 'vp' && !sildiLooPuuduvad(sildiReadList())) return;
   const koodid = sildiKoodid();
-  if (!test && !koodid.length) { teade('Sellel real pole asukohti', true); return; }
+  if (!test && !koodid.length) { teade(SILTMOOD === 'vp' ? 'Vali külg ja püstak' : 'Sellel real pole asukohti', true); return; }
   const html = sildiHtml(koodid, test);
   const st = $('prindiSildid'); if (st) st.remove();
   const e = document.createElement('style'); e.id = 'prindiSildid';
@@ -7780,7 +7907,7 @@ function seaPaigutus(on) {
 const tlAvatud = () => $('tlAken').classList.contains('lahti');
 function tlPakRida(x, nupud) {
   const p = Math.floor((Date.now() - new Date(x.lisatud).getTime()) / 864e5);
-  return `<tr><td><input type="checkbox" data-pakvali="${esc(x.id)}"${PAKA_VALI.has(x.id) ? ' checked' : ''}></td><td><b>${esc(x.kood)}</b></td><td>${esc(toode(x.kood).nimi)}</td><td class="arv">${x.kogus === '' || x.kogus == null ? '' : fmt(x.kogus)}</td>
+  return `<tr><td><input type="checkbox" data-pakvali="${esc(x.id)}"${PAKA_VALI.has(x.id) ? ' checked' : ''}></td><td><b>${esc(x.kood)}</b>${pakValjaSilt(x)}</td><td>${esc(toode(x.kood).nimi)}</td><td class="arv">${x.kogus === '' || x.kogus == null ? '' : fmt(x.kogus)}</td>
     <td class="hall">${x.kust ? esc(x.kust) : x.allikas === 'vastuvõtt' ? 'vastuvõtust' : ''}</td>
     <td class="hall">${esc(x.lisas)} ${pakAeg(x.lisatud)}${p >= 1 ? ` · <b${p >= 2 && x.seis !== 'paigutatud' ? ' style="color:var(--punane)"' : ''}>${p} p</b>` : ''}</td>
     <td style="white-space:nowrap">${nupud}</td></tr>`;
@@ -7831,9 +7958,9 @@ function renderToolaud() {
     <div class="tl-kast"><h3><span>Vastuvõtt (vahekanded) <span class="tl-arv">${vAkt.length}</span></span><button class="nupp" data-tlava="kog">Ava →</button></h3>
       ${nimekiri(vAkt.concat(vVal), 'Vastuvõtu nimekirju pole. Lohista vahekande PDF Komplekteerimise aknasse.')}</div>
     <div class="tl-kast"><h3><span>Valmis, laost välja viimata <span class="tl-arv">${vL.length}</span></span><button class="nupp" data-tlava="valja">Ava →</button></h3>
-      ${vL.length ? `<table class="tabel">${vL.map(n => `<tr><td><b>${esc(n.nimi)}</b></td><td class="hall">${n.asub ? '📍 ' + esc(n.asub) : 'asukohta pole'}</td><td style="white-space:nowrap"><button class="nupp pea" data-valjamargi="${esc(n.id)}">🚚 Läks välja</button></td></tr>`).join('')}</table>` : '<p class="hall vaike" style="margin:0">Kõik on välja läinud.</p>'}</div>
+      ${vL.length ? `<table class="tabel">${vL.map(n => `<tr><td><b>${esc(n.nimi)}</b></td><td class="hall">${n.asub ? '📍 ' + esc(n.asub) : 'asukohta pole'}</td><td style="white-space:nowrap"><button class="nupp" data-nrava="${esc(n.id)}" title="Nimekirja read: prindi, Excel">📋 Ava</button> <button class="nupp pea" data-valjamargi="${esc(n.id)}">🚚 Läks välja</button></td></tr>`).join('')}</table>` : '<p class="hall vaike" style="margin:0">Kõik on välja läinud.</p>'}</div>
     <div class="tl-kast"><h3><span>Vahekanne tegemata <span class="tl-arv">${vkOotel.length}</span></span><button class="nupp" data-tlava="valja">Ava →</button></h3>
-      ${vkOotel.length ? `<table class="tabel">${vkOotel.map(n => `<tr><td><b>${esc(n.nimi)}</b></td><td class="hall">🚚 ${kogAeg(n.valja)}</td><td><button class="nupp pea" data-vahekanne="${esc(n.id)}">☑ Vahekanne tehtud</button></td></tr>`).join('')}</table>` : '<p class="hall vaike" style="margin:0">Kõik vahekanded on tehtud.</p>'}</div>
+      ${vkOotel.length ? `<table class="tabel">${vkOotel.map(n => `<tr><td><b>${esc(n.nimi)}</b></td><td class="hall">🚚 ${kogAeg(n.valja)}</td><td style="white-space:nowrap"><button class="nupp" data-nrava="${esc(n.id)}" title="Nimekirja read: prindi, Excel">📋 Ava</button> <button class="nupp pea" data-vahekanne="${esc(n.id)}">☑ Vahekanne tehtud</button></td></tr>`).join('')}</table>` : '<p class="hall vaike" style="margin:0">Kõik vahekanded on tehtud.</p>'}</div>
   </div>`;
   $('tlSisu').innerHTML = pak + ruudud;
 }
@@ -7907,7 +8034,8 @@ document.addEventListener('click', e => {
     prindi(p.map(u => ({ pealkiri: `Väikepakend V-${UI.r}-${u}`, markus: '(tala 1 = alumine)', html: vpRuudustik(UI.r, u, true) }))); return;
   }
   if (d.tegevus === 'prindiQr') { prindiQr(); return; }   // QRLEHT
-  if (d.tegevus === 'sildid') { avaSildid(); return; }   // SILDID
+  if (d.tegevus === 'sildid') { avaSildid('suur'); return; }
+  if (d.tegevus === 'vpSildid') { avaSildid('vp'); return; }   // SILDID
   if (d.tegevus === 'reaAjutiseks') { reaAjutiseks(); return; }   // QRLEHT
   if (d.tegevus === 'prindiRida') { prindi([{ pealkiri: `Rida ${UI.rida}${UI.rp ? ', püstak ' + UI.rp : ''}`, markus: '(tala 1 = põrand · punktiir = ajutine koht)', html: reaRuudustik(UI.rida, UI.rp, true) }]); return; }
   if (d.varv !== undefined) { maaraVarv(+d.varv); return; }
@@ -7927,8 +8055,10 @@ $('peida').addEventListener('change', e => { UI.peida = e.target.checked; salves
 $('auto').addEventListener('change', e => { UI.auto = e.target.checked; salvestaUI(); });
 $('koik').addEventListener('change', e => { UI[onVPvaade() ? 'koikVP' : 'koikL'] = e.target.checked; salvestaUI(); renderAside(); });
 $('jrkNupp').addEventListener('click', avaJrk);
-$('sildiVaike').addEventListener('click', () => { $('sildiX').value = 0; $('sildiY').value = 0; $('sildiW').value = SILT.w; $('sildiH').value = SILT.h; });
+$('sildiVaike').addEventListener('click', () => { $('sildiX').value = 0; $('sildiY').value = 0; $('sildiW').value = F().w + F().gap; $('sildiH').value = F().h; });
 $('sildiRead').addEventListener('input', sildiInfoUuenda);
+$('sildiVpKylg').addEventListener('input', sildiInfoUuenda);
+$('sildiVpPystak').addEventListener('input', sildiInfoUuenda);
 $('sildiLoobu').addEventListener('click', () => $('sildiAken').classList.remove('lahti'));
 $('sildiTest').addEventListener('click', () => prindiSildid(true));
 $('sildiPrindi').addEventListener('click', () => prindiSildid(false));
