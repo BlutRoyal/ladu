@@ -221,6 +221,16 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
 .lo-chip { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; border: 1px solid var(--joon); }
 .lo-chip.roh { background: var(--roh-hele); border-color: var(--roh-joon); }
 .lo-chip.kolla { border-color: var(--punane); color: var(--punane); }
+/* VAHED (2.52): vana Chrome (enne 84, nt A40 Chrome 74) ei tunne flex-konteineris gap-i.
+   Uues brauseris ei muutu midagi; vanas paneb skript <html> külge klassi pole-gap ja vahe tehakse margin'iga. */
+.pole-gap .olek > * + *, .pole-gap .kaart-pais > * + *, .pole-gap #paigRiba > * + * { margin-left: 10px; }
+.pole-gap .nupp > * + *, .pole-gap .lyliti > * + *, .pole-gap [style*="gap:6px"] > * + * { margin-left: 6px; }
+.pole-gap .v-koht-rida > * + *, .pole-gap .logiriba > * + *, .pole-gap #rolliRiba > * + *, .pole-gap .rida-pais > * + *,
+.pole-gap .g-toode > * + *, .pole-gap .valik > * + *, .pole-gap .otsirida > * + *, .pole-gap [style*="gap:8px"] > * + * { margin-left: 8px; }
+.pole-gap #paigJuhis li > * + * { margin-left: 12px; }
+.pole-gap .pl-nupud > * + * { margin-top: 6px; }
+.pole-gap .nupud > * { margin: 0 8px 8px 0; }
+.pole-gap .g-osad > * { margin: 0 6px 6px 0; }
 </style>
 </head>
 <body>
@@ -427,6 +437,18 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
 
 <script>
 'use strict';
+// VAHED (2.52): kas brauser oskab flex-konteineris gap-i (Chrome 84+)? Kui ei, lülitub sisse margin'iga varuvariant (.pole-gap).
+(function () {
+  try {
+    var k = document.createElement('div');
+    k.style.cssText = 'display:flex;flex-direction:column;gap:1px;position:absolute;visibility:hidden';
+    k.appendChild(document.createElement('div')); k.appendChild(document.createElement('div'));
+    document.documentElement.appendChild(k);
+    var oskab = k.scrollHeight === 1;
+    document.documentElement.removeChild(k);
+    if (!oskab) document.documentElement.className += ' pole-gap';
+  } catch (e) { /* jääb nagu oli */ }
+})();
 /* ============================================================
    SALVESTUS (telefoni vahemälu)
    ============================================================ */
@@ -438,7 +460,7 @@ const MALU_OLI = (() => { try { return !!localStorage.getItem('ladu_seade'); } c
 const V = { seaded: 'ladu_seaded', andmed: 'ladu_andmed', valjas: 'ladu_valjas', inv: 'ladu_inv', seanss: 'ladu_seanss',
             kog: 'ladu_kog', kogAvatud: 'ladu_kog_avatud', kogRezhiim: 'ladu_kog_rezhiim',   // kog*: KOGUMINE
             invSeansid: 'ladu_invseansid',   // INVSEANSS
-            vastu: 'ladu_vastu', tait: 'ladu_tait', pak: 'ladu_pak', loend: 'ladu_loend', loPidev: 'ladu_loend_pidev' };   // PAKKIMINE: pak; POELOENDUS: loend*   // VASTUVOTT
+            vastu: 'ladu_vastu', tait: 'ladu_tait', pak: 'ladu_pak', loend: 'ladu_loend', loPidev: 'ladu_loend_pidev', korvale: 'ladu_korvale' };   // PAKKIMINE: pak; POELOENDUS: loend*   // VASTUVOTT
 let PK = loe(V.pak, { read: [], aeg: '' }), vPak = false, laebPak = false, pkViga = '', pkLaiali = new Set();   // PAKKIMINE
 function loe(k, vaikimisi) { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : vaikimisi; } catch (e) { return vaikimisi; } }
 // MALU: localStorage kvoot (~5 MB). Kui täis, vabasta kõigepealt vähem olulised vahemälud ja proovi uuesti
@@ -943,6 +965,42 @@ async function epoodKood(slug) {
 
 // Saadab järjekorras kõik saatmata muudatused. Võrgu vea korral jääb ootele.
 let saadab = false, MITU_TOOTAB = true;
+/* ---------- JARJEKORD (2.52): serveri viga ei kustuta saatmata muudatusi ----------
+   Varem eemaldati pakk järjekorrast ka siis, kui server vastas veaga (nt „Server on hõivatud“).
+   Nüüd jääb pakk järjekorda ja saadetakse uuesti; pärast VALJAS_KATSEID katset tõstetakse see
+   kõrvale (V.korvale, näha Seadetes), et järgmised muudatused edasi pääseksid. */
+const VALJAS_KATSEID = 5;
+let valjasTaimer = null;
+const ajutineViga = v => /hõivatud|proovi uuesti/i.test(String(v || ''));
+// true = pakk tõsteti kõrvale, jätka järgmistega; false = pakk jäi järjekorda, katkesta saatmine
+function valjasEbaonnestus(n, nimi, viga) {
+  const esimene = VALJAS[0];
+  esimene.katseid = (esimene.katseid || 0) + 1;
+  if (esimene.katseid >= VALJAS_KATSEID) {
+    const pakk = VALJAS.splice(0, n), K = loe(V.korvale, []), aeg = new Date().toISOString();
+    pakk.forEach(x => { delete x.katseid; K.push({ op: x, viga: String(viga || ''), aeg: aeg }); });
+    kirjuta(V.korvale, K.slice(-500)); kirjuta(V.valjas, VALJAS);
+    naita(nimi + ': server keeldus ' + VALJAS_KATSEID + ' korda (' + viga + '). Muudatus on alles, vaata Seaded.', true);
+    return true;
+  }
+  kirjuta(V.valjas, VALJAS);
+  naita(nimi + ': ' + viga + '. Muudatus jäi telefoni, proovin uuesti.', true);
+  clearTimeout(valjasTaimer); valjasTaimer = setTimeout(saadaValjas, 4000 * esimene.katseid);
+  return false;
+}
+function korvaleSaada() {
+  const K = loe(V.korvale, []); if (!K.length) return;
+  K.forEach(x => VALJAS.push(x.op));
+  kirjuta(V.valjas, VALJAS); kirjuta(V.korvale, []);
+  renderSeaded(); olek(); saadaValjas();
+}
+function korvaleKustuta() {
+  const K = loe(V.korvale, []); if (!K.length) return;
+  if (!confirm('Kustutan ' + K.length + ' muudatust, mida server vastu ei võtnud. Neid ei saa taastada. Jätkan?')) return;
+  kirjuta(V.korvale, []); renderSeaded();
+}
+/* ---------- /JARJEKORD ---------- */
+
 async function saadaValjas() {
   if (saadab || !VALJAS.length || !navigator.onLine) return;
   saadab = true; olek();
@@ -959,7 +1017,7 @@ async function saadaValjas() {
           const vead = (j.tulemused || []).filter(t => !t.ok);
           if (vead.length) { naita('Kogumine: ' + vead[0].viga, true); setTimeout(() => laeKog(true), 500); }
           kirjuta(V.kog, GK);
-        } else naita('Kogumine: ' + j.viga, true);
+        } else { if (valjasEbaonnestus(n, 'Kogumine', j.viga)) continue; break; }   // JARJEKORD 2.52
         VALJAS.splice(0, n);
       } else if (esimene.tegevus === 'taitmine') {
         // VASTUVOTT: tühjade korjekohtade muudatused ühe päringuga
@@ -971,7 +1029,7 @@ async function saadaValjas() {
           const vead = (j.tulemused || []).filter(t => !t.ok);
           if (vead.length) naita('Täitmine: ' + vead[0].viga, true);
           kirjuta(V.tait, TT);
-        } else naita('Täitmine: ' + j.viga, true);
+        } else { if (valjasEbaonnestus(n, 'Täitmine', j.viga)) continue; break; }   // JARJEKORD 2.52
         VALJAS.splice(0, n);
       } else if (esimene.tegevus === 'pakkimine') {
         // PAKKIMINE: järjestikused pakkimise muudatused ühe päringuga
@@ -983,7 +1041,7 @@ async function saadaValjas() {
           const vead = (j.tulemused || []).filter(t => !t.ok);
           if (vead.length) naita('Pakkimine: ' + vead[0].viga, true);
           kirjuta(V.pak, PK);
-        } else naita('Pakkimine: ' + j.viga, true);
+        } else { if (valjasEbaonnestus(n, 'Pakkimine', j.viga)) continue; break; }   // JARJEKORD 2.52
         VALJAS.splice(0, n);
       } else if (esimene.tegevus === 'inventuur') {
         // kõik järjestikused inventuurimuudatused ühe päringuga
@@ -996,7 +1054,7 @@ async function saadaValjas() {
             if (r) { r.saadetud = t.ok; r.viga = t.ok ? '' : t.viga; }
           });
           pruuniInv(); kirjuta(V.inv, INV);
-        } else naita('Inventuur: ' + j.viga, true);
+        } else { if (valjasEbaonnestus(n, 'Inventuur', j.viga)) continue; break; }   // JARJEKORD 2.52
         VALJAS.splice(0, n);
       } else {
         // KIIRENDUS: järjestikused seose muudatused ühe päringuga (server teeb need järjekorras)
@@ -1008,10 +1066,17 @@ async function saadaValjas() {
         if (pakk.length === 1) tulemused = [await api(esimene)];
         else {
           const jm = await api({ tegevus: 'mitu', paringud: pakk }, 60000);
-          if (!jm.tulemused) { MITU_TOOTAB = false; continue; }    // vana server: saada ükshaaval
+          if (!jm.tulemused) {
+            // JARJEKORD 2.52: serveri viga (nt hõivatud) ei tähenda vana serverit; pakk jääb järjekorda
+            if (jm.ok === false && jm.viga && !/Tundmatu tegevus/.test(jm.viga)) { if (valjasEbaonnestus(pakk.length, 'Saatmine', jm.viga)) continue; break; }
+            MITU_TOOTAB = false; continue;    // vana server: saada ükshaaval
+          }
           tulemused = jm.tulemused;
         }
-        pakk.forEach((op, i) => {
+        // JARJEKORD 2.52: esimene ajutise veaga muudatus ja kõik pärast seda jäävad järjekorda
+        const ajutine = pakk.findIndex((op, i) => { const j = tulemused[i]; return j && !j.ok && ajutineViga(j.viga); });
+        const tehtud = ajutine === -1 ? pakk : pakk.slice(0, ajutine);
+        tehtud.forEach((op, i) => {
           const j = tulemused[i] || { ok: false, viga: 'vastus puudub' };
           if (!j.ok) naita(`${op.kood} @ ${op.asukoht}: ${j.viga}`, true);
           else if (ANDMED) {  // kanna muudatus telefoni andmetesse, kuni järgmise täisuuenduseni
@@ -1031,7 +1096,8 @@ async function saadaValjas() {
           }
         });
         if (ANDMED) salvestaAndmed();
-        VALJAS.splice(0, pakk.length);
+        VALJAS.splice(0, tehtud.length);
+        if (ajutine !== -1) { if (valjasEbaonnestus(1, 'Saatmine', tulemused[ajutine].viga)) continue; break; }
       }
       kirjuta(V.valjas, VALJAS);
     }
@@ -1627,7 +1693,7 @@ function brauseriInfo() {
   return ' · ' + nimi + (m ? ' ' + m[1] : '') + (a ? ' (Android ' + a[1] + ')' : '') + (kaamera ? ' · kaamera: ' + kaamera : '');
 }
 // MALU: mis telefoni mälus ruumi võtab
-const MALU_NIMED = { ladu_seaded: 'sisselogimine', ladu_andmed: 'vana andmekoopia', ladu_valjas: 'saatmata muudatused', ladu_inv: 'inventuuri loendused', ladu_kog: 'korjenimekirjad', ladu_vastu: 'vastuvõtud', ladu_tait: 'täitmine', ladu_invseansid: 'inventuuri seansid', ladu_seanss: 'seansi nimi', ladu_arvuti_andmed: 'arvutivaate andmekoopia (puhastatav)' };
+const MALU_NIMED = { ladu_seaded: 'sisselogimine', ladu_andmed: 'vana andmekoopia', ladu_valjas: 'saatmata muudatused', ladu_korvale: 'kõrvale tõstetud muudatused', ladu_inv: 'inventuuri loendused', ladu_kog: 'korjenimekirjad', ladu_vastu: 'vastuvõtud', ladu_tait: 'täitmine', ladu_invseansid: 'inventuuri seansid', ladu_seanss: 'seansi nimi', ladu_arvuti_andmed: 'arvutivaate andmekoopia (puhastatav)' };
 function renderMalu() {
   const el = $('aMalu');
   if (!el) return;
@@ -1640,6 +1706,10 @@ function renderMalu() {
   el.innerHTML = `<b>Telefoni mälu</b> (väike vahemälu, piir umbes 5000 KB): ${kb(kokku)}<br>` +
     osad.slice(0, 5).map(([k, n]) => `${esc(MALU_NIMED[k] || k)} ${kb(n)}`).join(' · ') + '<span id="aMaluSuur"></span>' +
     '<div class="nupud" style="margin-top:6px"><button class="nupp vaike" data-malupuhasta>Puhasta vahemälu</button></div>';
+  // JARJEKORD 2.52: muudatused, mida server korduvalt vastu ei võtnud
+  const K = loe(V.korvale, []);
+  if (K.length) el.innerHTML += `<div style="margin-top:10px;color:var(--punane,#b3261e)"><b>Saatmata jäänud muudatusi: ${K.length}</b><br>Server ei võtnud neid vastu (viimane viga: ${esc(K[K.length - 1].viga)}). Need on telefonis alles.` +
+    '<div class="nupud" style="margin-top:6px"><button class="nupp vaike" data-korvalesaada>Proovi uuesti</button><button class="nupp vaike" data-korvalekustuta>Kustuta</button></div></div>';
   if (navigator.storage && navigator.storage.estimate) navigator.storage.estimate().then(r => {
     const e2 = $('aMaluSuur'); if (e2 && r.quota) e2.textContent = ` · andmed ja suur vahemälu: ${Math.round(r.usage / 104857.6) / 10} MB / ${Math.round(r.quota / 104857.6) / 10} MB (telefoni vaba ruum)`;
   }).catch(() => {});
@@ -2755,7 +2825,6 @@ function laoMoodud() {
 // NAPILT (2.27): võetud on vähem kui vaja, aga vahe on kuni 5% vajalikust -> ei loeta puudu (nt 99 / 100). Hoiab olekut „puudu“ ainult päris puuduse jaoks.
 const NAPILT_PIIR = 0.05;
 const kogNapilt = r => r.votetud != null && r.vaja > 0 && r.votetud < r.vaja && (r.vaja - r.votetud) / r.vaja <= NAPILT_PIIR + 1e-9;
-const kogPuudub = r => (r.olek === 'puudu' || (r.votetud != null && r.votetud < r.vaja)) && !kogNapilt(r);
 // VAHEKANNE (2.28): Buumi vahekande PDF-ist tehtud vastuvõtu nimekiri (markus „VAHEKANNE|nr|kust|kuhu|kuupäev“); kontroll on täpselt 1:1, „napilt“ siin ei kehti
 const vkNr = n => String((n && n.markus) || '').split('|')[1] || '';
 const kogVK = n => /^VAHEKANNE\|/.test((n && n.markus) || '');
@@ -3791,6 +3860,8 @@ document.addEventListener('click', e => {
   if (d.koht) { avaKoht(d.koht); return; }
   if (d.vaatakui) { vaataKui(d.vaatakui); return; }   // ROLLIVAADE
   if ('malupuhasta' in d) { malupuhastaNupp(); return; }   // MALU
+  if ('korvalesaada' in d) { korvaleSaada(); return; }       // JARJEKORD 2.52
+  if ('korvalekustuta' in d) { korvaleKustuta(); return; }
   if (d.plaanil !== undefined) { naitaPlaanil(d.plaanil.split(',')); return; }   // PLAAN26
   if (d.plzoom !== undefined) { plSuumi(+d.plzoom); return; }
   if (d.toode) {

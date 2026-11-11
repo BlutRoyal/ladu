@@ -3331,10 +3331,10 @@ async function laeAndmed(teavita) {
     const { ping, kasutajad, minuRoll, ...andmed } = j;
     if (!j.muutmata) { ANDMED = andmed; salvestaAndmed(); }
     VIGA = '';
-    if (ping) { PING_TEHTUD = true; HADAVOTI = !!ping.hadavoti; VARU_AEG = ping.varukoopia !== undefined ? ping.varukoopia : null; }
+    if (ping) { PING_TEHTUD = true; HADAVOTI = !!ping.hadavoti; VARU_AEG = ping.varukoopia !== undefined ? ping.varukoopia : null; serveriKontroll(ping); }
     if (kasutajad && kasutajad.ok && !KAS_OOTEL) kasPaneServerist(kasutajad);
     // vana server (ilma kiirenduseta) ei saada ping-infot -> eraldi päring nagu enne
-    if (!PING_TEHTUD) { PING_TEHTUD = true; api({ tegevus: 'ping' }, 20000).then(p => { HADAVOTI = !!(p && p.hadavoti); VARU_AEG = p && p.varukoopia !== undefined ? p.varukoopia : null; olek(); }).catch(() => { PING_TEHTUD = false; }); }
+    if (!PING_TEHTUD) { PING_TEHTUD = true; api({ tegevus: 'ping' }, 20000).then(p => { HADAVOTI = !!(p && p.hadavoti); VARU_AEG = p && p.varukoopia !== undefined ? p.varukoopia : null; serveriKontroll(p); olek(); }).catch(() => { PING_TEHTUD = false; }); }
     ehitaKoik();
     if (teavita) teade(j.muutmata ? 'Andmed on värsked' : 'Andmed uuendatud');
     if (laoHoiatus() && (teavita || !j.muutmata)) teade('⚠ ' + laoHoiatus(), true);   // RAPORTID: puuduv tulp Lao Andmetes
@@ -3416,6 +3416,17 @@ function muuda(...paringud) {
   saada();
 }
 
+// SERVERIVERSIOON (2.52): leht ütleb adminile, kui juurutatud Apps Script on vanem kui see leht vajab
+const VAJALIK_SERVER = '2.52';
+let SERVER_HOIATATUD = false;
+function serveriKontroll(p) {
+  if (SERVER_HOIATATUD || !p || p.roll !== 'admin') return;
+  const osad = v => String(v || '0').split('.').map(Number);
+  const on = osad(p.versioon), vaja = osad(VAJALIK_SERVER);
+  if (on[0] > vaja[0] || (on[0] === vaja[0] && (on[1] || 0) >= (vaja[1] || 0))) return;
+  SERVER_HOIATATUD = true;
+  setTimeout(() => teade('⚠ Apps Script on vanem (' + (p.versioon || '?') + ') kui see leht vajab (' + VAJALIK_SERVER + '). Paigalda Veebirakendus.gs ja tee uus juurutus.', true), 1500);
+}
 let HADAVOTI = false, PING_TEHTUD = false, VARU_AEG = null;   // VARU_AEG: KONTROLL (null = server ei tea varukoopiast)
 function olek() {
   const osad = [];
@@ -3899,7 +3910,6 @@ function renderPlaan() {
   if (peidus) return;
   if (on25) { renderPlaan25(G); return; }
   const W = 1000, H = 300;
-  const maxP = Math.max(10, ...[...READ.values()].map(x => x.p));
   // Alt üles: 0 (alaseinas uste vahel) | lai vahe | 1+2 seljad | lai vahe | 3+4 | 5+6 | 7+8 | 9+10 | 11 (ülaseinas vasakul)
   const rh = 12, Y = { 0: 268, 1: 226, 2: 214, 3: 176, 4: 164, 5: 132, 6: 120, 7: 88, 8: 76, 9: 44, 10: 32, 11: 10 };
   const x0 = 96;                                  // estakaadist paremal
@@ -4489,6 +4499,9 @@ $('nrAken').addEventListener('mousedown', e => { if (e.target === $('nrAken')) $
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.52', kp: '11.11.2026', nimi: 'Veaparandus: saatmata muudatused ei kao',
+    lisati: ['Telefon ei kustuta enam saatmata muudatusi, kui server vastab veaga (nt „Server on hõivatud“, kui mitu inimest kirjutab korraga). Muudatus jääb telefoni ja saadetakse uuesti. Puudutab komplekteerimist, täitmist, pakkimist, inventuuri ja paigutamist.', 'Kui server ei võta muudatust 5 korda järjest vastu, tõstetakse see kõrvale: telefoni Seadetes on näha „Saatmata jäänud muudatusi“ nuppudega „Proovi uuesti“ ja „Kustuta“. Järgmised muudatused liiguvad edasi.', 'Vanas Chrome\'is (nt A40) on nuppude ja ridade vahed tagasi; uuemates telefonides ei muutu midagi.', 'Arvuti leht hoiatab adminit, kui juurutatud Apps Script on vanem kui leht vajab.', 'Koodist eemaldatud viis kasutamata muutujat.'],
+    kasutus: ['Midagi uut õppida pole vaja. 2.52 muudab telefoni, arvutit ja serverit: laadi üles index.html, arvuti.html, sw.js ning paigalda Veebirakendus.gs ja tee uus juurutus.'] },
   { v: '2.51', kp: '06.11.2026', nimi: 'Väikepakendi sildid APLI 12112 lehtedele',
     lisati: ['Väikepakendi vaates nupp „Prindi sildid“: igale kastile 2 silti (V-1-2-3-4-V vasak pool, V-1-2-3-4-P parem pool), 48 silti lehel (4 × 12, 45,7 × 21,2 mm), QR + kood + „vasak/parem pool“.', 'Süsteem loeb mõlemad koodid sama kasti kohaks (kogus, komplekteerimine, aruanded). Külje ja püstakute valik, nihe ning sammu kalibreerimine nagu suurel laol (eraldi väärtused).'],
     kasutus: ['Ava Väikepakend, vajuta „Prindi sildid“, vali külg ja püstakud, prindi esmalt testleht. 2.51 muudab telefoni, arvutit ja serverit: paigalda ka Apps Script.'] },
@@ -5613,7 +5626,7 @@ function renderRapTulemus() {
   if (I && I.liik === 'kontroll') return renderRapI3();   // INFO3
   if (!I) { $('rapTulemus').innerHTML = '<p class="hall vaike">Vali filter või seaded ja vajuta <b>Näita</b>. Märgitud read saad saata korjenimekirjaks (Komplekteerimine → Saada telefoni), printida või võtta Excelisse.</p>'; return; }
   if (!L.length) { $('rapTulemus').innerHTML = `<p class="vaike hall">${esc(rapKokkuvote(I))}</p><p>Ühtegi toodet ei pea saatma.</p>`; return; }
-  const n = L.filter(r => r.valik).length, kust = RAP_LAOD[I.kust], kuhu = RAP_LAOD[I.kuhu];
+  const n = L.filter(r => r.valik).length, kust = RAP_LAOD[I.kust];
   const th = (v, silt, lisa = '') => `<th data-rapsort="${v}" title="Sordi"${lisa}>${silt}${RAP.sort && RAP.sort.v === v ? (RAP.sort.suund > 0 ? ' ▲' : ' ▼') : ''}</th>`;
   $('rapTulemus').innerHTML = `<p class="vaike hall">${L.length} toodet · ${esc(rapKokkuvote(I))}. Kogust saad muuta, linnuke eemaldab rea saatmisest.</p>
     <div class="rida" style="gap:8px;margin:6px 0">
@@ -5890,7 +5903,7 @@ function renderRapPak() {
   rapPakUuenda();
 }
 function rapPakRida(r, i) {
-  const t = T.get(r.kood) || toode(r.kood), tt = T.get(r.toor) || toode(r.toor), yh = pakYh(r);
+  const t = T.get(r.kood) || toode(r.kood), tt = T.get(r.toor) || toode(r.toor);
   return `<tr data-pakrida="${i}"${r.valik ? '' : ' class="maha"'}><td><input type="checkbox" data-rapvali="${i}"${r.valik ? ' checked' : ''}>${abiNupp(r.kood)}</td><td><b>${esc(r.kood)}</b></td><td>${esc(t.nimi)}<br><span class="hall vaike">${esc(t.grupp)}</span></td>
     <td class="arv">${fmt(r.kuus)}</td><td>${pakJatkub(r)}</td><td class="arv">${fmt(r.vajadus)}</td><td class="arv">${fmt(r.uld)}</td><td class="arv"><b>${fmt(r.puudu)}</b></td>
     <td title="${esc(tt.nimi)}${r.yhine.length ? ' · sama tooraine ka: ' + esc(r.yhine.join(', ')) : ''}" style="white-space:nowrap"><b>${esc(r.toor)}</b> <span class="pak-silt">${r.allikas}${r.allikas === 'PAKK' ? ' ' + fmt(r.pakis) + ' tk' : ''}</span>${r.allikas === 'PAKK' && RAP.info.alam !== 'pakk' ? ' <span class="pak-silt" title="Pakist kotti: Buumis ei sobi retsept, sisesta pakk ja iga pakendi komponent eraldi">⚠ Buum: eraldi</span>' : ''}${r.yhine.length ? ' <span class="pak-silt">+' + r.yhine.length + '</span>' : ''}</td>
@@ -7948,7 +7961,6 @@ function renderToolaud() {
   // komplekteerimine / vastuvõtt / väljaviimine
   const nimed = KOG.filter(n => !kogVK(n)), vkd = KOG.filter(n => kogVK(n));
   const kAkt = nimed.filter(n => ['kogumisel', 'pooleli', 'avatud'].includes(n.olek)), vAkt = vkd.filter(n => ['kogumisel', 'pooleli', 'avatud'].includes(n.olek));
-  const kLoppenud = n => n.olek === 'valmis' && !n.valja;
   const nimekiri = (L, tuhi) => L.length ? `<table class="tabel">${L.map(n => { const k = kogKokku(n);
     return `<tr><td><b>${esc(n.nimi)}</b></td><td>${kogOlek(n)}</td><td>${k.tehtud}/${k.kokku}${k.puudu ? ` <span style="color:#b26a00">· ${k.puudu} ${k.puuduSilt || 'puudu'}</span>` : ''}</td></tr>`; }).join('')}</table>` : `<p class="hall vaike" style="margin:0">${tuhi}</p>`;
   const vL = valjaOotel(), vkOotel = vahekanneOotel(), vVal = vkd.filter(n => n.olek === 'valmis' && !n.vahekanne && new Date(n.lopetatud || n.loodud).getTime() > Date.now() - 14 * 864e5);
