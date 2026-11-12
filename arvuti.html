@@ -4499,6 +4499,9 @@ $('nrAken').addEventListener('mousedown', e => { if (e.target === $('nrAken')) $
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.53', kp: '12.11.2026', nimi: 'Poe inventuur Excelina Buumi',
+    lisati: ['Poe loenduse tulemuse saab Excelina (.xlsx) Buumi inventuuri importimiseks. Veerud: Kood, Ribakood, Nimetus, Kogus (hinda pole). Sama toode mitmes nimekirjas liidetakse kokku; kood ja ribakood jäävad tekstiks, et eesolevad nullid ei kaoks.', 'Telefonis näeb admin vaates Loendus nuppu „Ava kõik nimekirjad“: kõigi töötajate nimekirjad, masterlist (ainult kinnitatud nimekirjad) ja iga nimekiri eraldi. Nupp „Excel“ laeb faili alla, „Saada (meil …)“ avab telefoni jagamise akna (Gmail jne).', 'Arvutis Poe loenduse aknas nupp „Excel (Buum)“ iga nimekirja ja masterlisti juures.', 'Töötajate loendamine telefonis ja server ei muutunud.'],
+    kasutus: ['Telefon (admin): Loendus → Ava kõik nimekirjad → Masterlist → Excel või Saada. Excel laeb Exceli lugeja internetist. Muutub index.html, arvuti.html ja sw.js; Apps Scripti pole vaja uuesti juurutada.'] },
   { v: '2.52', kp: '11.11.2026', nimi: 'Veaparandus: saatmata muudatused ei kao',
     lisati: ['Telefon ei kustuta enam saatmata muudatusi, kui server vastab veaga (nt „Server on hõivatud“, kui mitu inimest kirjutab korraga). Muudatus jääb telefoni ja saadetakse uuesti. Puudutab komplekteerimist, täitmist, pakkimist, inventuuri ja paigutamist.', 'Kui server ei võta muudatust 5 korda järjest vastu, tõstetakse see kõrvale: telefoni Seadetes on näha „Saatmata jäänud muudatusi“ nuppudega „Proovi uuesti“ ja „Kustuta“. Järgmised muudatused liiguvad edasi.', 'Vanas Chrome\'is (nt A40) on nuppude ja ridade vahed tagasi; uuemates telefonides ei muutu midagi.', 'Arvuti leht hoiatab adminit, kui juurutatud Apps Script on vanem kui leht vajab.', 'Koodist eemaldatud viis kasutamata muutujat.'],
     kasutus: ['Midagi uut õppida pole vaja. 2.52 muudab telefoni, arvutit ja serverit: laadi üles index.html, arvuti.html, sw.js ning paigalda Veebirakendus.gs ja tee uus juurutus.'] },
@@ -6817,6 +6820,80 @@ function marsruut(kohad, G) {
   koik.filter(k => !jrk.has(k)).sort((a, b) => mrVordle(mrVanaVoti(a), mrVanaVoti(b))).forEach(k => jrk.set(k, nr++));
   return jrk;
 }
+/* ---------- BUUMEKSPORT (2.53): poe loenduse tulemus Excelina Buumi inventuuri importimiseks ----------
+   Veerud nagu Buumi inventuuris: Kood, Ribakood, Nimetus, Kogus (hinda pole). Kood ja ribakood on Excelis tekst
+   (eesolevad nullid jäävad alles), kogus on arv (eestikeelne Excel näitab komaga). Sama toode mitmes nimekirjas
+   liidetakse kokku. Sama kood telefonis (admin, Loendus → Kõik nimekirjad) ja arvutis (Poe loendus). */
+const BUUM_XLSX_URL = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+let buumXlsxLaeb = null;
+function buumLaeXlsx() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (!buumXlsxLaeb) buumXlsxLaeb = new Promise((ok, ei) => {
+    const s = document.createElement('script');
+    s.src = BUUM_XLSX_URL; s.onload = () => ok(window.XLSX);
+    s.onerror = () => { buumXlsxLaeb = null; ei(new Error('Exceli teeki ei saanud laadida (kas võrk on?)')); };
+    document.head.appendChild(s);
+  });
+  return buumXlsxLaeb;
+}
+// GTIN kontrollnumber (EAN-8, UPC-12, EAN-13, GTIN-14)
+function buumEanKontroll(s) {
+  let sum = 0;
+  for (let i = 0; i < s.length - 1; i++) { const d = +s.charAt(s.length - 2 - i); sum += i % 2 === 0 ? d * 3 : d; }
+  return (10 - sum % 10) % 10 === +s.charAt(s.length - 1);
+}
+// Tabelis võib numbrilise ribakoodi eesolev null kaduda (021105370003 -> 21105370003). Kui pikkus pole
+// tavaline, lisame nullid ette ainult siis, kui kontrollnumber klapib.
+function buumRibakood(e) {
+  e = String(e == null ? '' : e).trim();
+  if (!/^\d+$/.test(e) || [8, 12, 13, 14].indexOf(e.length) !== -1) return e;
+  const pikkused = [8, 12, 13, 14];
+  for (let i = 0; i < pikkused.length; i++) {
+    const L = pikkused[i];
+    if (L > e.length) { const p = ('00000000000000' + e).slice(-L); if (buumEanKontroll(p)) return p; }
+  }
+  return e;
+}
+// nimekirjad: [{ read: [{ kood, nimi, kogus }] }]; toode(kood) -> { nimi, ean } või null
+function buumRead(nimekirjad, toode) {
+  const m = new Map();
+  nimekirjad.forEach(n => (n.read || []).forEach(r => {
+    const kood = String(r.kood);
+    let x = m.get(kood);
+    if (!x) { const t = toode(kood); x = { kood, ean: buumRibakood(t && t.ean), nimi: (t && t.nimi) || r.nimi || '', kogus: 0 }; m.set(kood, x); }
+    if (!x.nimi && r.nimi) x.nimi = r.nimi;
+    x.kogus = Math.round((x.kogus + Number(r.kogus || 0)) * 1000) / 1000;
+  }));
+  return Array.from(m.values()).sort((a, b) => a.kood < b.kood ? -1 : a.kood > b.kood ? 1 : 0);
+}
+function buumFailinimi(osad) {
+  const d = new Date(), p = x => (x < 10 ? '0' : '') + x;
+  return ['inventuur'].concat(osad.filter(Boolean)).concat([d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())])
+    .join('_').replace(/[^\wäöüõšžÄÖÜÕŠŽ-]+/g, '_') + '.xlsx';
+}
+// -> Promise<File>
+async function buumXlsx(read, failinimi) {
+  const X = await buumLaeXlsx();
+  const ws = X.utils.aoa_to_sheet([['Kood', 'Ribakood', 'Nimetus', 'Kogus']].concat(read.map(r => [r.kood, r.ean, r.nimi, r.kogus])));
+  ws['!cols'] = [{ wch: 18 }, { wch: 16 }, { wch: 50 }, { wch: 10 }];
+  const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, 'Inventuur');
+  const andmed = X.write(wb, { bookType: 'xlsx', type: 'array' });
+  const tyyp = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  try { return new File([andmed], failinimi, { type: tyyp }); }
+  catch (e) { const b = new Blob([andmed], { type: tyyp }); b.name = failinimi; return b; }
+}
+function buumLaeAlla(fail) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(fail); a.download = fail.name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+}
+// telefonis: jagamise aken (Gmail, Outlook …), kui brauser oskab faile jagada
+const buumSaabJagada = () => { try { return !!(navigator.canShare && typeof File === 'function' && navigator.canShare({ files: [new File([''], 'x.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })] })); } catch (e) { return false; } };
+async function buumJaga(fail, pealkiri) {
+  try { await navigator.share({ files: [fail], title: pealkiri, text: pealkiri }); return true; }
+  catch (e) { if (e && e.name === 'AbortError') return true; buumLaeAlla(fail); return false; }
+}
 /* ---------- /MARSRUUT ---------- */
 /* ---------- MARSRUUT: Lao mõõdud.xlsx -> G (salvestatakse Seadetesse "Lao mõõdud") ---------- */
 // lehed = { Talad: [[...rida], ...], Plaan: [[...], ...] } (esimene rida päis). Tagastab {G, vead, kokkuvote}.
@@ -8196,14 +8273,14 @@ function renderPoe() {
       <td><b>${esc(n.nimi)}</b></td><td>${esc(n.koht)}</td><td>${esc(n.lõi)}</td><td>${poeKuup(n.loodud)}</td>
       <td>${n.olek === 'kinnitatud' ? `✓ kinnitas ${esc(n.kinnitas)} ${poeKuup(n.kinnitatud)}` : n.olek === 'kustutatud' ? 'kustutatud' : 'pooleli'}</td>
       <td>${n.read.length}</td><td><b>${poeArv(poeKokku(n))}</b></td>
-      <td style="white-space:nowrap"><button class="nupp" data-poevaata="${esc(n.id)}">Vaata</button> <button class="nupp" data-poecsv="${esc(n.id)}">CSV</button> <button class="nupp" data-poeprindi="${esc(n.id)}">Prindi</button></td></tr>`).join('') + '</table>'
+      <td style="white-space:nowrap"><button class="nupp" data-poevaata="${esc(n.id)}">Vaata</button> <button class="nupp" data-poexlsx="${esc(n.id)}" title="Buumi inventuuri import: Kood, Ribakood, Nimetus, Kogus">Excel (Buum)</button> <button class="nupp" data-poecsv="${esc(n.id)}">CSV</button> <button class="nupp" data-poeprindi="${esc(n.id)}">Prindi</button></td></tr>`).join('') + '</table>'
     : '<p class="hall">Selles vaates nimekirju pole. Kinnitatud nimekirjad tulevad siia, kui töötaja on need telefonis lõplikuks kinnitanud.</p>';
 }
 function poeRead(n) { return n.read.slice().sort((a, b) => CN.compare(a.kood, b.kood)); }
 function renderPoeNimekiri(n) {
   $('poeSisu').innerHTML = `<div class="rida" style="gap:6px;margin:0 0 8px;flex-wrap:wrap;align-items:center">
       <button class="nupp" data-poetagasi="1">← Nimekirjad</button><b>${esc(n.nimi)}</b><span class="hall">${esc(n.koht)} · ${esc(n.lõi)} · ${n.olek === 'kinnitatud' ? '✓ kinnitas ' + esc(n.kinnitas) + ' ' + poeKuup(n.kinnitatud) : n.olek}</span>
-      <button class="nupp" data-poecsv="${esc(n.id)}">CSV</button><button class="nupp" data-poeprindi="${esc(n.id)}">Prindi</button>
+      <button class="nupp" data-poexlsx="${esc(n.id)}" title="Buumi inventuuri import: Kood, Ribakood, Nimetus, Kogus">Excel (Buum)</button> <button class="nupp" data-poecsv="${esc(n.id)}">CSV</button><button class="nupp" data-poeprindi="${esc(n.id)}">Prindi</button>
       ${n.olek === 'kinnitatud' ? `<button class="nupp ainult-admin" data-poeava="${esc(n.id)}" title="Töötaja saab nimekirja uuesti muuta">Ava uuesti</button>` : ''}</div>
     <table class="tabel"><tr><th>Kood</th><th>Nimetus</th><th>Kogus</th><th>Aeg</th></tr>` +
     poeRead(n).map(r => `<tr><td><b>${esc(r.kood)}</b></td><td>${esc(r.nimi)}</td><td><b>${poeArv(r.kogus)}</b></td><td>${poeKuup(r.aeg)}</td></tr>`).join('') + '</table>';
@@ -8222,7 +8299,7 @@ function renderPoeMaster(l) {
   const m = poeMaster(l);
   $('poeSisu').innerHTML = `<div class="rida" style="gap:6px;margin:0 0 8px;flex-wrap:wrap;align-items:center">
       <button class="nupp" data-poetagasi="1">← Nimekirjad</button><b>Masterlist</b><span class="hall">${l.length} nimekirja · ${m.length} toodet (vaate filter: ${esc($('poeFilter').selectedOptions[0].textContent)})</span>
-      <button class="nupp" data-poecsv="*">CSV</button><button class="nupp" data-poeprindi="*">Prindi</button></div>
+      <button class="nupp" data-poexlsx="*" title="Buumi inventuuri import: Kood, Ribakood, Nimetus, Kogus">Excel (Buum)</button><button class="nupp" data-poecsv="*">CSV</button><button class="nupp" data-poeprindi="*">Prindi</button></div>
     <table class="tabel"><tr><th>Kood</th><th>Nimetus</th><th>Kokku</th><th>Nimekirjades</th></tr>` +
     m.map(x => `<tr><td><b>${esc(x.kood)}</b></td><td>${esc(x.nimi)}</td><td><b>${poeArv(x.kokku)}</b></td><td class="hall">${x.osad.map(o => esc(o.nimekiri + (o.koht ? ' (' + o.koht + ')' : '') + ': ' + poeArv(o.kogus))).join(' · ')}</td></tr>`).join('') + '</table>';
 }
@@ -8237,6 +8314,15 @@ function poeCsv(id) {
   a.href = URL.createObjectURL(new Blob(['﻿' + rida.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
   a.download = 'poe_loendus_' + nimi.replace(/[^\wäöüõšž-]+/gi, '_') + '.csv';
   document.body.appendChild(a); a.click(); a.remove();
+}
+// BUUMEKSPORT (2.53): Excel Buumi importimiseks (yhine/buumeksport.js); masterlist järgib vaate filtrit nagu CSV
+async function poeXlsx(id) {
+  const l = poeNahtavad().filter(n => n.olek !== 'kustutatud');
+  const n = id === '*' ? null : POE.find(x => x.id === id);
+  const read = buumRead(n ? [n] : l, kood => T.get(kood) || null);
+  if (!read.length) { teade('Ridu pole', true); return; }
+  try { buumLaeAlla(await buumXlsx(read, buumFailinimi(n ? [n.nimi, n.koht, n.lõi] : ['masterlist']))); }
+  catch (e) { teade('Excel: ' + e.message, true); }
 }
 function poePrindi(id) {
   const l = poeNahtavad().filter(n => n.olek !== 'kustutatud');
@@ -8267,6 +8353,7 @@ $('poeAken').addEventListener('click', async e => {
   if (d.poevaata) { POE_AVATUD = d.poevaata; renderPoe(); }
   else if (d.poetagasi) { POE_AVATUD = null; POE_MASTER = false; renderPoe(); }
   else if (d.poecsv) poeCsv(d.poecsv);
+  else if (d.poexlsx) poeXlsx(d.poexlsx);
   else if (d.poeprindi) poePrindi(d.poeprindi);
   else if (d.poeava) {
     const n = POE.find(x => x.id === d.poeava);

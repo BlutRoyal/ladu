@@ -2681,6 +2681,80 @@ function marsruut(kohad, G) {
   koik.filter(k => !jrk.has(k)).sort((a, b) => mrVordle(mrVanaVoti(a), mrVanaVoti(b))).forEach(k => jrk.set(k, nr++));
   return jrk;
 }
+/* ---------- BUUMEKSPORT (2.53): poe loenduse tulemus Excelina Buumi inventuuri importimiseks ----------
+   Veerud nagu Buumi inventuuris: Kood, Ribakood, Nimetus, Kogus (hinda pole). Kood ja ribakood on Excelis tekst
+   (eesolevad nullid jäävad alles), kogus on arv (eestikeelne Excel näitab komaga). Sama toode mitmes nimekirjas
+   liidetakse kokku. Sama kood telefonis (admin, Loendus → Kõik nimekirjad) ja arvutis (Poe loendus). */
+const BUUM_XLSX_URL = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+let buumXlsxLaeb = null;
+function buumLaeXlsx() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (!buumXlsxLaeb) buumXlsxLaeb = new Promise((ok, ei) => {
+    const s = document.createElement('script');
+    s.src = BUUM_XLSX_URL; s.onload = () => ok(window.XLSX);
+    s.onerror = () => { buumXlsxLaeb = null; ei(new Error('Exceli teeki ei saanud laadida (kas võrk on?)')); };
+    document.head.appendChild(s);
+  });
+  return buumXlsxLaeb;
+}
+// GTIN kontrollnumber (EAN-8, UPC-12, EAN-13, GTIN-14)
+function buumEanKontroll(s) {
+  let sum = 0;
+  for (let i = 0; i < s.length - 1; i++) { const d = +s.charAt(s.length - 2 - i); sum += i % 2 === 0 ? d * 3 : d; }
+  return (10 - sum % 10) % 10 === +s.charAt(s.length - 1);
+}
+// Tabelis võib numbrilise ribakoodi eesolev null kaduda (021105370003 -> 21105370003). Kui pikkus pole
+// tavaline, lisame nullid ette ainult siis, kui kontrollnumber klapib.
+function buumRibakood(e) {
+  e = String(e == null ? '' : e).trim();
+  if (!/^\d+$/.test(e) || [8, 12, 13, 14].indexOf(e.length) !== -1) return e;
+  const pikkused = [8, 12, 13, 14];
+  for (let i = 0; i < pikkused.length; i++) {
+    const L = pikkused[i];
+    if (L > e.length) { const p = ('00000000000000' + e).slice(-L); if (buumEanKontroll(p)) return p; }
+  }
+  return e;
+}
+// nimekirjad: [{ read: [{ kood, nimi, kogus }] }]; toode(kood) -> { nimi, ean } või null
+function buumRead(nimekirjad, toode) {
+  const m = new Map();
+  nimekirjad.forEach(n => (n.read || []).forEach(r => {
+    const kood = String(r.kood);
+    let x = m.get(kood);
+    if (!x) { const t = toode(kood); x = { kood, ean: buumRibakood(t && t.ean), nimi: (t && t.nimi) || r.nimi || '', kogus: 0 }; m.set(kood, x); }
+    if (!x.nimi && r.nimi) x.nimi = r.nimi;
+    x.kogus = Math.round((x.kogus + Number(r.kogus || 0)) * 1000) / 1000;
+  }));
+  return Array.from(m.values()).sort((a, b) => a.kood < b.kood ? -1 : a.kood > b.kood ? 1 : 0);
+}
+function buumFailinimi(osad) {
+  const d = new Date(), p = x => (x < 10 ? '0' : '') + x;
+  return ['inventuur'].concat(osad.filter(Boolean)).concat([d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())])
+    .join('_').replace(/[^\wäöüõšžÄÖÜÕŠŽ-]+/g, '_') + '.xlsx';
+}
+// -> Promise<File>
+async function buumXlsx(read, failinimi) {
+  const X = await buumLaeXlsx();
+  const ws = X.utils.aoa_to_sheet([['Kood', 'Ribakood', 'Nimetus', 'Kogus']].concat(read.map(r => [r.kood, r.ean, r.nimi, r.kogus])));
+  ws['!cols'] = [{ wch: 18 }, { wch: 16 }, { wch: 50 }, { wch: 10 }];
+  const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, 'Inventuur');
+  const andmed = X.write(wb, { bookType: 'xlsx', type: 'array' });
+  const tyyp = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  try { return new File([andmed], failinimi, { type: tyyp }); }
+  catch (e) { const b = new Blob([andmed], { type: tyyp }); b.name = failinimi; return b; }
+}
+function buumLaeAlla(fail) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(fail); a.download = fail.name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+}
+// telefonis: jagamise aken (Gmail, Outlook …), kui brauser oskab faile jagada
+const buumSaabJagada = () => { try { return !!(navigator.canShare && typeof File === 'function' && navigator.canShare({ files: [new File([''], 'x.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })] })); } catch (e) { return false; } };
+async function buumJaga(fail, pealkiri) {
+  try { await navigator.share({ files: [fail], title: pealkiri, text: pealkiri }); return true; }
+  catch (e) { if (e && e.name === 'AbortError') return true; buumLaeAlla(fail); return false; }
+}
 /* ---------- /MARSRUUT ---------- */
 // parima koha valik (mitme koha korral): väikepakend külg 1 püstakud 1→8, külg 2 8→1; siis suur ladu rea kaupa.
 // Korjejärjekord ise tuleb MARSRUUT-ist (uksest 2, väikepakend viimasena).
@@ -4011,6 +4085,7 @@ function loOlekChip(n) {
 
 function renderLoendus() {
   const el = $('lSisu'); if (!el) return;
+  if (loKoikVaade) { el.innerHTML = loKoikHtml(); return; }   // BUUMEKSPORT
   const n = loAvatud && loNimekiri(loAvatud);
   if (!n) { loAvatud = null; loValitud = null; el.innerHTML = loPaisHtml(); return; }
   el.innerHTML = loNimekiriHtml(n);
@@ -4019,7 +4094,9 @@ function renderLoendus() {
 function loPaisHtml() {
   const l = LO.nimekirjad.filter(n => n.olek !== 'kustutatud');
   const kohad = ['Keskladu', 'Poe ladu', 'Saal'];
-  return `<div class="kaart"><b>Uus loendus</b>
+  return (loOnAdmin() ? `<div class="kaart"><b>Kõigi loetud nimekirjad</b><div class="hall">Ülevaade ja Excel Buumi (masterlist ja iga nimekiri eraldi)</div>
+      <div class="nupud"><button class="nupp pea" data-lo="koik">Ava kõik nimekirjad</button></div></div>` : '') +
+    `<div class="kaart"><b>Uus loendus</b>
       <input id="lUusNimi" type="text" placeholder="Nimekirja nimi (valikuline), nt Saal 1" autocomplete="off" style="margin-top:8px">
       <input id="lUusKoht" type="text" placeholder="Kus loed? (valikuline)" autocomplete="off" style="margin-top:8px">
       <div class="nupud" style="margin-top:8px">${kohad.map(k => `<button class="nupp vaike" data-lokohtchip="${esc(k)}">${esc(k)}</button>`).join('')}</div>
@@ -4063,6 +4140,56 @@ function loNimekiriHtml(n) {
     </div>`).join('') : '<div class="tuhi">Skänni esimene toode</div>') + '</div></div>';
   if (lahti) h += `<div class="nupud"><button class="nupp pea" data-lo="kinnita" ${n.read.length ? '' : 'disabled'}>Kinnita nimekiri lõplikuks</button><button class="nupp ohtlik" data-lo="kustutaNimekiri">Kustuta nimekiri</button></div>`;
   return h;
+}
+
+/* ---------- BUUMEKSPORT (2.53): admin näeb telefonis kõigi nimekirju ja saab Exceli (vt yhine/buumeksport.js) ---------- */
+let loKoikVaade = false, loKoik = null, loKoikViga = '', loKoikLaeb = false;
+const loOnAdmin = () => !!(SEADED && SEADED.roll === 'admin');
+const loToode = kood => { const t = IX && IX.tooted ? IX.tooted.get(kood) : null; return t || null; };
+async function loLaeKoik() {
+  if (loKoikLaeb) return;
+  loKoikLaeb = true; loKoikViga = ''; renderLoendus();
+  try {
+    const j = await api({ tegevus: 'poeLoendused' }, 40000);
+    if (!j || !j.ok) throw new Error((j && j.viga) || 'Server ei vastanud');
+    loKoik = j.nimekirjad || [];
+  } catch (e) { loKoikViga = e.message || String(e); }
+  loKoikLaeb = false;
+  if (aktiivne === 'loendus') renderLoendus();
+}
+function loKoikHtml() {
+  let h = `<div class="nupud" style="margin:0 0 8px"><button class="nupp vaike" data-lo="koikTagasi">← Minu nimekirjad</button><button class="nupp vaike" data-lo="koikUuenda" ${loKoikLaeb ? 'disabled' : ''}>${loKoikLaeb ? 'Laen…' : 'Uuenda'}</button></div>`;
+  if (loKoikViga) h += `<div class="kaart" style="color:var(--punane)">${esc(loKoikViga)}</div>`;
+  if (!loKoik) return h + (loKoikLaeb ? '<div class="tuhi">Laen nimekirju…</div>' : '');
+  const kinn = loKoik.filter(n => n.olek === 'kinnitatud'), pool = loKoik.filter(n => n.olek !== 'kinnitatud');
+  const mRead = buumRead(kinn, loToode);
+  const jaga = buumSaabJagada();
+  const nupud = id => `<div class="nupud"><button class="nupp vaike pea" data-loxlsx="${esc(id)}">Excel</button>${jaga ? `<button class="nupp vaike" data-lojaga="${esc(id)}">Saada (meil …)</button>` : ''}</div>`;
+  h += `<div class="kaart" style="margin-top:0"><b>Masterlist</b><div class="hall">${kinn.length} kinnitatud nimekirja · ${mRead.length} toodet</div>
+      ${pool.length ? `<div style="color:var(--punane);font-size:13px;margin-top:6px">${pool.length} nimekirja on veel pooleli, need masterlistis ei ole.</div>` : ''}
+      ${kinn.length ? nupud('*') : ''}</div><h3 style="margin:16px 0 4px">Nimekirjad</h3>`;
+  h += loKoik.length ? loKoik.map(n => {
+    const kokku = n.read.reduce((a, r) => a + r.kogus, 0);
+    return `<div class="kaart"><div class="kaart-pais"><div><b>${esc(n.nimi)}</b>${n.koht ? ' · ' + esc(n.koht) : ''}
+        <div class="hall">${esc(n.lõi)} · ${n.read.length} toodet · kokku ${fmtNr(kokku)}</div></div>
+        ${n.olek === 'kinnitatud' ? '<span class="lo-chip roh">✓ kinnitatud</span>' : '<span class="lo-chip kolla">pooleli</span>'}</div>
+      ${n.read.length ? nupud(n.id) : ''}</div>`;
+  }).join('') : '<div class="tuhi">Nimekirju pole</div>';
+  return h;
+}
+async function loEkspordi(id, jaga) {
+  if (!loKoik) return;
+  const n = id === '*' ? null : loKoik.find(x => x.id === id);
+  if (id !== '*' && !n) return;
+  const l = n ? [n] : loKoik.filter(x => x.olek === 'kinnitatud');
+  const read = buumRead(l, loToode);
+  if (!read.length) { naita('Ridu pole', true); return; }
+  try {
+    naita('Teen Exceli…');
+    const fail = await buumXlsx(read, buumFailinimi(n ? [n.nimi, n.koht, n.lõi] : ['masterlist']));
+    if (jaga) await buumJaga(fail, 'Poe inventuur: ' + (n ? n.nimi : 'masterlist'));
+    else { buumLaeAlla(fail); naita('Excel alla laaditud: ' + fail.name); }
+  } catch (e) { naita('Excel: ' + (e.message || e), true); }
 }
 
 function loVali(kood, skannitud) {
@@ -4112,6 +4239,8 @@ $('v-loendus').addEventListener('click', e => {
   if (d.lokohtchip !== undefined) { $('lUusKoht').value = d.lokohtchip; return; }
   if (d.loava) { loAvatud = d.loava; loValitud = null; renderLoendus(); window.scrollTo(0, 0); return; }
   if (d.lovali) { loVali(d.lovali); return; }
+  if (d.loxlsx) { loEkspordi(d.loxlsx, false); return; }   // BUUMEKSPORT
+  if (d.lojaga) { loEkspordi(d.lojaga, true); return; }
   if (d.loparanda && n) { const r = n.read.find(x => x.id === d.loparanda); if (r) { loValitud = { kood: r.kood, nimi: r.nimi }; loEsita = String(r.kogus).replace('.', ','); renderLoendus(); window.scrollTo(0, 0); const k = $('lKogus'); if (k) { k.focus(); k.select(); } } return; }
   if (d.lokustuta && n && n.olek === 'lahti') {
     const r = n.read.find(x => x.id === d.lokustuta);
@@ -4121,6 +4250,9 @@ $('v-loendus').addEventListener('click', e => {
   switch (d.lo) {
     case 'uus': { const x = loUus($('lUusNimi').value.trim().substring(0, 80), $('lUusKoht').value.trim().substring(0, 80)); loAvatud = x.id; loValitud = null; renderLoendus(); window.scrollTo(0, 0); if (!SK.foto) setTimeout(loSkann, 300); break; }
     case 'tagasi': loAvatud = null; loValitud = null; renderLoendus(); break;
+    case 'koik': if (loOnAdmin()) { loKoikVaade = true; renderLoendus(); window.scrollTo(0, 0); loLaeKoik(); } break;   // BUUMEKSPORT
+    case 'koikUuenda': loLaeKoik(); break;
+    case 'koikTagasi': loKoikVaade = false; renderLoendus(); break;
     case 'skann': loSkann(); break;
     case 'lisa': case 'liida': case 'asenda': loLisa(d.lo); break;
     case 'loobu': loValitud = null; loEsita = ''; renderLoendus(); break;
