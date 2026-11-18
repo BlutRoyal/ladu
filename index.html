@@ -228,6 +228,7 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
 .pole-gap .v-koht-rida > * + *, .pole-gap .logiriba > * + *, .pole-gap #rolliRiba > * + *, .pole-gap .rida-pais > * + *,
 .pole-gap .g-toode > * + *, .pole-gap .valik > * + *, .pole-gap .otsirida > * + *, .pole-gap [style*="gap:8px"] > * + * { margin-left: 8px; }
 .pole-gap #paigJuhis li > * + * { margin-left: 12px; }
+.pole-gap .inv-rida .tegevused > * + *, .pole-gap .lo-rida .tegevused > * + * { margin-left: 8px; }   /* 2.54: poe loenduse ja inventuuri rea nupud */
 .pole-gap .pl-nupud > * + * { margin-top: 6px; }
 .pole-gap .nupud > * { margin: 0 8px 8px 0; }
 .pole-gap .g-osad > * { margin: 0 6px 6px 0; }
@@ -4055,7 +4056,7 @@ function loUus(nimi, koht) {
 
 async function loSaada() {
   if (loSaadab || !SEADED || SEADED.logiSisse || !navigator.onLine) return;
-  const pakk = LO.nimekirjad.filter(loTeadmata).slice(0, 5).map(n => ({ n, v: n.v }));
+  const pakk = LO.nimekirjad.filter(loTeadmata).slice(0, 5).map(n => ({ n, v: n.v, rn: n.read.length }));   // rn: 2.54 saadetud ridade arv
   if (!pakk.length) return;
   loSaadab = true;
   let jatka = false;
@@ -4067,6 +4068,8 @@ async function loSaada() {
         const x = pakk.find(q => q.n.id === t.id); if (!x) return;
         if (t.lukus) x.n.olek = 'kinnitatud';
         if (t.ok || t.lukus) { x.n.saadetud = x.v; x.n.viga = ''; } else { x.n.saadetud = x.v; x.n.viga = t.viga || 'Saatmine ebaõnnestus'; }
+        // 2.54: server jättis osa ridu välja (vigane kogus või üle 3000 rea) -> näita, et töötaja kontrolliks
+        if (t.ok && typeof t.ridu === 'number' && x.n.olek !== 'kustutatud' && t.ridu < x.rn) x.n.viga = 'Serverisse salvestati ' + t.ridu + ' rida ' + x.rn + '-st. Kontrolli koguseid või jaga nimekiri kaheks.';
       });
       LO.nimekirjad = LO.nimekirjad.filter(n => !(n.olek === 'kustutatud' && !loTeadmata(n)));   // saadetud kustutatud on serveris peidus
       LO.nimekirjad = LO.nimekirjad.filter(n => !(n.olek === 'kinnitatud' && !loTeadmata(n) && Date.now() - new Date(n.kinnitatud || n.loodud).getTime() > 3 * 864e5));
