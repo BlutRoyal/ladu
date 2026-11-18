@@ -3417,7 +3417,7 @@ function muuda(...paringud) {
 }
 
 // SERVERIVERSIOON (2.52): leht ütleb adminile, kui juurutatud Apps Script on vanem kui see leht vajab
-const VAJALIK_SERVER = '2.52';
+const VAJALIK_SERVER = '2.54';   // 2.54: poe loenduse kiirus
 let SERVER_HOIATATUD = false;
 function serveriKontroll(p) {
   if (SERVER_HOIATATUD || !p || p.roll !== 'admin') return;
@@ -4499,6 +4499,9 @@ $('nrAken').addEventListener('mousedown', e => { if (e.target === $('nrAken')) $
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.54', kp: '18.11.2026', nimi: 'Poe loenduse saatmine kiireks',
+    lisati: ['Poe loenduse nimekirja uuesti saatmine (iga skänni järel) on palju kiirem: server kustutab nimekirja vanad read ühe käsuga, mitte ükshaaval. Enne võttis 100 rea saatmine ~35 s ja 300 rea ~105 s ning hoidis serverit teiste eest kinni.', 'Telefon näitab hoiatust, kui server salvestas vähem ridu, kui saadeti (vigane kogus või üle 3000 rea).', 'Vanas Chrome\'is (A40) on poe loenduse ja inventuuri rea nuppude vahel jälle vahe.'],
+    kasutus: ['Midagi uut õppida pole vaja. 2.54 muudab telefoni, arvutit ja serverit: laadi üles index.html, arvuti.html, sw.js ning paigalda Veebirakendus.gs ja tee uus juurutus (arvuti hoiatab adminit, kui juurutus on vanem).'] },
   { v: '2.53', kp: '12.11.2026', nimi: 'Poe inventuur Excelina Buumi',
     lisati: ['Poe loenduse tulemuse saab Excelina (.xlsx) Buumi inventuuri importimiseks. Veerud: Kood, Ribakood, Nimetus, Kogus (hinda pole). Sama toode mitmes nimekirjas liidetakse kokku; kood ja ribakood jäävad tekstiks, et eesolevad nullid ei kaoks.', 'Telefonis näeb admin vaates Loendus nuppu „Ava kõik nimekirjad“: kõigi töötajate nimekirjad, masterlist (ainult kinnitatud nimekirjad) ja iga nimekiri eraldi. Nupp „Excel“ laeb faili alla, „Saada (meil …)“ avab telefoni jagamise akna (Gmail jne).', 'Arvutis Poe loenduse aknas nupp „Excel (Buum)“ iga nimekirja ja masterlisti juures.', 'Töötajate loendamine telefonis ja server ei muutunud.'],
     kasutus: ['Telefon (admin): Loendus → Ava kõik nimekirjad → Masterlist → Excel või Saada. Excel laeb Exceli lugeja internetist. Muutub index.html, arvuti.html ja sw.js; Apps Scripti pole vaja uuesti juurutada.'] },
