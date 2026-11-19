@@ -3417,7 +3417,7 @@ function muuda(...paringud) {
 }
 
 // SERVERIVERSIOON (2.52): leht ütleb adminile, kui juurutatud Apps Script on vanem kui see leht vajab
-const VAJALIK_SERVER = '2.54';   // 2.54: poe loenduse kiirus
+const VAJALIK_SERVER = '2.55';   // 2.55: lisaribakoodid; 2.54: poe loenduse kiirus
 let SERVER_HOIATATUD = false;
 function serveriKontroll(p) {
   if (SERVER_HOIATATUD || !p || p.roll !== 'admin') return;
@@ -3468,6 +3468,7 @@ function ehitaKoik() {
       T.set(t.kood, t);
       if (t.ean && t.ean !== t.kood) { EAN.set(t.ean.toUpperCase(), t.kood); if (/^\d+$/.test(t.ean)) EAN.set('#' + t.ean.replace(/^0+/, ''), t.kood); }
     });
+    lisaRibaIndeksisse(lisaRibaKaart(ANDMED.lisaRiba), T, EAN);   // LISARIBA (2.55)
     (ANDMED.asukohad || []).forEach(a => {
       const k = normKoht(a.Asukoht);
       if (!k) return;
@@ -4499,6 +4500,9 @@ $('nrAken').addEventListener('mousedown', e => { if (e.target === $('nrAken')) $
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.55', kp: '19.11.2026', nimi: 'Lisaribakoodid ja sidekriipsuga koodid',
+    lisati: ['Telefon ja arvuti tunnevad toodet ka Buumi lisaribakoodiga (mitte ainult põhiribakoodiga). Koodid tulevad Sheetsi lehelt „Lisaribakoodid“ (Kood, Ribakood), mille teeb kontori arvutis skript lisaribakoodid.js Buumi veebireplikaatorist (ainult loeb).', 'Poe loenduses ei valita enam kirjutamise ajal liiga vara lühemat koodi: kui kirjutad „105045-VP“, ei hüppa programm „105045“ juures koguse lahtrisse. Kui on ka pikemaid koode, näed nimekirja (täpne vaste esimesena) ja Enter valib.'],
+    kasutus: ['Kontori arvutis: node lisaribakoodid.js (kaustas buum-test) → Sheetsis ava leht „Lisaribakoodid“ → Fail → Impordi → Lisaribakoodid.csv → „Asenda praegune leht“, linnuke „Teisenda tekst numbriteks…“ MAHA. Telefonid saavad uued koodid järgmisel uuendusel.', '2.55 muudab telefoni, arvutit ja serverit: laadi üles index.html, arvuti.html, sw.js ning paigalda Veebirakendus.gs ja tee uus juurutus.'] },
   { v: '2.54', kp: '18.11.2026', nimi: 'Poe loenduse saatmine kiireks',
     lisati: ['Poe loenduse nimekirja uuesti saatmine (iga skänni järel) on palju kiirem: server kustutab nimekirja vanad read ühe käsuga, mitte ükshaaval. Enne võttis 100 rea saatmine ~35 s ja 300 rea ~105 s ning hoidis serverit teiste eest kinni.', 'Telefon näitab hoiatust, kui server salvestas vähem ridu, kui saadeti (vigane kogus või üle 3000 rea).', 'Vanas Chrome\'is (A40) on poe loenduse ja inventuuri rea nuppude vahel jälle vahe.'],
     kasutus: ['Midagi uut õppida pole vaja. 2.54 muudab telefoni, arvutit ja serverit: laadi üles index.html, arvuti.html, sw.js ning paigalda Veebirakendus.gs ja tee uus juurutus (arvuti hoiatab adminit, kui juurutus on vanem).'] },
@@ -6896,6 +6900,32 @@ const buumSaabJagada = () => { try { return !!(navigator.canShare && typeof File
 async function buumJaga(fail, pealkiri) {
   try { await navigator.share({ files: [fail], title: pealkiri, text: pealkiri }); return true; }
   catch (e) { if (e && e.name === 'AbortError') return true; buumLaeAlla(fail); return false; }
+}
+/* ============================================================
+   LISARIBA (2.55): toote lisaribakoodid (Buumi mitte-põhiribakoodid, leht „Lisaribakoodid“)
+   Server saadab andmetes lisaRiba: [[kood, ribakood1, ribakood2, …]]. Vana server: väli puudub, kõik töötab nagu enne.
+   Põhikood ja põhiribakood on alati tähtsamad: lisakood ei kirjuta olemasolevat vastet üle.
+   ============================================================ */
+function lisaRibaKaart(list) {
+  const m = new Map();
+  (list || []).forEach(r => {
+    if (!r || !r.length) return;
+    const kood = normKood(r[0]); if (!kood) return;
+    const l = m.get(kood) || [];
+    for (let i = 1; i < r.length; i++) { const e = normKood(r[i]); if (e && e !== kood && l.indexOf(e) === -1) l.push(e); }
+    if (l.length) m.set(kood, l);
+  });
+  return m;
+}
+function lisaRibaIndeksisse(lisa, tooted, ean) {
+  lisa.forEach((l, kood) => {
+    if (!tooted.has(kood)) return;
+    l.forEach(e => {
+      if (tooted.has(e)) return;   // teise toote kood
+      if (!ean.has(e)) ean.set(e, kood);
+      if (/^\d+$/.test(e)) { const k = '#' + e.replace(/^0+/, ''); if (!ean.has(k)) ean.set(k, kood); }   // null ees võib Sheetis kaduda
+    });
+  });
 }
 /* ---------- /MARSRUUT ---------- */
 /* ---------- MARSRUUT: Lao mõõdud.xlsx -> G (salvestatakse Seadetesse "Lao mõõdud") ---------- */

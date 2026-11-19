@@ -1126,6 +1126,7 @@ function ehitaIndeks() {
   }
   const tooted = new Map(), ean = new Map(), otsi = [];
   const L = !!ANDMED.lyhike, G = ANDMED.grupid || [], U = ANDMED.uhikud || [], M = ANDMED.metad;
+  const lisa = lisaRibaKaart(ANDMED.lisaRiba);   // LISARIBA (2.55): Buumi mitte-põhiribakoodid
   ANDMED.tooted.read.forEach(r => {
     const t = L
       ? { kood: normKood(r[0]), nimi: r[1], ean: String(r[2] || '').trim(), k3: r[3], maardu: r[4], uhik: U[r[5]], grupp: G[r[6]] }
@@ -1138,8 +1139,10 @@ function ehitaIndeks() {
       ean.set(t.ean.toUpperCase(), t.kood);
       if (/^\d+$/.test(t.ean)) ean.set('#' + t.ean.replace(/^0+/, ''), t.kood);  // null ees võib Sheetis kaduda
     }
-    otsi.push({ t, h: (t.kood + ' ' + t.nimi + ' ' + t.ean).toUpperCase() });
+    const lr = lisa.get(t.kood) || [];
+    otsi.push({ t, h: (t.kood + ' ' + t.nimi + ' ' + t.ean + (lr.length ? ' ' + lr.join(' ') : '')).toUpperCase() });
   });
+  lisaRibaIndeksisse(lisa, tooted, ean);
   const kohad = new Map();
   (ANDMED.asukohad || []).forEach(a => {
     if (Array.isArray(a)) { const k = normKoht(a[0]); if (k) kohad.set(k, { koht: k, fluid: !!a[1] }); return; }
@@ -2756,6 +2759,32 @@ async function buumJaga(fail, pealkiri) {
   try { await navigator.share({ files: [fail], title: pealkiri, text: pealkiri }); return true; }
   catch (e) { if (e && e.name === 'AbortError') return true; buumLaeAlla(fail); return false; }
 }
+/* ============================================================
+   LISARIBA (2.55): toote lisaribakoodid (Buumi mitte-põhiribakoodid, leht „Lisaribakoodid“)
+   Server saadab andmetes lisaRiba: [[kood, ribakood1, ribakood2, …]]. Vana server: väli puudub, kõik töötab nagu enne.
+   Põhikood ja põhiribakood on alati tähtsamad: lisakood ei kirjuta olemasolevat vastet üle.
+   ============================================================ */
+function lisaRibaKaart(list) {
+  const m = new Map();
+  (list || []).forEach(r => {
+    if (!r || !r.length) return;
+    const kood = normKood(r[0]); if (!kood) return;
+    const l = m.get(kood) || [];
+    for (let i = 1; i < r.length; i++) { const e = normKood(r[i]); if (e && e !== kood && l.indexOf(e) === -1) l.push(e); }
+    if (l.length) m.set(kood, l);
+  });
+  return m;
+}
+function lisaRibaIndeksisse(lisa, tooted, ean) {
+  lisa.forEach((l, kood) => {
+    if (!tooted.has(kood)) return;
+    l.forEach(e => {
+      if (tooted.has(e)) return;   // teise toote kood
+      if (!ean.has(e)) ean.set(e, kood);
+      if (/^\d+$/.test(e)) { const k = '#' + e.replace(/^0+/, ''); if (!ean.has(k)) ean.set(k, kood); }   // null ees võib Sheetis kaduda
+    });
+  });
+}
 /* ---------- /MARSRUUT ---------- */
 // parima koha valik (mitme koha korral): väikepakend külg 1 püstakud 1→8, külg 2 8→1; siis suur ladu rea kaupa.
 // Korjejärjekord ise tuleb MARSRUUT-ist (uksest 2, väikepakend viimasena).
@@ -4203,11 +4232,20 @@ function loVali(kood, skannitud) {
   const k = $('lKogus'); if (k) { k.focus(); k.select(); }
 }
 
+// 2.55: kirjutamise ajal valitakse täpne vaste kohe ainult siis, kui ükski teine kood ei alga sama tekstiga
+// (muidu „105045“ valitaks enne, kui jõuad kirjutada „105045-VP“). Muul juhul nimekiri, täpne vaste esimesena; Enter valib.
+function loPikemKood(q) {
+  q = normKood(q);
+  if (!IX || !q) return false;
+  for (const k of IX.tooted.keys()) if (k.length > q.length && k.indexOf(q) === 0) return true;
+  return false;
+}
 function loSoovitused() {
   const q = $('lKood').value, el = $('lSoovitused');
   const t = leiaToode(q);
-  if (t) { loVali(t.kood); return; }
-  el.innerHTML = otsiTooteid(q, 8).map(x => `<button class="rida-tulemus" data-lovali="${esc(x.kood)}"><b>${esc(x.kood)}</b> ${esc(x.nimi)}</button>`).join('');
+  if (t && !loPikemKood(q)) { loVali(t.kood); return; }
+  const l = otsiTooteid(q, 8);
+  el.innerHTML = (t ? [t].concat(l.filter(x => x !== t)).slice(0, 8) : l).map(x => `<button class="rida-tulemus" data-lovali="${esc(x.kood)}"><b>${esc(x.kood)}</b> ${esc(x.nimi)}</button>`).join('');
 }
 
 function loSkann() {
