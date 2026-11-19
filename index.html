@@ -69,7 +69,7 @@ label { display: block; font-size: 13px; color: var(--hall); margin: 12px 0 4px;
 .rida-tulemus { display: block; width: 100%; text-align: left; background: var(--kaart); border: 1px solid var(--joon); border-radius: 12px; padding: 10px 12px; margin-top: 8px; cursor: pointer; }
 .rida-tulemus .kohad { font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
 .tuhi { text-align: center; color: var(--hall); padding: 28px 8px; }
-.teade { position: fixed; left: 16px; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 20; padding: 12px 14px; border-radius: 12px; background: var(--tekst); color: var(--bg); box-shadow: 0 4px 16px rgba(0,0,0,.2); display: none; }
+.teade { position: fixed; left: 16px; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 70; padding: 12px 14px; border-radius: 12px; background: var(--tekst); color: var(--bg); box-shadow: 0 4px 16px rgba(0,0,0,.2); display: none; }
 .teade.viga { background: var(--punane); color: #fff; }
 .logiriba { display: none; margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: var(--kollane); border: 1px solid var(--kol-joon); font-size: 14px; align-items: center; gap: 8px; }
 .logiriba.lahti { display: flex; }
@@ -96,6 +96,8 @@ body.paig-lahti { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
 .kogus-kokku { margin-top: 8px; font-size: 15px; }
 /* PAIGUTA: paigutamise ja „kust võtsid“ aknad */
 #pkVorm { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 60; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.45); }   /* PAKKIMINE */
+#pkVorm .pk-viga { margin: 6px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--pun-hele); color: var(--punane); font-weight: 700; }   /* 2.56 */
+#pkVorm .pk-puudu { border: 2px solid var(--punane) !important; border-radius: 10px; }
 #pkVorm .leht { width: 100%; max-width: 520px; max-height: 92vh; overflow: auto; background: var(--kaart); color: var(--tekst); border-radius: 18px 18px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); }
 #pgAken, #kusAken { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 30; display: none; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.45); }
 #pgAken.lahti, #kusAken.lahti { display: flex; }
@@ -3574,6 +3576,7 @@ function pkVorm(o) {
     <label>Mis sealt välja tuleb?</label>
     <div id="pkValjaKast">${pkValjaHtml(o.kood, o.valja || '')}</div>
     <label>Kuidas seda pakitakse?</label>
+    <div id="pkViga" class="pk-viga" style="display:none"></div>
     <div class="nupud" style="margin-top:0;flex-direction:column">
       ${PK_LIIGID.map(l => `<button class="nupp pea" data-pkliik="${l[0]}" style="min-height:54px;font-size:19px">${l[1]}</button>`).join('')}
       <button class="nupp" data-pkliik="" style="min-height:48px">Ootab pakkimisalal järjekorras</button>
@@ -3602,7 +3605,18 @@ function pkValjaHtml(raw, valitud) {
 function pkValjaVali(kood) {
   if (!PKV) return;
   PKV.valja = kood;
-  const k = $('pkValjaKast'); if (k) k.innerHTML = pkValjaHtml(PKV.kood, kood);
+  const k = $('pkValjaKast'); if (k) { k.innerHTML = pkValjaHtml(PKV.kood, kood); k.classList.remove('pk-puudu'); }
+  pkVormiViga('');
+}
+// 2.56: viga näidatakse vormi sees (üldine teade jääb tumeda akna taha) ja puuduv koht värvitakse punaseks
+function pkVormiViga(tekst, puudu) {
+  const v = $('pkViga');
+  if (v) { v.textContent = tekst; v.style.display = tekst ? '' : 'none'; }
+  ['pkKogus', 'pkValjaKast'].forEach(id => { const e = $(id); if (e) e.classList.toggle('pk-puudu', id === puudu); });
+}
+// 2.56: kogus ka kujul „12.“, „12 tk“, „1 200“, „12,5“
+function pkKogusTekst(v) {
+  return String(v || '').replace(/\s/g, '').replace(/[^\d.,]+$/, '').replace(/[.,]$/, '').replace(',', '.');
 }
 // väljuva toote muutmine olemasoleval real / puuduva märkimine pakitud-hetkel
 function pkValjaVorm(x, tehtud) {
@@ -3613,15 +3627,16 @@ function pkValjaVorm(x, tehtud) {
   el.innerHTML = `<div class="leht"><b style="font-size:19px">Mis sealt välja tuleb?</b>
     <div class="toode-kood" style="margin-top:8px">${esc(x.kood)}</div><div>${esc(t.nimi || '')}</div>
     <div id="pkValjaKast">${pkValjaHtml(x.kood, x.valja || '')}</div>
+    <div id="pkViga" class="pk-viga" style="display:none"></div>
     <div class="nupud"><button class="nupp pea" data-pkvaljasalvesta style="flex:1;min-height:50px">Salvesta</button><button class="nupp vaike" data-pkloobu>Loobu</button></div></div>`;
   document.body.appendChild(el);
 }
 function pkVormiSulge() { const el = $('pkVorm'); if (el) el.remove(); PKV = null; }
 function pkKinnita(liik) {
   const o = PKV; if (!o) return;
-  const tekst = ($('pkKogus').value || '').replace(/\s/g, '').replace(',', '.');
-  if (!/^\d+(\.\d+)?$/.test(tekst) || Number(tekst) <= 0) { naita('Sisesta kogus numbrina, nt 12', true); $('pkKogus').focus(); return; }
-  if (!PKV.valja) { naita('Vali, mis sealt välja tuleb', true); return; }   // 2.49
+  const tekst = pkKogusTekst($('pkKogus').value);
+  if (!/^\d+(\.\d+)?$/.test(tekst) || Number(tekst) <= 0) { pkVormiViga('Sisesta kogus numbrina, nt 12', 'pkKogus'); $('pkKogus').focus(); return; }
+  if (!PKV.valja) { pkVormiViga('Vali, mis sealt välja tuleb (üleval)', 'pkValjaKast'); const k = $('pkValjaKast'); if (k && k.scrollIntoView) k.scrollIntoView({ block: 'center' }); return; }   // 2.49
   const kogus = Math.round(Number(tekst) * 1000) / 1000;
   pkMuuda({ op: 'uus', valja: o.valja, id: uusId().replace(/-/g, '').slice(0, 12), kood: o.kood, kogus, koht: o.koht || '', allikas: o.allikas || 'asukoht', seis: liik ? 'pakkimisel' : 'ootel', liik, markus: o.markus || '' });
   if (o.koht) pkVahenda(o.kood, o.koht, kogus);
@@ -3729,7 +3744,7 @@ document.addEventListener('click', e => {
   else if (b.dataset.vkpakkimisse) { const k = b.dataset.vkpakkimisse, q = nr(b.dataset.vkkogus); pkVormiSulge(); const nn = kogNimekirjad().find(x => x.id === gAvatud); pkVorm({ kood: k, koht: '', allikas: 'vastuvõtt', kogus: q, markus: nn ? 'Vahekanne ' + vkNr(nn) : '' }); }
   else if (b.dataset.pkvalis) pkValjaVali(b.dataset.pkvalis);
   else if ('pkvaljasalvesta' in b.dataset) {
-    const o = PKV; if (!o || !o.valja) { naita('Vali, mis sealt välja tuleb', true); return; }
+    const o = PKV; if (!o || !o.valja) { pkVormiViga('Vali, mis sealt välja tuleb', 'pkValjaKast'); return; }
     const t = o.tehtud, v = o.valja, rid = o.valjaRida; pkVormiSulge();
     if (t) t(v); else { pkMuuda({ op: 'valja', id: rid, valja: v }); naita('Väljuv toode: ' + v); renderPakkimine(); }
   }
@@ -3737,6 +3752,7 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'pkKogus') { e.target.blur(); } });
 document.addEventListener('input', e => {   // 2.49: väljuva toote otsing
+  if (e.target && e.target.id === 'pkKogus') { e.target.classList.remove('pk-puudu'); return; }   // 2.56
   if (!e.target || e.target.id !== 'pkValjaOts') return;
   const q = e.target.value, tapne = leiaToode(q), l = tapne ? [tapne] : otsiTooteid(q, 8);
   $('pkValjaSoov').innerHTML = l.map(t => `<button class="rida-tulemus" data-pkvalis="${esc(t.kood)}"><b>${esc(t.kood)}</b> ${esc(t.nimi)}</button>`).join('');
