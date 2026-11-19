@@ -4500,6 +4500,9 @@ $('nrAken').addEventListener('mousedown', e => { if (e.target === $('nrAken')) $
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.56', kp: '19.11.2026', nimi: 'Pakkimisse saatmise vead nähtavaks',
+    lisati: ['Telefoni „Läks pakkimisse“ aknas näidatakse viga nüüd akna sees punasena (nt „Sisesta kogus numbrina“ või „Vali, mis sealt välja tuleb“) ja puuduv koht värvitakse punaseks. Enne jäi teade tumeda akna taha ning tundus, et Käsitsi / Pakkeliin / Vangla nupud ei tööta.', 'Kogus võtab vastu ka „12.“, „12 tk“ ja tühikutega numbrid (nt „1 200“).', 'Telefoni teated (all ribal) on nüüd kõigi akende peal, ka Paiguta aknas.'],
+    kasutus: ['Tooraine-märkega pesast pakkimisse saates on kogus tühi: kirjuta kogus ise. 2.56 muudab ainult telefoni: laadi üles index.html, arvuti.html ja sw.js. Apps Scripti pole vaja uuesti juurutada.'] },
   { v: '2.55', kp: '19.11.2026', nimi: 'Lisaribakoodid ja sidekriipsuga koodid',
     lisati: ['Telefon ja arvuti tunnevad toodet ka Buumi lisaribakoodiga (mitte ainult põhiribakoodiga). Koodid tulevad Sheetsi lehelt „Lisaribakoodid“ (Kood, Ribakood), mille teeb kontori arvutis skript lisaribakoodid.js Buumi veebireplikaatorist (ainult loeb).', 'Poe loenduses ei valita enam kirjutamise ajal liiga vara lühemat koodi: kui kirjutad „105045-VP“, ei hüppa programm „105045“ juures koguse lahtrisse. Kui on ka pikemaid koode, näed nimekirja (täpne vaste esimesena) ja Enter valib.'],
     kasutus: ['Kontori arvutis: node lisaribakoodid.js (kaustas buum-test) → Sheetsis ava leht „Lisaribakoodid“ → Fail → Impordi → Lisaribakoodid.csv → „Asenda praegune leht“, linnuke „Teisenda tekst numbriteks…“ MAHA. Telefonid saavad uued koodid järgmisel uuendusel.', '2.55 muudab telefoni, arvutit ja serverit: laadi üles index.html, arvuti.html, sw.js ning paigalda Veebirakendus.gs ja tee uus juurutus.'] },
