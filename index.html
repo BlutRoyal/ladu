@@ -1595,6 +1595,7 @@ function invLisa() {
   naita(`${t.kood}: ${fmtNr(kogus)}` + (invMuuda ? ' parandatud' : ' lisatud'));
   invMuuda = null; invToode = null;
   $('iToode').value = ''; $('iKogus').value = ''; $('iSoovitused').innerHTML = '';
+  $('iKoht').value = '';   // 2.58: järgmine loendus algab uue asukohaga (Freddy soov)
   renderInventuur();
   $('iToode').focus();
 }
