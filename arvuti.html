@@ -4500,6 +4500,9 @@ $('nrAken').addEventListener('mousedown', e => { if (e.target === $('nrAken')) $
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.67', kp: '20.11.2026', nimi: 'Telefoni akusääst',
+    lisati: ['Kaamera sulgub ise, kui 30 sekundi jooksul midagi ei skännita (lahtine kaamera kulutab akut kõige rohkem).', 'Kui telefoni 15 sekundit ei puudutata, tuleb peaaegu must kate („Akusääst · puuduta jätkamiseks“). Ekraan jääb sisse; esimene puudutus ainult äratab ega vajuta all olevat nuppu. Laoterminali skänner äratab ja sisestus läheb läbi.', 'Seadetes linnuke „Akusääst“ (vaikimisi sees).'],
+    kasutus: ['Äpp ise ekraani sees ei hoia: kui ekraan ei kustu, on telefoni Seaded → Ekraan → Ekraani ajalõpp pikaks pandud. 2.67 muudab ainult telefoni: laadi üles index.html, arvuti.html ja sw.js. Apps Scripti pole vaja uuesti juurutada.'] },
   { v: '2.66', kp: '20.11.2026', nimi: 'Skänner loeb ainult kasti seest',
     lisati: ['Telefoni skänner võtab koodi vastu ainult siis, kui selle keskpunkt on ekraani valge kasti sees. Enne luges uuem telefon (nt S24) tervet kaamerapilti ja võttis esimese koodi, mis nurgast sisse jäi. Kui kastis on mitu koodi, võetakse kasti keskele lähim.', 'Kehtib kõigis vaadetes (inventuur, poe loendus, kogumine, otsing jne). Pildista-režiim (foto) loeb nagu enne kogu pilti.'],
     kasutus: ['Suuna valge kast koodile. 2.66 muudab ainult telefoni: laadi üles index.html, arvuti.html ja sw.js. Apps Scripti pole vaja uuesti juurutada.'] },
