@@ -4211,6 +4211,13 @@ function loUus(nimi, koht) {
   LO.nimekirjad.unshift(n); loMuutus(n); return n;
 }
 
+// 2.64: server keeldus nimekirjast -> iga 30 s järel (ja võrgu tagasitulekul) saadetakse see ise uuesti
+function loKordaVead() {
+  let n = 0;
+  LO.nimekirjad.forEach(x => { if (x.korda && !loTeadmata(x)) { x.saadetud = -1; n++; } });
+  if (n) loSalvesta();
+  return n;
+}
 async function loSaada() {
   if (loSaadab || !SEADED || SEADED.logiSisse || !navigator.onLine) return;
   const pakk = LO.nimekirjad.filter(loTeadmata).slice(0, 5).map(n => ({ n, v: n.v, rn: n.read.length }));   // rn: 2.54 saadetud ridade arv
@@ -4224,7 +4231,7 @@ async function loSaada() {
       (j.tulemused || []).forEach(t => {
         const x = pakk.find(q => q.n.id === t.id); if (!x) return;
         if (t.lukus) x.n.olek = 'kinnitatud';
-        if (t.ok || t.lukus) { x.n.saadetud = x.v; x.n.viga = ''; } else { x.n.saadetud = x.v; x.n.viga = t.viga || 'Saatmine ebaõnnestus'; }
+        if (t.ok || t.lukus) { x.n.saadetud = x.v; x.n.viga = ''; delete x.n.korda; } else { x.n.saadetud = x.v; x.n.viga = t.viga || 'Saatmine ebaõnnestus'; x.n.korda = true; }   // 2.64: korda = proovi hiljem ise uuesti
         // 2.54: server jättis osa ridu välja (vigane kogus või üle 3000 rea) -> näita, et töötaja kontrolliks
         if (t.ok && typeof t.ridu === 'number' && x.n.olek !== 'kustutatud' && t.ridu < x.rn) x.n.viga = 'Serverisse salvestati ' + t.ridu + ' rida ' + x.rn + '-st. Kontrolli koguseid või jaga nimekiri kaheks.';
       });
@@ -4286,7 +4293,7 @@ function loNimekiriHtml(n) {
     if (loValitud) {
       h += `<div class="valitud-toode"><b>${esc(loValitud.kood)}</b> ${esc(loValitud.nimi) || '<span class="hall">(toodet andmetes pole)</span>'}
           ${olemas ? `<div class="hall">Selles nimekirjas juba: <b>${fmtNr(olemas.kogus)}</b></div>` : ''}</div>
-        <input id="lKogus" type="text" inputmode="decimal" placeholder="Kogus, nt 12 või 2,5" autocomplete="off" style="margin-top:8px" value="${esc(loEsita)}">
+        <form id="lKogusVorm" action="#" novalidate style="margin:0"><input id="lKogus" type="text" inputmode="decimal" placeholder="Kogus, nt 12 või 2,5" autocomplete="off" enterkeyhint="done" style="margin-top:8px" value="${esc(loEsita)}"></form>
         <div class="nupud">${olemas ? '<button class="nupp pea" data-lo="liida">Liida juurde</button><button class="nupp" data-lo="asenda">Asenda</button>' : '<button class="nupp pea" data-lo="lisa">Lisa</button>'}
         <button class="nupp" data-lo="loobu">Tühista</button></div>`;
     }
@@ -4443,14 +4450,17 @@ $('v-loendus').addEventListener('click', e => {
 });
 $('v-loendus').addEventListener('input', e => { if (e.target.id === 'lKood') { if (loValitud && e.target.value !== loValitud.kood) loValitud = null; loSoovitused(); } });
 $('v-loendus').addEventListener('keydown', e => {
-  if (e.key !== 'Enter') return;
+  if (e.key !== 'Enter' && e.keyCode !== 13) return;
   if (e.target.id === 'lKood') { e.preventDefault(); const q = e.target.value; if (!q.trim()) return; const t = leiaToode(q); if (t) loVali(t.kood); else { const l = otsiTooteid(q, 1); if (l.length) loVali(l[0].kood); else loVali(q, true); } }
-  else if (e.target.id === 'lKogus') { e.preventDefault(); const nn = loNimekiri(loAvatud); loLisa(nn && loValitud && nn.read.some(r => r.kood === loValitud.kood) ? 'asenda' : 'lisa'); }
+  else if (e.target.id === 'lKogus') { e.preventDefault(); loKogusEnter(); }
 });
+// 2.64: numbriklaviatuuri Enter/Valmis – mõni klaviatuur (Samsung) ei saada keydown'i „Enter“, siis teeb sama vormi submit
+function loKogusEnter() { const nn = loNimekiri(loAvatud); loLisa(nn && loValitud && nn.read.some(r => r.kood === loValitud.kood) ? 'asenda' : 'lisa'); }
+$('v-loendus').addEventListener('submit', e => { if (e.target.id === 'lKogusVorm') { e.preventDefault(); loKogusEnter(); } });
 $('v-loendus').addEventListener('change', e => { if (e.target.id === 'lPidev') { loPidev = e.target.checked; kirjuta(V.loPidev, loPidev); } });
-setInterval(loSaada, 30000);
+setInterval(() => { loKordaVead(); loSaada(); }, 30000);
 
-window.addEventListener('online', () => { olek(); laeAndmed(true); loSaada(); });
+window.addEventListener('online', () => { olek(); laeAndmed(true); loKordaVead(); loSaada(); });
 window.addEventListener('offline', () => olek());
 document.addEventListener('visibilitychange', () => { if (!document.hidden) saadaValjas(); });
 setInterval(saadaValjas, 30000);

@@ -4500,6 +4500,9 @@ $('nrAken').addEventListener('mousedown', e => { if (e.target === $('nrAken')) $
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.64', kp: '20.11.2026', nimi: 'Poe loendus: Enter koguses, keeldutud nimekiri saadetakse uuesti',
+    lisati: ['Poe loenduses lisab numbriklaviatuuri Enter / Valmis koguse kohe (ka Samsungi klaviatuuriga), nagu inventuuris 2.60.', 'Kui server keeldus nimekirjast (punane viga nimekirja juures), proovib telefon iga 30 sekundi järel ja võrgu tagasitulekul ise uuesti, kuni server võtab vastu. Enne saadeti uuesti alles järgmise muudatuse peale.'],
+    kasutus: ['Midagi uut õppida pole vaja. 2.64 muudab ainult telefoni: laadi üles index.html, arvuti.html ja sw.js. Apps Scripti pole vaja uuesti juurutada.'] },
   { v: '2.63', kp: '20.11.2026', nimi: 'Inventuur: seansid kokku liidetuna',
     lisati: ['Arvuti Inventuuri aknas nupp „∑ Liida seansid kokku“: märgi linnukesega, milliseid seansse liita. Kokkuvõte (loetud vs Maardu), Kõik read (iga rea juures ka seansi nimi), Kahtlased (ka sama koht eri seanssides), Vales kohas ja CSV töötavad kõigi valitud seansside peal korraga.', 'Andmeid ei muudeta: read jäävad oma seanssidesse. „Lõpeta liitmine“ viib tagasi ühe seansi vaatesse.'],
     kasutus: ['Inventuur → ∑ Liida seansid kokku → vajadusel võta mõni linnuke maha → CSV. 2.63 muudab ainult arvutit: laadi üles arvuti.html (ja sw.js). Apps Scripti pole vaja uuesti juurutada.'] },
