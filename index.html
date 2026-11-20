@@ -311,6 +311,7 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
     <label for="iSeanss">Seanss</label>
     <input id="iSeanss" type="text" placeholder="nt Inventuur oktoober 2026" autocomplete="off" list="iSeansid">
     <datalist id="iSeansid"></datalist>
+    <button class="nupp vaike" id="iUusSeanss" style="display:none;margin-top:6px">+ Uus seanss</button>
     <div id="iSeansiInfo" class="hall vaike" style="margin-top:4px"></div>
 
     <div class="kaart">
@@ -2567,7 +2568,25 @@ function invSeansiKontroll() {
   if (s.olek === 'lukus') return `Seanss „${s.nimi}“ on lukus. Vali teine seanss.`;
   return '';
 }
+// 2.61: admin saab seansi luua ka telefonis (server: muudaInventuuriSeanssi loo:true, sama mis arvutis)
+const invVoibLuua = () => !!(SEADED && SEADED.roll === 'admin' && !SEADED.vaataKui);
+async function invUusSeanss() {
+  if (!invVoibLuua()) return;
+  const nimi = (prompt('Uue inventuuriseansi nimi (nt Maardu rida 1-6):', '') || '').trim();
+  if (!nimi) return;
+  if (INVS.some(x => x.nimi === nimi)) { naita('Selline seanss on juba olemas', true); return; }
+  try {
+    const j = await api({ tegevus: 'muudaInventuuriSeanssi', nimi, loo: true }, 30000);
+    if (!j.ok) throw new Error(j.viga || 'Server keeldus');
+    INVS = INVS.concat([{ nimi, olek: 'avatud' }]); kirjuta(V.invSeansid, INVS);
+    $('iSeanss').value = nimi; kirjuta(V.seanss, nimi); $('iKokku').innerHTML = '';
+    naita('Seanss „' + nimi + '“ loodud');
+    renderInventuur();
+    laeInvSeansid();
+  } catch (e) { naita('Seanssi ei saanud luua: ' + (e.message || e) + '. Vajab internetti.', true); }
+}
 function renderInvSeansiInfo() {
+  $('iUusSeanss').style.display = invVoibLuua() ? '' : 'none';
   $('iSeansid').innerHTML = INVS.filter(x => x.olek !== 'lukus').map(x => `<option value="${esc(x.nimi)}">`).join('');
   const viga = invSeansiKontroll(), s = invSeansiInfo();
   $('iSeansiInfo').innerHTML = viga ? `<span style="color:var(--punane)">${esc(viga)}</span>` + (INVS.some(x => x.olek !== 'lukus') ? '<div class="nupud" style="margin-top:4px">' +
@@ -4108,6 +4127,7 @@ $('laadSulge').addEventListener('click', () => $('laadimine').classList.remove('
   if (SEADED) valjaLogitud('Välja logitud.', true);
 });
 
+$('iUusSeanss').addEventListener('click', invUusSeanss);   // 2.61
 $('iSeanss').addEventListener('change', () => { kirjuta(V.seanss, $('iSeanss').value.trim()); $('iKokku').innerHTML = ''; renderInventuur(); });
 $('iToode').addEventListener('input', invOtsi);
 $('iToode').addEventListener('keydown', e => { if (e.key === 'Enter') { const t = leiaToode(e.target.value); if (t) valiInvToode(t); } });
