@@ -332,6 +332,7 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
           <input id="iKogus" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done">
         </form>
       </div>
+      <label class="hall" style="display:block;margin-top:8px"><input type="checkbox" id="iKohtJaab"> Jäta asukoht meelde (sama koha mitu toodet)</label>
       <div class="nupud"><button class="nupp pea" id="iLisa" style="flex:1">Lisa loendus</button></div>
     </div>
 
@@ -465,7 +466,7 @@ const MALU_OLI = (() => { try { return !!localStorage.getItem('ladu_seade'); } c
 const V = { seaded: 'ladu_seaded', andmed: 'ladu_andmed', valjas: 'ladu_valjas', inv: 'ladu_inv', seanss: 'ladu_seanss',
             kog: 'ladu_kog', kogAvatud: 'ladu_kog_avatud', kogRezhiim: 'ladu_kog_rezhiim',   // kog*: KOGUMINE
             invSeansid: 'ladu_invseansid',   // INVSEANSS
-            vastu: 'ladu_vastu', tait: 'ladu_tait', pak: 'ladu_pak', loend: 'ladu_loend', loPidev: 'ladu_loend_pidev', korvale: 'ladu_korvale' };   // PAKKIMINE: pak; POELOENDUS: loend*   // VASTUVOTT
+            vastu: 'ladu_vastu', tait: 'ladu_tait', pak: 'ladu_pak', loend: 'ladu_loend', loPidev: 'ladu_loend_pidev', korvale: 'ladu_korvale', invKohtJaab: 'ladu_inv_koht_jaab' };   // 2.65: invKohtJaab   // PAKKIMINE: pak; POELOENDUS: loend*   // VASTUVOTT
 let PK = loe(V.pak, { read: [], aeg: '' }), vPak = false, laebPak = false, pkViga = '', pkLaiali = new Set();   // PAKKIMINE
 function loe(k, vaikimisi) { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : vaikimisi; } catch (e) { return vaikimisi; } }
 // MALU: localStorage kvoot (~5 MB). Kui täis, vabasta kõigepealt vähem olulised vahemälud ja proovi uuesti
@@ -1619,7 +1620,7 @@ function invLisa() {
   naita(`${t.kood}: ${fmtNr(kogus)}` + (invMuuda ? ' parandatud' : ' lisatud'));
   invMuuda = null; invToode = null;
   $('iToode').value = ''; $('iKogus').value = ''; $('iSoovitused').innerHTML = '';
-  $('iKoht').value = '';   // 2.58: järgmine loendus algab uue asukohaga (Freddy soov)
+  if (!$('iKohtJaab').checked) $('iKoht').value = '';   // 2.58: järgmine loendus algab uue asukohaga; 2.65: linnukesega jääb (alusel 10+ toodet)
   renderInventuur();
   $('iToode').focus();
 }
@@ -4159,6 +4160,8 @@ $('laadSulge').addEventListener('click', () => $('laadimine').classList.remove('
 });
 
 $('iUusSeanss').addEventListener('click', invUusSeanss);   // 2.61
+$('iKohtJaab').checked = !!loe(V.invKohtJaab, false);   // 2.65
+$('iKohtJaab').addEventListener('change', e => kirjuta(V.invKohtJaab, e.target.checked));
 $('iUuesti').addEventListener('click', e => { if (e.target.id === 'iSaadaUuesti') invSaadaUuesti(); });   // 2.62
 $('iSeanss').addEventListener('change', () => { kirjuta(V.seanss, $('iSeanss').value.trim()); $('iKokku').innerHTML = ''; renderInventuur(); });
 $('iToode').addEventListener('input', invOtsi);

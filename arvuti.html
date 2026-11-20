@@ -4500,6 +4500,9 @@ $('nrAken').addEventListener('mousedown', e => { if (e.target === $('nrAken')) $
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.65', kp: '20.11.2026', nimi: 'Inventuur: linnuke „Jäta asukoht meelde“',
+    lisati: ['Telefoni inventuuris on „Lisa loendus“ kohal linnuke „Jäta asukoht meelde“. Kui see on sees, ei tehta asukohta pärast lisamist tühjaks – mugav, kui ühel alusel on 10+ toodet. Linnuke jääb telefoni meelde.'],
+    kasutus: ['Skänni asukoht, pane linnuke, loe kõik selle koha tooted; uue koha jaoks skänni uus asukoht (või võta linnuke maha). 2.65 muudab ainult telefoni: laadi üles index.html, arvuti.html ja sw.js. Apps Scripti pole vaja uuesti juurutada.'] },
   { v: '2.64', kp: '20.11.2026', nimi: 'Poe loendus: Enter koguses, keeldutud nimekiri saadetakse uuesti',
     lisati: ['Poe loenduses lisab numbriklaviatuuri Enter / Valmis koguse kohe (ka Samsungi klaviatuuriga), nagu inventuuris 2.60.', 'Kui server keeldus nimekirjast (punane viga nimekirja juures), proovib telefon iga 30 sekundi järel ja võrgu tagasitulekul ise uuesti, kuni server võtab vastu. Enne saadeti uuesti alles järgmise muudatuse peale.'],
     kasutus: ['Midagi uut õppida pole vaja. 2.64 muudab ainult telefoni: laadi üles index.html, arvuti.html ja sw.js. Apps Scripti pole vaja uuesti juurutada.'] },
