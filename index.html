@@ -1767,7 +1767,7 @@ const ZXING_URLID = [
   'https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js',
   'https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js'
 ];
-const SK = { tagasi: null, voog: null, taimer: 0, zx: null, tootab: false, detektor: null, foto: false, qrAeg: 0, vihje: '' };
+const SK = { tagasi: null, voog: null, taimer: 0, zx: null, tootab: false, detektor: null, foto: false, qrAeg: 0, vihje: '', keelaKoht: '' };
 
 function laeSkript(url) {
   return new Promise((ok, viga) => {
@@ -1797,8 +1797,10 @@ async function sobivDetektor() {
 }
 
 // Avab skänneri; tagasi(väärtus) kutsutakse esimese loetud koodiga.
-async function avaSkanner(tagasi, vihje) {
+// keelaKoht (2.57): kui antud, ei võeta asukoha koodi vastu (inventuuris pärast asukohta oodatakse toodet).
+async function avaSkanner(tagasi, vihje, keelaKoht) {
   if (SK.tootab) return;
+  SK.keelaKoht = keelaKoht || '';
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     // Otsekaamerat ei lubata (nt iPhone'i Chrome/äpi sisebrauser): pildista ja loe fotolt
     SK.tagasi = tagasi; SK.foto = true;
@@ -1826,7 +1828,7 @@ async function avaSkanner(tagasi, vihje) {
         try {
           if (video.readyState >= 2) {
             const valik = valiKood(await SK.detektor.detect(video));
-            if (valik && valik.v && (!valik.qr || epoodQrOota())) { skannLeitud(valik.v); return; }
+            if (valik && valik.v && (!valik.qr || epoodQrOota()) && skannLeitud(valik.v)) return;
             if (valik && valik.muu) tundmatuQrVihje();
           }
         } catch (e) { /* üksik kaader ebaõnnestus */ }
@@ -1968,10 +1970,10 @@ async function vahetaKaamerat() {
     const praegune = rada && rada.getSettings ? rada.getSettings().deviceId : '';
     const i = taga.findIndex(d => d.deviceId === praegune);
     const jargmine = taga[(i + 1) % taga.length].deviceId;
-    const tagasi = SK.tagasi, vihje = SK.vihje;
+    const tagasi = SK.tagasi, vihje = SK.vihje, keelaKoht = SK.keelaKoht;
     sulgeSkanner();
     kirjuta(KAAMERA_ANDROID, jargmine); kirjuta('ladu_kaamera', jargmine);
-    avaSkanner(tagasi, vihje);
+    avaSkanner(tagasi, vihje, keelaKoht);
   } catch (e) { naita('Kaamerat ei saanud vahetada', true); }
 }
 
@@ -2161,15 +2163,33 @@ function naitaTaskulamp() {
   } catch (e) { /* taskulampi pole */ }
 }
 
+// Tagastab false, kui kood jäeti vahele ja skänner jääb lahti (2.57: asukoht, kui oodatakse toodet).
 function skannLeitud(v) {
+  if (SK.keelaKoht && SK.tootab && onKohaKood(v)) { kohtKeelatudVihje(); return false; }
   const tagasi = SK.tagasi;
   sulgeSkanner();
   try { if (navigator.vibrate) navigator.vibrate(60); } catch (e) {}
   if (tagasi) tagasi(String(v).trim());
+  return true;
+}
+// 2.57: asukoha QR (…?asukoht=…) või asukoha kood tekstina
+function onKohaKood(v) {
+  v = String(v || '').trim();
+  if (onAsukohaQR(v)) return true;
+  return !onLink(v) && !!(IX && IX.kohad.has(normKoht(v)));
+}
+let KOHT_VIHJE_T = 0;
+function kohtKeelatudVihje() {
+  if (Date.now() - KOHT_VIHJE_T < 1500) return;
+  KOHT_VIHJE_T = Date.now();
+  try { if (navigator.vibrate) navigator.vibrate([30, 60, 30]); } catch (e) {}
+  const el = $('skannTekst');
+  el.textContent = 'See on asukoha QR – skänni toode. Asukoha vahetuseks sulge ja vajuta ⌗ uuesti.';
+  setTimeout(() => { if (SK.tootab && el.textContent.indexOf('See on asukoha QR') === 0) el.textContent = SK.vihje; }, 2000);
 }
 
 function sulgeSkanner() {
-  SK.tootab = false;
+  SK.tootab = false; SK.keelaKoht = '';
   clearTimeout(SK.taimer);
   try { if (SK.zx) SK.zx.reset(); } catch (e) {}
   SK.zx = null;
@@ -2254,20 +2274,23 @@ function skanniOtsing() {
   });
 }
 
-function skanniInventuur() {
+// koht (2.57): pärast asukoha skänni avaneb skänner uuesti ja ootab AINULT toodet, et naabersildi QR
+// ei vahetaks asukohta kogemata. Asukoha vahetuseks sulge skänner ja vajuta ⌗ uuesti.
+function skanniInventuur(koht) {
+  koht = typeof koht === 'string' ? koht : '';
   avaSkanner(async v => {
     const t = await tolgendaTaielik(v);
     if (t.koht) {
       $('iKoht').value = t.koht;
       naita('Asukoht ' + t.koht + ' – nüüd skänni toode');
-      if (!SK.foto) setTimeout(skanniInventuur, 600);     // järgmiseks toode (fotorežiimis vajab uut vajutust)
+      if (!SK.foto) setTimeout(() => skanniInventuur(t.koht), 600);     // järgmiseks toode (fotorežiimis vajab uut vajutust)
       return;
     }
     if (t.vale) { naita(t.vale, true); return; }
     const toode = leiaToode(t.kood);
     if (!toode) { $('iToode').value = t.kood; invOtsi(); naita('Toodet ei leitud: ' + t.kood, true); return; }
     valiInvToode(toode);
-  }, 'Skänni asukoha QR või toote ribakood');
+  }, koht ? 'Asukoht ' + koht + ' · skänni toode' : 'Skänni asukoha QR või toote ribakood', koht);
 }
 
 function skanniKohta() {
@@ -4025,7 +4048,7 @@ document.addEventListener('click', e => {
 
 $('otsing').addEventListener('input', () => { otsingValitud = null; renderOtsing(); });
 $('skannOtsing').addEventListener('click', skanniOtsing);
-$('skannInv').addEventListener('click', skanniInventuur);
+$('skannInv').addEventListener('click', () => skanniInventuur());
 $('skannSulge').addEventListener('click', sulgeSkanner);
 $('skannKaamera').addEventListener('click', vahetaKaamerat);
 $('skannVideo').addEventListener('click', teravustaPuudutusega);
