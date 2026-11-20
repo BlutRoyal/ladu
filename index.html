@@ -342,6 +342,7 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
     </details>
 
     <h2>Selle telefoni loendused <span class="hall" id="iArv"></span></h2>
+    <div id="iUuesti"></div>
     <div id="iNimekiri" class="kaart" style="padding-top:4px;padding-bottom:4px"></div>
 
     <h2>Kokkuvõte</h2>
@@ -1537,6 +1538,11 @@ function renderInventuur() {
   $('iValitud').innerHTML = invToode
     ? `<div class="valitud-toode"><b>${esc(invToode.kood)}</b> ${esc(invToode.nimi)}${invMuuda ? '<div class="hall">Parandad olemasolevat loendust</div>' : ''}</div>` : '';
   $('iLisa').textContent = invMuuda ? 'Salvesta parandus' : 'Lisa loendus';
+  // 2.62: read, mida server ei võtnud vastu (nt seanssi polnud veel), saab uuesti saata
+  const vigu = INV.filter(r => r.viga && !r.saadetud).length;
+  $('iUuesti').innerHTML = vigu ? `<div class="kaart" style="border:2px solid var(--punane)"><b style="color:var(--punane)">${vigu} loendust ei jõudnud serverisse</b>
+    <div class="hall vaike">Read on telefonis alles. Kui seanss on nüüd arvutis olemas, saada uuesti.</div>
+    <div class="nupud" style="margin-top:6px"><button class="nupp pea" id="iSaadaUuesti" style="flex:1">Saada uuesti (${vigu})</button></div></div>` : '';
   $('iNimekiri').innerHTML = read.length ? read.map(r => {
     const t = IX && IX.tooted.get(r.kood);
     return `<div class="inv-rida">
@@ -1616,6 +1622,20 @@ function invLisa() {
   $('iKoht').value = '';   // 2.58: järgmine loendus algab uue asukohaga (Freddy soov)
   renderInventuur();
   $('iToode').focus();
+}
+
+// 2.62: saada serveri poolt tagasi lükatud read uuesti (server uuendab id järgi, topelt ei teki)
+function invSaadaUuesti(vaikselt, sobib) {
+  const read = INV.filter(r => r.viga && !r.saadetud && (!sobib || sobib(r)));
+  if (!read.length) return 0;
+  read.forEach(r => {
+    r.viga = '';
+    lisaValjas({ tegevus: 'inventuur', m: { op: 'lisa', id: r.id, seanss: r.seanss, aeg: r.aeg, kood: r.kood, asukoht: r.koht, kogus: r.kogus } });
+  });
+  kirjuta(V.inv, INV);
+  if (!vaikselt) naita(read.length + ' loendust saadetakse uuesti');
+  renderInventuur();
+  return read.length;
 }
 
 function invKustuta(id) {
@@ -2557,6 +2577,10 @@ async function laeInvSeansid() {
     INVS = j.seansid || []; kirjuta(V.invSeansid, INVS);
     const avatud = INVS.filter(x => x.olek !== 'lukus');
     if (!invSeanss() && avatud.length === 1) { $('iSeanss').value = avatud[0].nimi; kirjuta(V.seanss, avatud[0].nimi); }
+    // 2.62: kui tagasi lükatud ridade seanss on nüüd avatud, saada need ise uuesti
+    const nyydAvatud = new Set(avatud.map(x => x.nimi));
+    const n = invSaadaUuesti(true, r => /^Seanssi /.test(r.viga) && nyydAvatud.has(r.seanss));
+    if (n) naita(n + ' varem tagasi lükatud loendust saadetakse uuesti');
     if (aktiivne === 'inventuur') renderInventuur();
   } catch (e) { /* võrguta: vahemälus olev nimekiri */ }
 }
@@ -2585,13 +2609,20 @@ async function invUusSeanss() {
     laeInvSeansid();
   } catch (e) { naita('Seanssi ei saanud luua: ' + (e.message || e) + '. Vajab internetti.', true); }
 }
+// 2.62: avatud seansid alati nuppudena (Androidi rippmenüü ei näita täidetud väljal midagi)
+function invSeansiNupud() {
+  const avatud = INVS.filter(x => x.olek !== 'lukus');
+  if (avatud.length < 2) return '';
+  return '<div class="nupud" style="margin-top:4px;flex-wrap:wrap">' + avatud.map(x =>
+    `<button class="nupp vaike${x.nimi === invSeanss() ? ' pea' : ''}" data-invseanss="${esc(x.nimi)}">${esc(x.nimi)}</button>`).join('') + '</div>';
+}
 function renderInvSeansiInfo() {
   $('iUusSeanss').style.display = invVoibLuua() ? '' : 'none';
   $('iSeansid').innerHTML = INVS.filter(x => x.olek !== 'lukus').map(x => `<option value="${esc(x.nimi)}">`).join('');
   const viga = invSeansiKontroll(), s = invSeansiInfo();
   $('iSeansiInfo').innerHTML = viga ? `<span style="color:var(--punane)">${esc(viga)}</span>` + (INVS.some(x => x.olek !== 'lukus') ? '<div class="nupud" style="margin-top:4px">' +
       INVS.filter(x => x.olek !== 'lukus').map(x => `<button class="nupp vaike" data-invseanss="${esc(x.nimi)}">${esc(x.nimi)}</button>`).join('') + '</div>' : '')
-    : s && s.pime ? 'Pimeloendus: laoseisu ei näidata' : '';
+    : (s && s.pime ? 'Pimeloendus: laoseisu ei näidata' : '') + invSeansiNupud();
 }
 // rea kaupa: rea asukohad järjekorras, loetud kohad märgitud
 function invRead() {
@@ -4128,6 +4159,7 @@ $('laadSulge').addEventListener('click', () => $('laadimine').classList.remove('
 });
 
 $('iUusSeanss').addEventListener('click', invUusSeanss);   // 2.61
+$('iUuesti').addEventListener('click', e => { if (e.target.id === 'iSaadaUuesti') invSaadaUuesti(); });   // 2.62
 $('iSeanss').addEventListener('change', () => { kirjuta(V.seanss, $('iSeanss').value.trim()); $('iKokku').innerHTML = ''; renderInventuur(); });
 $('iToode').addEventListener('input', invOtsi);
 $('iToode').addEventListener('keydown', e => { if (e.key === 'Enter') { const t = leiaToode(e.target.value); if (t) valiInvToode(t); } });
