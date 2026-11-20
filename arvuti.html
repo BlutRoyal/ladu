@@ -4500,6 +4500,9 @@ $('nrAken').addEventListener('mousedown', e => { if (e.target === $('nrAken')) $
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.60', kp: '20.11.2026', nimi: 'Inventuur: kogus Enteriga',
+    lisati: ['Telefoni inventuuris lisab numbriklaviatuuri Enter / Valmis kogust sisestades loenduse kohe. Enam pole vaja klaviatuuri alla panna ja „Lisa loendus“ vajutada.'],
+    kasutus: ['Kirjuta kogus ja vajuta klaviatuuril Enter (või Valmis). 2.60 muudab ainult telefoni: laadi üles index.html, arvuti.html ja sw.js. Apps Scripti pole vaja uuesti juurutada.'] },
   { v: '2.59', kp: '20.11.2026', nimi: 'Telefoni mälu täis: põhjus nähtavaks ja puhastatavaks',
     lisati: ['Teade „Telefoni mälu on täis“ nimetab nüüd ka suurima mälu võtja ega kordu enam iga skänniga (kõige rohkem kord 20 sekundi jooksul).', 'Seaded → Telefoni mälu näitab kõiki asju alates 1 KB. Teiste lehtede andmed samal aadressil (blutroyal.github.io) on märgitud „(muu leht)“.', 'Puhasta vahemälu kustutab ka arvutivaate vahemälud. Kui mälus on teiste lehtede andmeid, küsib see eraldi, kas ka need kustutada. Saatmata muudatused ja sisselogimine jäävad alles. Sama teeb telefon ise, kui mälu saab täis.', 'NB: kui mälu oli täis, jõudsid „saadetud“ loendused ikka serverisse. Telefoni nimekirjast võisid need pärast värskendamist kaduda.'],
     kasutus: ['Kui viga tuleb, ava Seaded → Telefoni mälu → Puhasta vahemälu ja vasta „OK“ ka teiste lehtede küsimusele. 2.59 muudab ainult telefoni: laadi üles index.html, arvuti.html ja sw.js. Apps Scripti pole vaja uuesti juurutada.'] },

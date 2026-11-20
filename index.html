@@ -326,10 +326,10 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
           <label for="iKoht">Asukoht (valikuline)</label>
           <input id="iKoht" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="next">
         </div>
-        <div>
+        <form id="iKogusVorm" action="#" novalidate>   <!-- 2.60: vorm, et klaviatuuri Enter/Valmis lisaks loenduse ka siis, kui klahvi sündmust ei tule -->
           <label for="iKogus">Kogus</label>
           <input id="iKogus" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done">
-        </div>
+        </form>
       </div>
       <div class="nupud"><button class="nupp pea" id="iLisa" style="flex:1">Lisa loendus</button></div>
     </div>
@@ -4112,7 +4112,10 @@ $('iSeanss').addEventListener('change', () => { kirjuta(V.seanss, $('iSeanss').v
 $('iToode').addEventListener('input', invOtsi);
 $('iToode').addEventListener('keydown', e => { if (e.key === 'Enter') { const t = leiaToode(e.target.value); if (t) valiInvToode(t); } });
 $('iKoht').addEventListener('keydown', e => { if (e.key === 'Enter') $('iKogus').focus(); });
-$('iKogus').addEventListener('keydown', e => { if (e.key === 'Enter') invLisa(); });
+// 2.60: numbriklaviatuuri Enter lisab loenduse. Mõni klaviatuur (Samsung) ei saada keydown'i „Enter“ –
+// siis teeb sama vormi submit. keydown'is preventDefault, et ei lisataks kaks korda.
+$('iKogus').addEventListener('keydown', e => { if (e.key === 'Enter' || e.keyCode === 13) { e.preventDefault(); invLisa(); } });
+$('iKogusVorm').addEventListener('submit', e => { e.preventDefault(); invLisa(); });
 $('iLisa').addEventListener('click', invLisa);
 $('iKokkuSiin').addEventListener('click', invKokkuSiin);
 $('iKokkuKoik').addEventListener('click', invKokkuKoik);
