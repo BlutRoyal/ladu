@@ -1883,7 +1883,7 @@ async function avaSkanner(tagasi, vihje, keelaKoht) {
         if (!SK.tootab) return;
         try {
           if (video.readyState >= 2) {
-            const valik = valiKood(await SK.detektor.detect(video));
+            const valik = valiKood(raamisTulemused(await SK.detektor.detect(video), video));   // 2.66: ainult kasti sees
             if (valik && valik.v && (!valik.qr || epoodQrOota()) && skannLeitud(valik.v)) return;
             if (valik && valik.muu) tundmatuQrVihje();
           }
@@ -1920,6 +1920,7 @@ async function avaSkanner(tagasi, vihje, keelaKoht) {
         video,
         (tulemus) => {
           if (!tulemus || !SK.tootab) return;
+          if (!punktidRaamis(tulemus, video, 1)) return;   // 2.66: kood kastist väljas
           const t = tulemus.getText();
           if (epoodSlug(t)) { if (epoodQrOota()) skannLeitud(t); return; }   // e-poe QR: anna ribakoodile 0,4 s aega
           if (onLink(t) && !onAsukohaQR(t)) { tundmatuQrVihje(); return; }
@@ -1979,13 +1980,49 @@ function zxRaamiTsukkel(ZX, video) {
         ctx.drawImage(video, x, y, w, h, 0, 0, cv.width, cv.height);
         const bmp = new ZX.BinaryBitmap(new ZX.HybridBinarizer(new ZX.HTMLCanvasElementLuminanceSource(cv)));
         let t = '';
-        try { t = lugeja.decodeWithState(bmp).getText(); } catch (e) { /* koodi pole selles kaadris */ }
+        try {
+          const tul = lugeja.decodeWithState(bmp);
+          // 2.66: terve kaadri (iga 4.) puhul peab koodi keskpunkt olema kasti sees
+          if (w !== vw || h !== vh || punktidRaamis(tul, video, k)) t = tul.getText();
+        } catch (e) { /* koodi pole selles kaadris */ }
         if (t) { zxTulemus(t); if (!SK.tootab) return; }
       }
     } catch (e) { /* üksik kaader ebaõnnestus */ }
     SK.taimer = setTimeout(samm, 80);
   };
   samm();
+}
+// 2.66: kood loetakse ainult siis, kui selle keskpunkt on ekraani valge kasti sees (väikese varuga),
+// muidu võttis uus telefon (terve kaader) esimese koodi pildi nurgast. Mitu koodi kastis -> kasti keskele lähim ette.
+function raamAla(video) {
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const raam = document.querySelector('#skanner .raam');
+  if (!raam || !vw || !vh) return null;
+  const b = video.getBoundingClientRect(), r = raam.getBoundingClientRect();
+  if (!b.width || !b.height || !r.width || !r.height) return null;
+  const s = Math.max(b.width / vw, b.height / vh);
+  const ox = b.left + (b.width - vw * s) / 2, oy = b.top + (b.height - vh * s) / 2;
+  const w = r.width / s, h = r.height / s, x = (r.left - ox) / s, y = (r.top - oy) / s;
+  return { x1: x - w * 0.05, x2: x + w * 1.05, y1: y - h * 0.2, y2: y + h * 1.2, cx: x + w / 2, cy: y + h / 2 };
+}
+function raamisTulemused(list, video) {
+  const a = raamAla(video);
+  if (!a || !list) return list;
+  const kesk = x => { const bb = x.boundingBox; return bb ? { x: bb.x + bb.width / 2, y: bb.y + bb.height / 2 } : null; };
+  return list.filter(x => { const c = kesk(x); return !c || (c.x >= a.x1 && c.x <= a.x2 && c.y >= a.y1 && c.y <= a.y2); })
+    .sort((p, q) => { const c = kesk(p), d = kesk(q); if (!c || !d) return 0; return Math.hypot(c.x - a.cx, c.y - a.cy) - Math.hypot(d.x - a.cx, d.y - a.cy); });
+}
+// ZXingi tulemus: punktid on kaadri pikslites (k = kaadri vähendus); punkte pole -> lubame
+function punktidRaamis(tulemus, video, k) {
+  let p = [];
+  try { p = (tulemus.getResultPoints && tulemus.getResultPoints()) || []; } catch (e) { return true; }
+  if (!p.length) return true;
+  const a = raamAla(video);
+  if (!a) return true;
+  let sx = 0, sy = 0;
+  p.forEach(q => { sx += q.getX(); sy += q.getY(); });
+  const cx = sx / p.length / k, cy = sy / p.length / k;
+  return cx >= a.x1 && cx <= a.x2 && cy >= a.y1 && cy <= a.y2;
 }
 // Ekraanil oleva raami asukoht video pikslites (video on object-fit: cover). Varu: laiuses 10%, kõrguses 35% kummalegi poole.
 function raamVideoPikslites(video, vw, vh) {
