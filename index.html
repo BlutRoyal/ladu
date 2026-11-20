@@ -1534,13 +1534,16 @@ function invOtsi() {
   const q = $('iToode').value;
   invToode = null;
   const tapne = leiaToode(q);
-  if (tapne) { valiInvToode(tapne); return; }
+  // 2.58: nagu poe loenduses (2.55) – täpne vaste valitakse kirjutamise ajal ainult siis, kui pikemat sama
+  // algusega koodi pole (muidu „60100“ valitaks enne „60100Z“). Muidu nimekiri, täpne vaste esimesena; Enter valib.
+  if (tapne && !loPikemKood(q)) { valiInvToode(tapne); return; }
   // asukoha kood toote väljal -> pane asukohaks
   if (IX && IX.kohad.has(normKoht(q))) {
     $('iKoht').value = normKoht(q); $('iToode').value = ''; $('iSoovitused').innerHTML = '';
     naita('Asukoht ' + normKoht(q)); renderInventuur(); return;
   }
-  const l = otsiTooteid(q, 8);
+  let l = otsiTooteid(q, 8);
+  if (tapne) l = [tapne].concat(l.filter(x => x !== tapne)).slice(0, 8);
   $('iSoovitused').innerHTML = l.map(t => `<button class="rida-tulemus" data-invvali="${esc(t.kood)}"><b>${esc(t.kood)}</b> ${esc(t.nimi)}</button>`).join('');
   renderInventuur();
 }
@@ -1557,8 +1560,14 @@ function invLisa() {
   if (!seanss) { naita('Sisesta seansi nimi', true); $('iSeanss').focus(); return; }
   const sViga = invSeansiKontroll();
   if (sViga) { naita(sViga, true); return; }
-  const t = invToode || leiaToode($('iToode').value);
-  if (!t) { naita('Vali toode', true); $('iToode').focus(); return; }
+  let t = invToode || leiaToode($('iToode').value);
+  if (!t) {
+    // 2.58: tundmatu kood (nt karbikood, mida andmetes pole) salvestatakse koodina, nagu poe loenduses
+    const kood = normKood($('iToode').value);
+    if (!kood) { naita('Vali toode', true); $('iToode').focus(); return; }
+    if (!confirm(`Toodet ${kood} ei leitud andmetest. Salvestan koodina?`)) { $('iToode').focus(); return; }
+    t = { kood, nimi: '' };
+  }
   const kogusTekst = $('iKogus').value.trim();
   const kogus = nr(kogusTekst.replace(/\s/g, ''));
   if (kogusTekst === '' || !/^\d+([.,]\d+)?$/.test(kogusTekst.replace(/\s/g, '')) || kogus < 0) {
@@ -1586,6 +1595,7 @@ function invLisa() {
   naita(`${t.kood}: ${fmtNr(kogus)}` + (invMuuda ? ' parandatud' : ' lisatud'));
   invMuuda = null; invToode = null;
   $('iToode').value = ''; $('iKogus').value = ''; $('iSoovitused').innerHTML = '';
+  $('iKoht').value = '';   // 2.58: järgmine loendus algab uue asukohaga (Freddy soov)
   renderInventuur();
   $('iToode').focus();
 }

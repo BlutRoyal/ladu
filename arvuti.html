@@ -4500,6 +4500,9 @@ $('nrAken').addEventListener('mousedown', e => { if (e.target === $('nrAken')) $
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.58', kp: '20.11.2026', nimi: 'Inventuur: käsitsi kood ei hüppa poole pealt',
+    lisati: ['Telefoni inventuuris ei valita kirjutamise ajal lühemat koodi liiga vara: kui kirjutad „60100Z“, ei hüppa programm „60100“ juures koguse lahtrisse. Kui on ka pikemaid sama algusega koode, näed nimekirja (täpne vaste esimesena) ja Enter või puudutus valib. Sama reegel nagu poe loenduses (2.55).', 'Tundmatu kood (nt karbikood, mida andmetes pole) salvestatakse pärast küsimust „Toodet … ei leitud andmetest. Salvestan koodina?“.', 'Pärast loenduse lisamist tehakse asukoha väli tühjaks, et eelmine asukoht ei jääks kogemata järgmisele tootele. Sama koha järgmise toote jaoks skänni asukoht uuesti.'],
+    kasutus: ['Kirjuta kood lõpuni ja vajuta Enter või vali nimekirjast, siis kogus. 2.58 muudab ainult telefoni: laadi üles index.html, arvuti.html ja sw.js. Apps Scripti pole vaja uuesti juurutada.'] },
   { v: '2.57', kp: '20.11.2026', nimi: 'Inventuur: naabri asukoht ei vaheta kohta kogemata',
     lisati: ['Telefoni inventuuris avaneb pärast asukoha QR-i skännimist kaamera uuesti ja ootab nüüd AINULT toodet. Kui kaamera haarab kinni kõrvaloleva asukoha sildi (talal on sildid lähestikku), ei vahetata asukohta: kaamera jääb lahti, telefon väriseb lühidalt ja ekraanil on „See on asukoha QR – skänni toode“.', 'Skänneri ülaservas on kiri „Asukoht 1-4-2-1 · skänni toode“, et oleks näha, mis asukoht on valitud.'],
     kasutus: ['Asukoha vahetamiseks sulge kaamera (✕) ja vajuta ⌗ uuesti: värskelt avatud kaamera võtab asukoha vastu nagu enne. Asukoha saab ka käsitsi kirjutada. 2.57 muudab ainult telefoni: laadi üles index.html, arvuti.html ja sw.js. Apps Scripti pole vaja uuesti juurutada.'] },
