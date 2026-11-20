@@ -4500,6 +4500,9 @@ $('nrAken').addEventListener('mousedown', e => { if (e.target === $('nrAken')) $
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.66', kp: '20.11.2026', nimi: 'Skänner loeb ainult kasti seest',
+    lisati: ['Telefoni skänner võtab koodi vastu ainult siis, kui selle keskpunkt on ekraani valge kasti sees. Enne luges uuem telefon (nt S24) tervet kaamerapilti ja võttis esimese koodi, mis nurgast sisse jäi. Kui kastis on mitu koodi, võetakse kasti keskele lähim.', 'Kehtib kõigis vaadetes (inventuur, poe loendus, kogumine, otsing jne). Pildista-režiim (foto) loeb nagu enne kogu pilti.'],
+    kasutus: ['Suuna valge kast koodile. 2.66 muudab ainult telefoni: laadi üles index.html, arvuti.html ja sw.js. Apps Scripti pole vaja uuesti juurutada.'] },
   { v: '2.65', kp: '20.11.2026', nimi: 'Inventuur: linnuke „Jäta asukoht meelde“',
     lisati: ['Telefoni inventuuris on „Lisa loendus“ kohal linnuke „Jäta asukoht meelde“. Kui see on sees, ei tehta asukohta pärast lisamist tühjaks – mugav, kui ühel alusel on 10+ toodet. Linnuke jääb telefoni meelde.'],
     kasutus: ['Skänni asukoht, pane linnuke, loe kõik selle koha tooted; uue koha jaoks skänni uus asukoht (või võta linnuke maha). 2.65 muudab ainult telefoni: laadi üles index.html, arvuti.html ja sw.js. Apps Scripti pole vaja uuesti juurutada.'] },
