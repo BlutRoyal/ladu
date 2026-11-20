@@ -4500,6 +4500,9 @@ $('nrAken').addEventListener('mousedown', e => { if (e.target === $('nrAken')) $
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.61', kp: '20.11.2026', nimi: 'Inventuur: telefonis kirjutatud seansid arvutis nähtavaks, admin loob seansi telefonis',
+    lisati: ['Arvuti Inventuuri aknas on nüüd ka seansinimed, mis kirjutati telefonis ja mida arvutis loodud pole (nupp 📱 nimi). Nende read on nähtavad nagu tavalises seansis. Nupp „Loo seanss sellest nimest“ teeb sellest päris seansi (read jäävad samaks).', 'Telefoni Inventuuri vaates on adminil nupp „+ Uus seanss“: seanss luuakse kohe serveris ja on nähtav arvutis ja teistes telefonides. Teised kasutajad valivad nagu enne nimekirjast.'],
+    kasutus: ['Kui arvutis on vähemalt üks seanss loodud, saab telefonis valida ainult olemasolevate seast. Uue seansi teeb admin arvutis (Inventuur → Loo seanss) või telefonis (+ Uus seanss, vajab internetti). 2.61 muudab telefoni ja arvutit: laadi üles index.html, arvuti.html ja sw.js. Apps Scripti pole vaja uuesti juurutada.'] },
   { v: '2.60', kp: '20.11.2026', nimi: 'Inventuur: kogus Enteriga',
     lisati: ['Telefoni inventuuris lisab numbriklaviatuuri Enter / Valmis kogust sisestades loenduse kohe. Enam pole vaja klaviatuuri alla panna ja „Lisa loendus“ vajutada.'],
     kasutus: ['Kirjuta kogus ja vajuta klaviatuuril Enter (või Valmis). 2.60 muudab ainult telefoni: laadi üles index.html, arvuti.html ja sw.js. Apps Scripti pole vaja uuesti juurutada.'] },
@@ -4817,6 +4820,8 @@ async function kopeeri(tekst, mis) {
 
 /* ---------- inventuur (INVSEANSS) ---------- */
 let INVS = [], INV_VALITUD = null, INV_READ = [], INV_VAADE = 'kokku';
+// 2.61: seansinimed, mis on ainult Inventuuri lehe ridades (telefonis kirjutatud, arvutis loomata)
+let INV_TELNIMED = [];
 async function avaInventuur() {
   $('invAken').classList.add('lahti');
   await laeInvSeansid();
@@ -4826,6 +4831,15 @@ async function laeInvSeansid() {
     const j = await api({ tegevus: 'inventuuriSeansid' });
     if (!j.ok) throw new Error(j.viga);
     INVS = j.seansid || [];
+    try {   // 2.61: telefonis kirjutatud nimed, mida seansside lehel pole
+      const k = await api({ tegevus: 'inventuurLoe' });
+      if (k.ok) {
+        const viimane = new Map();
+        (k.read || []).forEach(r => { const n = String(r.Seanss || '').trim(); const a = String(r.Aeg || ''); if (n && (!viimane.has(n) || a > viimane.get(n))) viimane.set(n, a); });
+        INV_TELNIMED = [...viimane.keys()].filter(n => !INVS.some(s => s.nimi === n)).sort((a, b) => viimane.get(a) < viimane.get(b) ? -1 : 1);
+      }
+    } catch (e) { /* jääb vana nimekiri */ }
+    if (!INV_VALITUD && !INVS.length && INV_TELNIMED.length) INV_VALITUD = INV_TELNIMED[INV_TELNIMED.length - 1];
     if (!INV_VALITUD && INVS.length) INV_VALITUD = INVS.slice().reverse().find(s => s.olek !== 'lukus') ? INVS.slice().reverse().find(s => s.olek !== 'lukus').nimi : INVS[INVS.length - 1].nimi;
     renderInvSeansid();
     if (INV_VALITUD) laeInvRead();
@@ -4841,15 +4855,19 @@ async function laeInvRead() {
   } catch (e) { $('invSisu').innerHTML = `<p class="hoiatus">${esc(e.message)}</p>`; }
 }
 function renderInvSeansid() {
-  $('invSeansid').innerHTML = INVS.length ? `<div class="rida" style="gap:6px;flex-wrap:wrap">` + INVS.slice().reverse().map(s =>
-    `<button class="nupp" data-invvali="${esc(s.nimi)}" aria-pressed="${s.nimi === INV_VALITUD}">${s.olek === 'lukus' ? '🔒 ' : ''}${esc(s.nimi)}${s.pime ? ' <span class="hall">(pime)</span>' : ''}</button>`).join('') + '</div>'
+  const telNupud = INV_TELNIMED.slice().reverse().map(n =>
+    `<button class="nupp" data-invvali="${esc(n)}" aria-pressed="${n === INV_VALITUD}" title="Telefonis kirjutatud nimi, arvutis loomata">📱 ${esc(n)}</button>`).join('');
+  $('invSeansid').innerHTML = INVS.length || INV_TELNIMED.length ? `<div class="rida" style="gap:6px;flex-wrap:wrap">` + INVS.slice().reverse().map(s =>
+    `<button class="nupp" data-invvali="${esc(s.nimi)}" aria-pressed="${s.nimi === INV_VALITUD}">${s.olek === 'lukus' ? '🔒 ' : ''}${esc(s.nimi)}${s.pime ? ' <span class="hall">(pime)</span>' : ''}</button>`).join('') + telNupud + '</div>'
+      + (INVS.length ? '' : '<p class="hall vaike">Seansse pole loodud. Kuni ühtegi pole, kirjutavad telefonid seansi nime ise (📱).</p>')
     : '<p class="hall vaike">Seansse pole. Kuni ühtegi pole loodud, sisestavad telefonid seansi nime ise (vana viis).</p>';
   const s = INVS.find(x => x.nimi === INV_VALITUD);
   $('invSeansiInfo').innerHTML = s ? `<b>${esc(s.nimi)}</b> <span class="hall">loodud ${new Date(s.loodud).toLocaleDateString('et-EE')}${s.loi ? ' · ' + esc(s.loi) : ''}</span>
       ${s.olek === 'lukus' ? `<span class="hall"> · lukustatud ${new Date(s.lukustatud).toLocaleString('et-EE', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}</span> <button class="nupp" data-involek="avatud">Ava</button>`
         : '<button class="nupp" data-involek="lukus" title="Telefonid ei saa enam lisada ega muuta">🔒 Lukusta (lõpeta)</button>'}
       <label class="ainult-admin" style="display:inline-flex;gap:4px;align-items:center;margin-left:8px"><input type="checkbox" data-invpime ${s.pime ? 'checked' : ''}> pimeloendus (telefon ei näita laoseisu)</label>`
-    : (INV_VALITUD ? `<b>${esc(INV_VALITUD)}</b>` : '');
+    : (INV_VALITUD ? `<b>📱 ${esc(INV_VALITUD)}</b> <span class="hall">· telefonis kirjutatud nimi, arvutis loomata${INVS.length ? ' (telefonid ei saa sinna enam lisada, kuni seda pole loodud)' : ''}</span>
+      <button class="nupp ainult-admin" data-invloonimest="${esc(INV_VALITUD)}">Loo seanss sellest nimest</button>` : '');
 }
 // topeltkontroll: sama kood samas kohas mitu korda; ilma kohata sama kood + sama kogus mitu korda
 function invKahtlased() {
@@ -8435,6 +8453,10 @@ $('invAken').addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b) return;
   const d = b.dataset;
   if (d.invvali) { INV_VALITUD = d.invvali; renderInvSeansid(); laeInvRead(); }
+  else if (d.invloonimest) {   // 2.61: telefonis kirjutatud nimest päris seanss (read jäävad samaks, sest need on nime järgi)
+    if (vaataAinult()) return;
+    if (await invTegevus({ tegevus: 'muudaInventuuriSeanssi', nimi: d.invloonimest, loo: true }, `Seanss „${d.invloonimest}“ loodud – telefonid näevad seda`)) { INV_VALITUD = d.invloonimest; laeInvSeansid(); }
+  }
   else if (d.invvaade) { INV_VAADE = d.invvaade; renderInvRead(); }
   else if (d.vkteisalda) invVkTegevus('teisalda', d.vkteisalda);   // VALESKOHAS
   else if (d.vklisa) invVkTegevus('lisa', d.vklisa);
