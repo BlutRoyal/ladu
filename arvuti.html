@@ -4500,6 +4500,9 @@ $('nrAken').addEventListener('mousedown', e => { if (e.target === $('nrAken')) $
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.62', kp: '20.11.2026', nimi: 'Inventuur: tagasi lükatud loendused uuesti saata',
+    lisati: ['Kui server ei võtnud inventuuri loendust vastu (nt „Seanssi … pole“, sest seanss tehti alles hiljem arvutis), on telefonis punane kast „N loendust ei jõudnud serverisse“ ja nupp „Saada uuesti“. Read on telefonis alles; server uuendab id järgi, topelt ei teki.', 'Kui sellise rea seanss on nüüd arvutis loodud, saadab telefon need Inventuuri avamisel ise uuesti.', 'Avatud seansid on seansi välja all alati nuppudena (Androidi rippmenüü ei näita täidetud väljal midagi).'],
+    kasutus: ['Ava telefonis Inventuur (võrgus): read saadetakse ise; vajadusel vajuta „Saada uuesti“. 2.62 muudab ainult telefoni: laadi üles index.html, arvuti.html ja sw.js. Apps Scripti pole vaja uuesti juurutada.'] },
   { v: '2.61', kp: '20.11.2026', nimi: 'Inventuur: telefonis kirjutatud seansid arvutis nähtavaks, admin loob seansi telefonis',
     lisati: ['Arvuti Inventuuri aknas on nüüd ka seansinimed, mis kirjutati telefonis ja mida arvutis loodud pole (nupp 📱 nimi). Nende read on nähtavad nagu tavalises seansis. Nupp „Loo seanss sellest nimest“ teeb sellest päris seansi (read jäävad samaks).', 'Telefoni Inventuuri vaates on adminil nupp „+ Uus seanss“: seanss luuakse kohe serveris ja on nähtav arvutis ja teistes telefonides. Teised kasutajad valivad nagu enne nimekirjast.'],
     kasutus: ['Kui arvutis on vähemalt üks seanss loodud, saab telefonis valida ainult olemasolevate seast. Uue seansi teeb admin arvutis (Inventuur → Loo seanss) või telefonis (+ Uus seanss, vajab internetti). 2.61 muudab telefoni ja arvutit: laadi üles index.html, arvuti.html ja sw.js. Apps Scripti pole vaja uuesti juurutada.'] },
