@@ -379,6 +379,7 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
       <div class="hall" id="aOotel"></div>
       <div class="hall" id="aMalu" style="margin-top:8px"></div>
       <div class="hall" id="aKaamera"></div>
+      <label class="hall" style="display:block;margin-top:8px"><input type="checkbox" id="aAkusaast"> Akusääst: ekraan tumeneb 15 s pärast (puudutus äratab)</label>
       <div class="nupud">
         <button class="nupp vaike" id="aMuudaNimi">Muuda nime</button>
         <button class="nupp vaike" id="aSeadista">Seadista uuesti</button>
@@ -466,7 +467,7 @@ const MALU_OLI = (() => { try { return !!localStorage.getItem('ladu_seade'); } c
 const V = { seaded: 'ladu_seaded', andmed: 'ladu_andmed', valjas: 'ladu_valjas', inv: 'ladu_inv', seanss: 'ladu_seanss',
             kog: 'ladu_kog', kogAvatud: 'ladu_kog_avatud', kogRezhiim: 'ladu_kog_rezhiim',   // kog*: KOGUMINE
             invSeansid: 'ladu_invseansid',   // INVSEANSS
-            vastu: 'ladu_vastu', tait: 'ladu_tait', pak: 'ladu_pak', loend: 'ladu_loend', loPidev: 'ladu_loend_pidev', korvale: 'ladu_korvale', invKohtJaab: 'ladu_inv_koht_jaab' };   // 2.65: invKohtJaab   // PAKKIMINE: pak; POELOENDUS: loend*   // VASTUVOTT
+            vastu: 'ladu_vastu', tait: 'ladu_tait', pak: 'ladu_pak', loend: 'ladu_loend', loPidev: 'ladu_loend_pidev', korvale: 'ladu_korvale', invKohtJaab: 'ladu_inv_koht_jaab', akusaast: 'ladu_akusaast' };   // 2.67: akusaast   // 2.65: invKohtJaab   // PAKKIMINE: pak; POELOENDUS: loend*   // VASTUVOTT
 let PK = loe(V.pak, { read: [], aeg: '' }), vPak = false, laebPak = false, pkViga = '', pkLaiali = new Set();   // PAKKIMINE
 function loe(k, vaikimisi) { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : vaikimisi; } catch (e) { return vaikimisi; } }
 // MALU: localStorage kvoot (~5 MB). Kui täis, vabasta kõigepealt vähem olulised vahemälud ja proovi uuesti
@@ -1865,6 +1866,8 @@ async function avaSkanner(tagasi, vihje, keelaKoht) {
   }
   SK.foto = false; SK.qrAeg = 0;
   SK.tagasi = tagasi; SK.tootab = true; SK.vihje = vihje || '';
+  clearTimeout(SK.aegTaimer);   // 2.67 AKUSÄÄST: 30 s ilma skännita -> kaamera kinni
+  SK.aegTaimer = setTimeout(() => { if (SK.tootab) { sulgeSkanner(); naita('Kaamera suleti akusäästuks (30 s ilma skännita)'); } }, 30000);
   $('skannTekst').textContent = vihje || 'Suuna kaamera ribakoodile või QR-ile';
   $('skannValgus').style.display = 'none';
   $('skannSuum').style.display = 'none';
@@ -2282,7 +2285,7 @@ function kohtKeelatudVihje() {
 }
 
 function sulgeSkanner() {
-  SK.tootab = false; SK.keelaKoht = '';
+  SK.tootab = false; SK.keelaKoht = ''; clearTimeout(SK.aegTaimer);
   clearTimeout(SK.taimer);
   try { if (SK.zx) SK.zx.reset(); } catch (e) {}
   SK.zx = null;
@@ -4198,6 +4201,8 @@ $('laadSulge').addEventListener('click', () => $('laadimine').classList.remove('
 
 $('iUusSeanss').addEventListener('click', invUusSeanss);   // 2.61
 $('iKohtJaab').checked = !!loe(V.invKohtJaab, false);   // 2.65
+$('aAkusaast').checked = loe(V.akusaast, true) !== false;   // 2.67
+$('aAkusaast').addEventListener('change', e => { kirjuta(V.akusaast, e.target.checked); if (typeof akuArka === 'function') akuArka(); });
 $('iKohtJaab').addEventListener('change', e => kirjuta(V.invKohtJaab, e.target.checked));
 $('iUuesti').addEventListener('click', e => { if (e.target.id === 'iSaadaUuesti') invSaadaUuesti(); });   // 2.62
 $('iSeanss').addEventListener('change', () => { kirjuta(V.seanss, $('iSeanss').value.trim()); $('iKokku').innerHTML = ''; renderInventuur(); });
@@ -4626,6 +4631,55 @@ $('paigJuhis').addEventListener('click', e => { if (e.target === $('paigJuhis'))
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
+/* ---------- AKUSÄÄST (2.67) ----------
+   1) Kaamera sulgub ise, kui 30 s jooksul midagi ei skännita (12-skanner.js, SK.aegTaimer).
+   2) 15 s ilma puudutuse/klahvita tuleb peaaegu must kate (OLED-ekraanil säästab akut). Ekraan jääb sisse.
+      Esimene puudutus ainult äratab – all olevat nuppu ei vajutata. Laoterminali klahvisisestus äratab ja läheb läbi.
+   Äpp ise ekraani sees ei hoia (wake lock'i pole) – ekraani kustumise aja määrab telefoni seadistus. */
+const AKU_AEG = 15000;
+const AKU = { taimer: 0, tumm: false, el: null };
+// automaattestides (navigator.webdriver) väljas, et kate ei segaks klõpse; test lülitab sisse window.AKU_TEST-iga
+function akuSees() { return (!navigator.webdriver || window.AKU_TEST) && loe(V.akusaast, true) !== false; }
+function akuKate() {
+  if (AKU.el) return AKU.el;
+  const d = document.createElement('div');
+  d.id = 'akuKate';
+  d.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;z-index:95;background:#000;opacity:.93;display:none;align-items:center;justify-content:center;color:#555;font-size:15px;text-align:center;padding:24px';
+  d.textContent = 'Akusääst · puuduta jätkamiseks';
+  // puudutus kattel ainult äratab: click ei jõua alla
+  const peata = e => { e.preventDefault(); e.stopPropagation(); };
+  d.addEventListener('touchstart', peata, { passive: false });
+  d.addEventListener('mousedown', peata);
+  d.addEventListener('click', e => { peata(e); akuArka(); });
+  d.addEventListener('touchend', e => { peata(e); akuArka(); });
+  document.body.appendChild(d);
+  AKU.el = d;
+  return d;
+}
+function akuArka() {
+  if (AKU.tumm) { AKU.tumm = false; akuKate().style.display = 'none'; }
+  akuTaimer();
+}
+function akuTaimer() {
+  clearTimeout(AKU.taimer);
+  if (!akuSees()) return;
+  AKU.taimer = setTimeout(akuTummaks, AKU_AEG);
+}
+function akuTummaks() {
+  if (!akuSees() || document.hidden) return;
+  if (typeof SK !== 'undefined' && SK.tootab) { akuTaimer(); return; }   // kaamera lahti: sellel oma 30 s piir
+  AKU.tumm = true;
+  akuKate().style.display = 'flex';
+}
+// tegevus kuskil mujal (mitte kattel) lükkab taimeri edasi
+['touchstart', 'mousedown', 'keydown', 'input', 'wheel'].forEach(t => document.addEventListener(t, e => {
+  if (AKU.el && e.target === AKU.el) return;
+  if (AKU.tumm && t === 'keydown') { AKU.tumm = false; akuKate().style.display = 'none'; }   // laoterminal: sisestus läheb läbi
+  akuTaimer();
+}, { capture: true, passive: true }));
+document.addEventListener('visibilitychange', () => { if (!document.hidden) akuArka(); });
+akuTaimer();
+/* ---------- /AKUSÄÄST ---------- */
 </script>
 </body>
 </html>
