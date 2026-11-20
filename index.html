@@ -476,8 +476,21 @@ function kirjuta(k, v) {
     try { localStorage.setItem(k, s); return true; } catch (e) { viga = e; }
   }
   console.warn('localStorage', k, viga && viga.name, viga && viga.message);
-  naita(`Telefoni mälu on täis (${k}, ${Math.round(s.length / 1024)} KB${viga && viga.name && viga.name !== 'QuotaExceededError' ? ', ' + viga.name : ''}). Seaded → Telefoni mälu → Puhasta vahemälu`, true);
+  // 2.59: teade nimetab ka suurima mälu võtja; sama teadet mitte tihemini kui kord 20 s (enne tuli iga skänniga)
+  if (Date.now() - maluTeadeAeg > 20000) {
+    maluTeadeAeg = Date.now();
+    const su = maluSuurim(k);
+    naita(`Telefoni mälu on täis (${k}, ${Math.round(s.length / 1024)} KB${viga && viga.name && viga.name !== 'QuotaExceededError' ? ', ' + viga.name : ''}${su ? '; suurim: ' + su[0] + ' ' + Math.round(su[1] / 1024) + ' KB' : ''}). Seaded → Telefoni mälu → Puhasta vahemälu`, true);
+  }
   return false;
+}
+let maluTeadeAeg = 0;
+// 2.59: localStorage on ühine kõigile lehtedele samal aadressil (blutroyal.github.io): võõrad = võtmed, mis ei alga „ladu_“
+const onVoorasVoti = k => k.indexOf('ladu_') !== 0;
+function maluSuurim(v2lja) {
+  let par = null;
+  try { Object.keys(localStorage).forEach(k => { if (k === v2lja) return; const n = k.length + (localStorage.getItem(k) || '').length; if (!par || n > par[1]) par = [k, n]; }); } catch (e) {}
+  return par;
 }
 // samm 1: vana andmekoopia, vastuvõttude ajalugu, saadetud inventuuri loendused; samm 2: uuesti laaditavad nimekirjad (laetakse serverist tagasi)
 function malupuhasta(samm, valja) {
@@ -487,7 +500,11 @@ function malupuhasta(samm, valja) {
     if (valja !== 'ladu_vastu') { try { localStorage.setItem('ladu_vastu', JSON.stringify((loe('ladu_vastu', []) || []).slice(0, 20))); } catch (e) {} }
     if (valja !== 'ladu_inv' && typeof pruuniInv === 'function') { pruuniInv(20); try { localStorage.setItem('ladu_inv', JSON.stringify(INV)); } catch (e) {} }
   }
-  if (samm >= 2) ['ladu_kog', 'ladu_tait', 'ladu_invseansid'].forEach(kustuta);
+  if (samm >= 2) {
+    ['ladu_kog', 'ladu_tait', 'ladu_invseansid'].forEach(kustuta);
+    // 2.59: arvutivaate (arvuti.html samal aadressil) vahemälud; arvuti saatmata muudatused ja sisselogimine jäävad alles
+    try { Object.keys(localStorage).forEach(k => { if (k.indexOf('ladu_arvuti_') === 0 && k !== 'ladu_arvuti_valjas' && k !== 'ladu_arvuti_seaded') kustuta(k); }); } catch (e) {}
+  }
 }
 
 let SEADED = loe(V.seaded, null);          // {url, voti, kes}
@@ -1720,7 +1737,8 @@ function renderMalu() {
   osad.sort((a, b) => b[1] - a[1]);
   const kb = n => n >= 1024 ? Math.round(n / 102.4) / 10 + ' KB' : n + ' B';
   el.innerHTML = `<b>Telefoni mälu</b> (väike vahemälu, piir umbes 5000 KB): ${kb(kokku)}<br>` +
-    osad.slice(0, 5).map(([k, n]) => `${esc(MALU_NIMED[k] || k)} ${kb(n)}`).join(' · ') + '<span id="aMaluSuur"></span>' +
+    // 2.59: kõik võtmed alates 1 KB (enne 5 suurimat); võõra lehe võtmed märgitud
+    osad.filter(([k, n], i) => i < 5 || n >= 1024).map(([k, n]) => `${esc(MALU_NIMED[k] || k)}${onVoorasVoti(k) ? ' (muu leht)' : ''} ${kb(n)}`).join(' · ') + '<span id="aMaluSuur"></span>' +
     '<div class="nupud" style="margin-top:6px"><button class="nupp vaike" data-malupuhasta>Puhasta vahemälu</button></div>';
   // JARJEKORD 2.52: muudatused, mida server korduvalt vastu ei võtnud
   const K = loe(V.korvale, []);
@@ -1731,8 +1749,14 @@ function renderMalu() {
   }).catch(() => {});
 }
 function malupuhastaNupp() {
-  if (!confirm('Kustutan telefonist uuesti laaditavad vahemälud (vana andmekoopia, nimekirjad, vanad saadetud loendused). Saatmata muudatused jäävad alles. Jätkan?')) return;
+  if (!confirm('Kustutan telefonist uuesti laaditavad vahemälud (vana andmekoopia, nimekirjad, vanad saadetud loendused, arvutivaate koopia). Saatmata muudatused jäävad alles. Jätkan?')) return;
   malupuhasta(2, '');
+  // 2.59: teiste lehtede andmed samal aadressil (nt vanad testlehed) – ainult küsimisega
+  let voorad = [];
+  try { voorad = Object.keys(localStorage).filter(onVoorasVoti).map(k => [k, k.length + (localStorage.getItem(k) || '').length]).filter(x => x[1] >= 1024).sort((a, b) => b[1] - a[1]); } catch (e) {}
+  if (voorad.length && confirm('Telefoni mälus on ka teiste lehtede andmeid (mitte Ladu):\n' + voorad.slice(0, 8).map(x => x[0] + ' ' + Math.round(x[1] / 1024) + ' KB').join('\n') + '\nKustutan need ka?')) {
+    voorad.forEach(x => { try { localStorage.removeItem(x[0]); } catch (e) {} });
+  }
   renderSeaded(); naita('Vahemälu puhastatud'); if (typeof laeKog === 'function') laeKog(true);
 }
 
