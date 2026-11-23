@@ -4502,6 +4502,12 @@ $('nrAken').addEventListener('mousedown', e => { if (e.target === $('nrAken')) $
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.69', kp: '23.11.2026', nimi: 'Inventuur arvutis: käsitsi parandamine, sorteerimine, lugemata tooted',
+    lisati: ['Inventuuri aknas „Kõik read“ ja „Kahtlased“: igal real nupp ✎ – muuda koodi, asukohta või kogust otse tabelis (Enter = Salvesta, Esc = Tühista). Rida jääb samaks (sama ID), topelt ei teki; Logisse läheb „inventuur muuda“. Pärast muutmist on veerus „Kes“ muutja nimi.',
+             'Nupp „+ Lisa rida käsitsi“ lisab unustatud loenduse valitud seanssi (kood, asukoht, kogus). Liidetud vaates lisada ei saa.',
+             'Kõigi tabelite päisele klikkides sorteerib: 1. klikk kasvavalt ▲, 2. kahanevalt ▼, 3. tagasi tavaliseks.',
+             'Kokkuvõttes valik „Näita“: loetud tooted / loetud + lugemata / ainult lugemata. Lugemata = Buumis Maardu seis üle 0, aga ühtegi loendust pole (hallil taustal, Loetud 0, Vahe miinuses, veerus Kohad plaanijärgsed kohad).'],
+    kasutus: ['Lukus seanssi muuta ega lisada ei saa – vajuta enne „Ava“ ja pärast uuesti „Lukusta“. 2.69 muudab ainult arvutit: laadi üles arvuti.html ja sw.js. Apps Scripti pole vaja uuesti juurutada.'] },
   { v: '2.68', kp: '20.11.2026', nimi: 'Raportid: „Arvesta komplekteeritud kaup välja“',
     lisati: ['Raportite aknas (Poodi saatmine, Pakkimine) ja Komplekteerimise „Soovitus poodi“ juures on linnuke „Arvesta komplekteeritud kaup välja“ (vaikimisi sees, jääb meelde). Kui see on sees, võetakse komplekteeritud kaup arvutuses Maardu seisust maha ja pannakse Kauplus 3 seisule juurde, nagu oleks see juba poes. Nii ei soovitata seda uuesti saata ega juurde pakkida.',
              'Arvesse lähevad komplekteeritud nimekirjad ja pooleli nimekirjade juba võetud read, mille vahekanne pole märgitud või märgiti pärast viimast Buumi ekspordi kleepimist. Vastuvõtu vahekanded, tooraine korjamised (nimes „tooraine“) ja pakkimisalas olevad nimekirjad jäävad välja.',
@@ -4873,6 +4879,7 @@ async function laeInvSeansid() {
   } catch (e) { $('invSeansid').innerHTML = `<p class="hoiatus">${esc(e.message)}</p>`; }
 }
 async function laeInvRead() {
+  INV_MUUDA = null;   // 2.69
   $('invSisu').innerHTML = '<p class="hall">Laen…</p>';
   try {
     const j = await api(INV_LIIDA ? { tegevus: 'inventuurLoe' } : { tegevus: 'inventuurLoe', seanss: INV_VALITUD });
@@ -4916,6 +4923,61 @@ function invKahtlased() {
   m.forEach(l => { if (l.length > 1) l.forEach(r => v.set(r.id, `sama kogus ilma asukohata ${l.length}×`)); });
   return v;
 }
+// 2.69: päisega sorteerimine (vaade -> {v, suund}), käsitsi muutmine (INV_MUUDA = rea id või 'uus'), lugemata tooted
+const INV_SORT = {}, INV_LUG_V = 'ladu_arvuti_inv_lugemata';
+let INV_MUUDA = null;
+function invSordi(l, vaade, vali) {
+  const s = INV_SORT[vaade]; if (!s) return l;
+  const v = l.map((x, i) => ({ x, i, k: vali(x, s.v) }));
+  v.sort((a, b) => { const p = typeof a.k === 'number' && typeof b.k === 'number' ? a.k - b.k : CN.compare(String(a.k == null ? '' : a.k), String(b.k == null ? '' : b.k)); return p * s.suund || a.i - b.i; });
+  return v.map(o => o.x);
+}
+function invTh(vaade, v, silt) { const s = INV_SORT[vaade]; return `<th data-invsort="${vaade}|${v}" title="Sordi" style="cursor:pointer;white-space:nowrap">${silt}${s && s.v === v ? (s.suund > 0 ? ' ▲' : ' ▼') : ''}</th>`; }
+function invSortKlikk(vaartus) {
+  const [vaade, v] = vaartus.split('|'), s = INV_SORT[vaade];
+  INV_SORT[vaade] = s && s.v === v ? (s.suund > 0 ? { v, suund: -1 } : null) : { v, suund: 1 };
+  renderInvRead();
+}
+const invReaVali = (r, v) => v === 'nimi' ? ((T.get(r.kood) || {}).nimi || '') : v === 'kogus' ? r.kogus : v === 'aeg' ? String(r.aeg || '') : r[v];
+// kas sellesse seanssi saab kirjutada (sama reegel nagu serveris): seansse pole -> jah; muidu ainult avatud loodud seanss
+function invSeanssLukus(nimi) {
+  if (!INVS.length) return '';
+  const s = INVS.find(x => x.nimi === nimi);
+  if (!s) return `Seanssi „${nimi}“ pole arvutis loodud – vajuta enne „Loo seanss sellest nimest“.`;
+  return s.olek === 'lukus' ? `Seanss „${nimi}“ on lukus – vajuta enne muutmist „Ava“.` : '';
+}
+function invMuudaAlusta(id) {
+  if (vaataAinult()) return;   // MADIS
+  const r = id === 'uus' ? null : INV_READ.find(x => x.id === id);
+  if (id !== 'uus' && !r) return;
+  const sn = r ? r.seanss || INV_VALITUD : INV_VALITUD;
+  if (id === 'uus' && INV_LIIDA) { teade('Liidetud vaates ei saa rida lisada – lõpeta liitmine ja vali seanss', true); return; }
+  const lukk = invSeanssLukus(sn); if (lukk) { teade(lukk, true); return; }
+  INV_MUUDA = id;
+  if (id === 'uus' && INV_VAADE !== 'read' && INV_VAADE !== 'kahtlased') INV_VAADE = 'read';
+  renderInvRead();
+  const v = $('invMKood'); if (v) (id === 'uus' ? v : $('invMKogus')).focus();
+}
+async function invMuudaSalvesta() {
+  if (vaataAinult()) return;
+  const r = INV_MUUDA === 'uus' ? null : INV_READ.find(x => x.id === INV_MUUDA);
+  const kood = normKood($('invMKood').value), koht = normKoht($('invMKoht').value), ks = String($('invMKogus').value).trim().replace(',', '.');
+  const kogus = Number(ks);
+  if (!kood) { teade('Kood puudub', true); $('invMKood').focus(); return; }
+  if (ks === '' || !isFinite(kogus) || kogus < 0) { teade('Kogus vigane', true); $('invMKogus').focus(); return; }
+  if (!T.has(kood) && !confirm(`Koodi ${kood} pole Buumi ekspordis. Salvestan ikka?`)) return;
+  const sn = r ? r.seanss || INV_VALITUD : INV_VALITUD;
+  const m = r ? { op: 'muuda', id: r.id, seanss: sn, aeg: r.aeg, kood, asukoht: koht, kogus }
+    : { op: 'lisa', id: 'arv-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7), seanss: sn, aeg: new Date().toISOString(), kood, asukoht: koht, kogus };
+  if (await invTegevus({ tegevus: 'inventuur', muudatused: [m] }, r ? 'Loendus muudetud' : 'Loendus lisatud')) { INV_MUUDA = null; laeInvRead(); }
+}
+function invMuudaRida(r) {   // muutmise / lisamise rida tabelis
+  const v = (id, val, laius, tyyp) => `<input id="${id}" ${tyyp || 'type="text"'} value="${esc(val == null ? '' : String(val))}" style="width:${laius}">`;
+  return `<tr style="background:rgba(0,120,255,.08)"><td class="hall">${r ? '' : 'uus'}</td><td class="hall">${r ? esc(r.kes) : esc((SEADED && SEADED.kes) || '')}</td>
+    <td>${v('invMKoht', r ? r.koht : '', '110px')}</td><td>${v('invMKood', r ? r.kood : '', '100px')}</td><td class="hall">${r ? esc((T.get(r.kood) || {}).nimi || '') : ''}</td>
+    <td>${v('invMKogus', r ? String(r.kogus) : '', '70px', 'type="text" inputmode="decimal"')}</td>
+    <td colspan="2" style="white-space:nowrap"><button class="nupp pea" data-invmsalvesta>Salvesta</button> <button class="nupp" data-invmtyhista>Tühista</button></td></tr>`;
+}
 function renderInvRead() {
   const kahtl = invKahtlased();
   const q = $('invOts').value.trim().toLowerCase();
@@ -4926,38 +4988,49 @@ function renderInvRead() {
   $('inv_read').textContent = `Kõik read (${INV_READ.length})`;
   $('inv_kahtlased').textContent = `Kahtlased (${kahtl.size})`;
   const aeg = v => v ? new Date(v).toLocaleString('et-EE', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-  const reaHtml = list => `<table class="tabel"><tr><th>Aeg</th><th>Kes</th><th>Asukoht</th><th>Kood</th><th>Nimetus</th><th>Kogus</th><th></th><th></th></tr>` +
-    list.map(r => `<tr${kahtl.has(r.id) ? ' style="background:rgba(255,170,0,.13)"' : ''}><td class="hall">${aeg(r.aeg)}</td><td>${esc(r.kes)}${INV_LIIDA ? '<div class="hall vaike">' + esc(r.seanss) + '</div>' : ''}</td>
+  const lisaNupp = INV_LIIDA || INV_MUUDA === 'uus' ? '' : '<button class="nupp" data-invmuuda="uus" style="margin-bottom:6px">+ Lisa rida käsitsi</button>';
+  const reaHtml = (list, vaade) => `<table class="tabel"><tr>${invTh(vaade, 'aeg', 'Aeg')}${invTh(vaade, 'kes', 'Kes')}${invTh(vaade, 'koht', 'Asukoht')}${invTh(vaade, 'kood', 'Kood')}${invTh(vaade, 'nimi', 'Nimetus')}${invTh(vaade, 'kogus', 'Kogus')}<th></th><th></th></tr>` +
+    (INV_MUUDA === 'uus' ? invMuudaRida(null) : '') +
+    list.map(r => r.id === INV_MUUDA ? invMuudaRida(r) : `<tr${kahtl.has(r.id) ? ' style="background:rgba(255,170,0,.13)"' : ''}><td class="hall">${aeg(r.aeg)}</td><td>${esc(r.kes)}${INV_LIIDA ? '<div class="hall vaike">' + esc(r.seanss) + '</div>' : ''}</td>
       <td>${r.koht ? esc(r.koht) : '<span class="hall">–</span>'}</td><td><b>${esc(r.kood)}</b></td><td>${esc((T.get(r.kood) || {}).nimi || '')}</td>
       <td><b>${fmt(r.kogus)}</b></td><td style="color:#b26a00">${kahtl.has(r.id) ? '⚠ ' + esc(kahtl.get(r.id)) : ''}</td>
-      <td><button class="nupp ohtlik" data-invkustuta="${esc(r.id)}" title="Kustuta see loendus">✕</button></td></tr>`).join('') + '</table>';
-  if (!INV_READ.length) { $('invSisu').innerHTML = `<p class="hall">${INV_LIIDA ? (INV_LIIDA.size ? 'Valitud seanssides pole loendusi.' : 'Vali ülal seansid, mida kokku liita.') : 'Selles seansis pole veel loendusi.'}</p>`; return; }
+      <td style="white-space:nowrap"><button class="nupp" data-invmuuda="${esc(r.id)}" title="Muuda koodi, asukohta või kogust">✎</button> <button class="nupp ohtlik" data-invkustuta="${esc(r.id)}" title="Kustuta see loendus">✕</button></td></tr>`).join('') + '</table>';
+  if (!INV_READ.length && INV_MUUDA !== 'uus' && INV_VAADE !== 'kokku') { $('invSisu').innerHTML = (INV_LIIDA || !(INV_VALITUD) ? '' : lisaNupp) + `<p class="hall">${INV_LIIDA ? (INV_LIIDA.size ? 'Valitud seanssides pole loendusi.' : 'Vali ülal seansid, mida kokku liita.') : 'Selles seansis pole veel loendusi.'}</p>`; return; }
   if (INV_VAADE === 'read') {
-    $('invSisu').innerHTML = reaHtml(INV_READ.filter(r => sobib(r.kood, r.koht + ' ' + r.kes)).sort((a, b) => String(b.aeg).localeCompare(String(a.aeg))));
+    $('invSisu').innerHTML = lisaNupp + reaHtml(invSordi(INV_READ.filter(r => r.id === INV_MUUDA || sobib(r.kood, r.koht + ' ' + r.kes)).sort((a, b) => String(b.aeg).localeCompare(String(a.aeg))), 'read', invReaVali), 'read');
   } else if (INV_VAADE === 'vales') {   // VALESKOHAS
-    const l = vales.filter(x => sobib(x.kood, x.koht + ' ' + x.kes));
+    const l = invSordi(vales.filter(x => sobib(x.kood, x.koht + ' ' + x.kes)), 'vales', (x, v) => v === 'nimi' ? ((T.get(x.kood) || {}).nimi || '') : x[v]);
     $('invSisu').innerHTML = l.length ? `<p class="hall vaike">Toode loeti kohas, kuhu see pole Paigutuses määratud. <b>Teisalda plaan siia</b> = toote püsikoht muutub loetud kohaks.
       <b>Lisa siia</b> = vana koht jääb ka alles. <b>Jäta</b> = plaan õige, toode viiakse tagasi (rida kaob nimekirjast).</p>
-      <table class="tabel"><tr><th>Loetud kohas</th><th>Kood</th><th>Nimetus</th><th>Kogus</th><th>Kes</th><th>Plaanis</th><th></th></tr>` +
+      <table class="tabel"><tr>${invTh('vales', 'koht', 'Loetud kohas')}${invTh('vales', 'kood', 'Kood')}${invTh('vales', 'nimi', 'Nimetus')}${invTh('vales', 'kogus', 'Kogus')}${invTh('vales', 'kes', 'Kes')}<th>Plaanis</th><th></th></tr>` +
       l.map(x => `<tr><td><b>${esc(x.koht)}</b></td><td><b>${esc(x.kood)}</b></td><td>${esc((T.get(x.kood) || {}).nimi || '')}</td><td>${fmt(x.kogus)}</td><td>${esc(x.kes)}</td>
         <td class="hall">${x.plaan.length ? x.plaan.map(k => esc(k.koht) + (k.liik && k.liik !== 'püsiv' ? ' (' + esc(k.liik) + ')' : '')).join(', ') : 'koht puudub'}</td>
         <td style="white-space:nowrap">${x.pysi.length === 1 ? `<button class="nupp pea" data-vkteisalda="${esc(x.kood)}|${esc(x.koht)}">Teisalda plaan siia</button> ` : ''}<button class="nupp" data-vklisa="${esc(x.kood)}|${esc(x.koht)}">Lisa siia</button>
           <button class="nupp" data-vkjata="${esc(x.kood)}|${esc(x.koht)}">Jäta</button></td></tr>`).join('') + '</table>'
       : '<p class="hall">Kõik selle seansi asukohaga loendused on plaanijärgsetes kohtades.</p>';
   } else if (INV_VAADE === 'kahtlased') {
-    const l = INV_READ.filter(r => kahtl.has(r.id) && sobib(r.kood, r.koht + ' ' + r.kes)).sort((a, b) => CN.compare(a.kood, b.kood) || CN.compare(a.koht, b.koht));
-    $('invSisu').innerHTML = l.length ? '<p class="hall vaike">Kontrolli üle: kas sama kohta loeti kogemata kaks korda või sisestati sama arv topelt. Vale rea saad ✕-ga kustutada.</p>' + reaHtml(l)
-      : '<p class="hall">Kahtlasi ridu pole.</p>';
+    const l = invSordi(INV_READ.filter(r => r.id === INV_MUUDA || (kahtl.has(r.id) && sobib(r.kood, r.koht + ' ' + r.kes))).sort((a, b) => CN.compare(a.kood, b.kood) || CN.compare(a.koht, b.koht)), 'kahtlased', invReaVali);
+    $('invSisu').innerHTML = l.length || INV_MUUDA === 'uus' ? '<p class="hall vaike">Kontrolli üle: kas sama kohta loeti kogemata kaks korda või sisestati sama arv topelt. Vale rea saad ✎-ga parandada või ✕-ga kustutada.</p>' + lisaNupp + reaHtml(l, 'kahtlased')
+      : lisaNupp + '<p class="hall">Kahtlasi ridu pole.</p>';
   } else {
     const k = new Map();
     INV_READ.forEach(r => { const x = k.get(r.kood) || k.set(r.kood, { kood: r.kood, kogus: 0, n: 0, kohad: new Set(), kahtl: 0 }).get(r.kood); x.kogus += r.kogus; x.n++; if (r.koht) x.kohad.add(r.koht); if (kahtl.has(r.id)) x.kahtl++; });
-    const l = [...k.values()].filter(x => sobib(x.kood)).sort((a, b) => CN.compare(a.kood, b.kood));
-    $('invSisu').innerHTML = `<p class="hall vaike">${k.size} toodet · ${INV_READ.length} loendust · ${new Set(INV_READ.map(r => r.kes)).size} sisestajat. Vahe = loetud − Maardu (Buumi seis ${ANDMED && ANDMED.laoAndmedUuendatud ? aeg(ANDMED.laoAndmedUuendatud) : '?'}).</p>
-      <table class="tabel"><tr><th>Kood</th><th>Nimetus</th><th>Loetud</th><th>Maardu</th><th>Vahe</th><th>Loendusi</th><th>Kohad</th></tr>` +
+    // 2.69: lugemata = Buumis Maardu seis > 0, aga ühtegi loendust pole
+    const lugV = loe(INV_LUG_V, 'loetud'), lugemata = [];
+    T.forEach(t => { if (!k.has(t.kood) && nr(t.maardu) > 0) lugemata.push({ kood: t.kood, kogus: 0, n: 0, kohad: new Set(), kahtl: 0, lugemata: true }); });
+    const koik = lugV === 'ainult' ? lugemata : lugV === 'koos' ? [...k.values()].concat(lugemata) : [...k.values()];
+    const vali = (x, v) => { const t = T.get(x.kood); return v === 'nimi' ? (t ? t.nimi : '') : v === 'maardu' ? (t ? nr(t.maardu) : -Infinity) : v === 'vahe' ? (t ? x.kogus - nr(t.maardu) : -Infinity) : x[v]; };
+    const l = invSordi(koik.filter(x => sobib(x.kood)).sort((a, b) => CN.compare(a.kood, b.kood)), 'kokku', vali);
+    const valik = `<label class="vaike" style="display:inline-flex;gap:4px;align-items:center;margin-left:6px">Näita: <select data-invlugemata>
+        <option value="loetud"${lugV === 'loetud' ? ' selected' : ''}>loetud tooted</option><option value="koos"${lugV === 'koos' ? ' selected' : ''}>loetud + lugemata (${lugemata.length})</option><option value="ainult"${lugV === 'ainult' ? ' selected' : ''}>ainult lugemata (${lugemata.length})</option></select></label>`;
+    $('invSisu').innerHTML = `<p class="hall vaike">${k.size} toodet · ${INV_READ.length} loendust · ${new Set(INV_READ.map(r => r.kes)).size} sisestajat · lugemata ${lugemata.length} (Maardu seis > 0, loendust pole). Vahe = loetud − Maardu (Buumi seis ${ANDMED && ANDMED.laoAndmedUuendatud ? aeg(ANDMED.laoAndmedUuendatud) : '?'}).${valik}</p>
+      <table class="tabel"><tr>${invTh('kokku', 'kood', 'Kood')}${invTh('kokku', 'nimi', 'Nimetus')}${invTh('kokku', 'kogus', 'Loetud')}${invTh('kokku', 'maardu', 'Maardu')}${invTh('kokku', 'vahe', 'Vahe')}${invTh('kokku', 'n', 'Loendusi')}<th>Kohad</th></tr>` +
       l.map(x => { const t = T.get(x.kood), vahe = t ? x.kogus - nr(t.maardu) : null;
-        return `<tr><td><b>${esc(x.kood)}</b></td><td>${esc(t ? t.nimi : 'Buumi ekspordis pole')}</td><td><b>${fmt(x.kogus)}</b></td><td>${t ? fmt(nr(t.maardu)) : '–'}</td>
+        const kohad = x.lugemata ? SEOSED.filter(s => s.kood === x.kood).map(s => s.koht) : [...x.kohad];
+        return `<tr${x.lugemata ? ' class="hall" style="background:rgba(127,127,127,.12)" data-lugemata' : ''}><td><b>${esc(x.kood)}</b></td><td>${esc(t ? t.nimi : 'Buumi ekspordis pole')}${x.lugemata ? ' <span class="vaike">· lugemata' + (PEIDETUD.has(x.kood) ? ', väljas' : '') + '</span>' : ''}</td><td><b>${fmt(x.kogus)}</b></td><td>${t ? fmt(nr(t.maardu)) : '–'}</td>
           <td${vahe ? ` style="color:${vahe < 0 ? 'var(--punane,#b3261e)' : '#b26a00'};font-weight:600"` : ''}>${vahe == null ? '' : (vahe > 0 ? '+' : '') + fmt(vahe)}</td>
-          <td>${x.n}${x.kahtl ? ' <span style="color:#b26a00">⚠</span>' : ''}</td><td class="hall">${[...x.kohad].sort(CN.compare).map(esc).join(', ')}</td></tr>`; }).join('') + '</table>';
+          <td>${x.n}${x.kahtl ? ' <span style="color:#b26a00">⚠</span>' : ''}</td><td class="hall">${kohad.sort(CN.compare).map(esc).join(', ')}${x.lugemata && kohad.length ? ' <span class="vaike">(plaanis)</span>' : ''}</td></tr>`; }).join('') + '</table>'
+      + (l.length ? '' : `<p class="hall">${lugV === 'ainult' ? 'Lugemata tooteid pole.' : INV_READ.length ? 'Filtrile vastavaid tooteid pole.' : (INV_LIIDA ? (INV_LIIDA.size ? 'Valitud seanssides pole loendusi.' : 'Vali ülal seansid, mida kokku liita.') : 'Selles seansis pole veel loendusi.')}</p>`);
   }
 }
 // VALESKOHAS: seansi loendused (kogus > 0, asukohaga), mille koht pole selle toote Paigutuses
@@ -8479,6 +8552,11 @@ $('invNupp').addEventListener('click', () => { if (SEADED) avaInventuur(); });
 $('invSulge').addEventListener('click', () => $('invAken').classList.remove('lahti'));
 $('invUuenda').addEventListener('click', laeInvSeansid);
 $('invOts').addEventListener('input', renderInvRead);
+$('invAken').addEventListener('keydown', e => {   // 2.69: muutmise reas Enter = Salvesta, Esc = Tühista
+  if (!e.target.id || !/^invM/.test(e.target.id)) return;
+  if (e.key === 'Enter') { e.preventDefault(); invMuudaSalvesta(); }
+  else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); INV_MUUDA = null; renderInvRead(); }
+});
 $('invCsv').addEventListener('click', () => invCsvArvuti(false));
 $('invCsvKoht').addEventListener('click', () => invCsvArvuti(true));
 $('invLoo').addEventListener('click', async () => {
@@ -8490,12 +8568,14 @@ $('invLoo').addEventListener('click', async () => {
   }
 });
 $('invAken').addEventListener('change', async e => {
+  if (e.target.dataset.invlugemata !== undefined) { kirjuta(INV_LUG_V, e.target.value); renderInvRead(); return; }   // 2.69
   if (e.target.dataset.invpime === undefined) return;
   if (vaataAinult()) { e.target.checked = !e.target.checked; return; }   // MADIS
   await invTegevus({ tegevus: 'muudaInventuuriSeanssi', nimi: INV_VALITUD, pime: e.target.checked }, e.target.checked ? 'Pimeloendus sees' : 'Pimeloendus väljas');
   laeInvSeansid();
 });
 $('invAken').addEventListener('click', async e => {
+  const th = e.target.closest('[data-invsort]'); if (th) { invSortKlikk(th.dataset.invsort); return; }   // 2.69
   const b = e.target.closest('button'); if (!b) return;
   const d = b.dataset;
   if (d.invvali) { INV_VALITUD = d.invvali; renderInvSeansid(); laeInvRead(); }
@@ -8506,7 +8586,10 @@ $('invAken').addEventListener('click', async e => {
     if (vaataAinult()) return;
     if (await invTegevus({ tegevus: 'muudaInventuuriSeanssi', nimi: d.invloonimest, loo: true }, `Seanss „${d.invloonimest}“ loodud – telefonid näevad seda`)) { INV_VALITUD = d.invloonimest; laeInvSeansid(); }
   }
-  else if (d.invvaade) { INV_VAADE = d.invvaade; renderInvRead(); }
+  else if (d.invvaade) { INV_VAADE = d.invvaade; INV_MUUDA = null; renderInvRead(); }
+  else if (d.invmuuda) invMuudaAlusta(d.invmuuda);   // 2.69: käsitsi muutmine / lisamine
+  else if (d.invmsalvesta !== undefined) invMuudaSalvesta();
+  else if (d.invmtyhista !== undefined) { INV_MUUDA = null; renderInvRead(); }
   else if (d.vkteisalda) invVkTegevus('teisalda', d.vkteisalda);   // VALESKOHAS
   else if (d.vklisa) invVkTegevus('lisa', d.vklisa);
   else if (d.vkjata) invVkTegevus('jata', d.vkjata);
