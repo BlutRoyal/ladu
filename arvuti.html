@@ -4502,6 +4502,11 @@ $('nrAken').addEventListener('mousedown', e => { if (e.target === $('nrAken')) $
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.70', kp: '24.11.2026', nimi: 'Inventuur arvutis: kiirlisamine otsinguga',
+    lisati: ['„+ Lisa rida käsitsi“ koodi väljal on otsing: kirjuta koodi, nime osa või ribakood – tuleb kuni 10 sobivat toodet (koos Maardu seisuga). Nooled üles/alla valivad, Enter või klikk võtab toote ja kursor läheb kogusele. USB-skänneri ribakood leiab toote kohe.',
+             'Kogus + Enter salvestab rea ja lisamise rida jääb lahti järgmise toote jaoks: asukoht jääb eelmisest meelde, kood ja kogus lähevad tühjaks. Nii saab saatelehe järgi järjest palju tooteid lisada.',
+             'Asukoha väljal viib Enter koodi peale. Esc sulgeb kõigepealt soovitused, teine Esc lõpetab lisamise.'],
+    kasutus: ['Inventuur → vali seanss → Kõik read → + Lisa rida käsitsi → asukoht (nt Vastuvõtt) → kood/nimi → Enter → kogus → Enter → järgmine. 2.70 muudab ainult arvutit: laadi üles arvuti.html ja sw.js. Apps Scripti pole vaja uuesti juurutada.'] },
   { v: '2.69', kp: '23.11.2026', nimi: 'Inventuur arvutis: käsitsi parandamine, sorteerimine, lugemata tooted',
     lisati: ['Inventuuri aknas „Kõik read“ ja „Kahtlased“: igal real nupp ✎ – muuda koodi, asukohta või kogust otse tabelis (Enter = Salvesta, Esc = Tühista). Rida jääb samaks (sama ID), topelt ei teki; Logisse läheb „inventuur muuda“. Pärast muutmist on veerus „Kes“ muutja nimi.',
              'Nupp „+ Lisa rida käsitsi“ lisab unustatud loenduse valitud seanssi (kood, asukoht, kogus). Liidetud vaates lisada ei saa.',
@@ -4926,6 +4931,41 @@ function invKahtlased() {
 // 2.69: päisega sorteerimine (vaade -> {v, suund}), käsitsi muutmine (INV_MUUDA = rea id või 'uus'), lugemata tooted
 const INV_SORT = {}, INV_LUG_V = 'ladu_arvuti_inv_lugemata';
 let INV_MUUDA = null;
+// 2.70: kiirlisamine – otsing koodi väljal, rida jääb lahti, asukoht meelde
+let INV_UUS_KOHT = '', INV_SOOV = [], INV_SOOV_AKT = 0;
+function invSoovitaArvuta(q) {
+  q = String(q || '').trim();
+  if (q.length < 2) return [];
+  const tapne = leiaToode(q), sonad = normKood(q).split(/\s+/), l = tapne ? [tapne] : [];
+  for (const t of T.values()) {
+    if (l.length > 40) break;
+    if (t === tapne) continue;
+    const hay = (t.kood + ' ' + t.nimi + ' ' + t.ean).toUpperCase();
+    if (sonad.every(x => hay.includes(x))) l.push(t);
+  }
+  const alg = l.slice(tapne ? 1 : 0).sort((a, b) => (PEIDETUD.has(a.kood) - PEIDETUD.has(b.kood)) || (b.kood.startsWith(normKood(q)) - a.kood.startsWith(normKood(q))) || CN.compare(a.kood, b.kood));
+  return (tapne ? [tapne] : []).concat(alg).slice(0, 10);
+}
+function invSoovitaNaita() {
+  const el = $('invMSoov'), v = $('invMKood'); if (!el || !v) return;
+  INV_SOOV = invSoovitaArvuta(v.value); if (INV_SOOV_AKT >= INV_SOOV.length) INV_SOOV_AKT = 0;
+  el.innerHTML = INV_SOOV.map((t, i) => `<div class="ots-rida${i === INV_SOOV_AKT ? ' akt' : ''}" data-invsoov="${i}"><b>${esc(t.kood)}</b> ${esc(t.nimi)}${t.maardu ? ' <span class="hall vaike">· Maardu ' + fmt(nr(t.maardu)) + '</span>' : ''}</div>`).join('');
+  el.style.display = INV_SOOV.length ? 'block' : 'none';
+  const nm = $('invMNimi'); if (nm) { const t = leiaToode(v.value); nm.textContent = t ? t.nimi : ''; }
+}
+function invSoovitaVali(i) {
+  const t = INV_SOOV[i]; if (!t) return;
+  $('invMKood').value = t.kood; INV_SOOV = [];
+  const el = $('invMSoov'); if (el) el.style.display = 'none';
+  const nm = $('invMNimi'); if (nm) nm.textContent = t.nimi;
+  $('invMKogus').focus(); $('invMKogus').select();
+}
+function invMKoodEnter() {   // Enter koodi väljal: täpne kood/ribakood (ka skänner) > valitud soovitus > kirjutatud tekst
+  const v = $('invMKood'), t = leiaToode(v.value);
+  if (t) { INV_SOOV = [t]; invSoovitaVali(0); return; }
+  if (INV_SOOV.length && $('invMSoov') && $('invMSoov').style.display !== 'none') { invSoovitaVali(INV_SOOV_AKT); return; }
+  if (v.value.trim()) { $('invMKogus').focus(); }
+}
 function invSordi(l, vaade, vali) {
   const s = INV_SORT[vaade]; if (!s) return l;
   const v = l.map((x, i) => ({ x, i, k: vali(x, s.v) }));
@@ -4953,10 +4993,10 @@ function invMuudaAlusta(id) {
   const sn = r ? r.seanss || INV_VALITUD : INV_VALITUD;
   if (id === 'uus' && INV_LIIDA) { teade('Liidetud vaates ei saa rida lisada – lõpeta liitmine ja vali seanss', true); return; }
   const lukk = invSeanssLukus(sn); if (lukk) { teade(lukk, true); return; }
-  INV_MUUDA = id;
+  INV_MUUDA = id; INV_SOOV = [];
   if (id === 'uus' && INV_VAADE !== 'read' && INV_VAADE !== 'kahtlased') INV_VAADE = 'read';
   renderInvRead();
-  const v = $('invMKood'); if (v) (id === 'uus' ? v : $('invMKogus')).focus();
+  const v = $('invMKood'); if (v) (id === 'uus' ? (INV_UUS_KOHT ? v : $('invMKoht')) : $('invMKogus')).focus();
 }
 async function invMuudaSalvesta() {
   if (vaataAinult()) return;
@@ -4969,12 +5009,20 @@ async function invMuudaSalvesta() {
   const sn = r ? r.seanss || INV_VALITUD : INV_VALITUD;
   const m = r ? { op: 'muuda', id: r.id, seanss: sn, aeg: r.aeg, kood, asukoht: koht, kogus }
     : { op: 'lisa', id: 'arv-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7), seanss: sn, aeg: new Date().toISOString(), kood, asukoht: koht, kogus };
-  if (await invTegevus({ tegevus: 'inventuur', muudatused: [m] }, r ? 'Loendus muudetud' : 'Loendus lisatud')) { INV_MUUDA = null; laeInvRead(); }
+  if (!(await invTegevus({ tegevus: 'inventuur', muudatused: [m] }, r ? 'Loendus muudetud' : `Lisatud ${kood}: ${fmt(kogus)}`))) return;
+  if (r) { INV_MUUDA = null; laeInvRead(); return; }
+  // 2.70: uus rida – jääb lahti järgmise toote jaoks, asukoht meelde, server uuesti ei loe
+  INV_UUS_KOHT = koht; INV_SOOV = [];
+  INV_READ.push({ id: m.id, aeg: m.aeg, seanss: sn, kes: (SEADED && SEADED.kes) || 'arvuti', koht, kood, kogus });
+  renderInvRead();
+  const v = $('invMKood'); if (v) v.focus();
 }
 function invMuudaRida(r) {   // muutmise / lisamise rida tabelis
   const v = (id, val, laius, tyyp) => `<input id="${id}" ${tyyp || 'type="text"'} value="${esc(val == null ? '' : String(val))}" style="width:${laius}">`;
   return `<tr style="background:rgba(0,120,255,.08)"><td class="hall">${r ? '' : 'uus'}</td><td class="hall">${r ? esc(r.kes) : esc((SEADED && SEADED.kes) || '')}</td>
-    <td>${v('invMKoht', r ? r.koht : '', '110px')}</td><td>${v('invMKood', r ? r.kood : '', '100px')}</td><td class="hall">${r ? esc((T.get(r.kood) || {}).nimi || '') : ''}</td>
+    <td>${v('invMKoht', r ? r.koht : INV_UUS_KOHT, '110px')}</td><td style="position:relative">${v('invMKood', r ? r.kood : '', '140px', 'type="text" autocomplete="off" placeholder="kood, nimi või ribakood"')}
+      <div id="invMSoov" style="display:none;position:absolute;left:0;top:100%;z-index:40;min-width:380px;max-height:320px;overflow:auto;background:var(--paneel);border:1px solid var(--joon);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.15)"></div></td>
+    <td class="hall" id="invMNimi">${r ? esc((T.get(r.kood) || {}).nimi || '') : ''}</td>
     <td>${v('invMKogus', r ? String(r.kogus) : '', '70px', 'type="text" inputmode="decimal"')}</td>
     <td colspan="2" style="white-space:nowrap"><button class="nupp pea" data-invmsalvesta>Salvesta</button> <button class="nupp" data-invmtyhista>Tühista</button></td></tr>`;
 }
@@ -8554,9 +8602,21 @@ $('invUuenda').addEventListener('click', laeInvSeansid);
 $('invOts').addEventListener('input', renderInvRead);
 $('invAken').addEventListener('keydown', e => {   // 2.69: muutmise reas Enter = Salvesta, Esc = Tühista
   if (!e.target.id || !/^invM/.test(e.target.id)) return;
-  if (e.key === 'Enter') { e.preventDefault(); invMuudaSalvesta(); }
-  else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); INV_MUUDA = null; renderInvRead(); }
+  const soovLahti = e.target.id === 'invMKood' && INV_SOOV.length && $('invMSoov') && $('invMSoov').style.display !== 'none';
+  if (soovLahti && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {   // 2.70: soovituste vahel liikumine
+    e.preventDefault(); INV_SOOV_AKT = (INV_SOOV_AKT + (e.key === 'ArrowDown' ? 1 : INV_SOOV.length - 1)) % INV_SOOV.length;
+    $('invMSoov').querySelectorAll('[data-invsoov]').forEach((d, i) => d.classList.toggle('akt', i === INV_SOOV_AKT)); return;
+  }
+  if (e.key === 'Enter') { e.preventDefault(); if (e.target.id === 'invMKood') invMKoodEnter(); else if (e.target.id === 'invMKoht' && INV_MUUDA === 'uus') $('invMKood').focus(); else invMuudaSalvesta(); }
+  else if (e.key === 'Escape') {
+    e.preventDefault(); e.stopPropagation();
+    if (soovLahti) { $('invMSoov').style.display = 'none'; return; }
+    INV_MUUDA = null; renderInvRead();
+  }
 });
+$('invAken').addEventListener('focusout', e => { if (e.target.id === 'invMKood' && $('invMSoov')) setTimeout(() => { if ($('invMSoov') && document.activeElement !== $('invMKood')) $('invMSoov').style.display = 'none'; }, 150); });
+$('invAken').addEventListener('input', e => { if (e.target.id === 'invMKood') { INV_SOOV_AKT = 0; invSoovitaNaita(); } });   // 2.70
+$('invAken').addEventListener('mousedown', e => { const d = e.target.closest('[data-invsoov]'); if (d) { e.preventDefault(); invSoovitaVali(Number(d.dataset.invsoov)); } });
 $('invCsv').addEventListener('click', () => invCsvArvuti(false));
 $('invCsvKoht').addEventListener('click', () => invCsvArvuti(true));
 $('invLoo').addEventListener('click', async () => {
