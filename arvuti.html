@@ -4504,6 +4504,9 @@ $('nrAken').addEventListener('mousedown', e => { if (e.target === $('nrAken')) $
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.72', kp: '25.11.2026', nimi: 'Poe loenduse Excel: tühi ribakood = kood',
+    lisati: ['Excel (Buum) failis kordub Kood veerg Ribakoodi veergu, kui tootel pole ribakoodi (nt toode, mida pole Buumi andmebaasi pandud ega Lao Andmetesse). Ribakoodiga tooted jäävad nagu enne. Kehtib nii telefoni (admin, Loendus → Kõik nimekirjad) kui arvuti Poe loenduse Excelile.'],
+    kasutus: ['Tundmatu toote loendamisel sisesta/skänni selle ribakood: see läheb Excelis Koodi alla ja kordub ka Ribakoodi alla. 2.72 muudab index.html ja arvuti.html (+ sw.js). Apps Scripti pole vaja uuesti juurutada.'] },
   { v: '2.71', kp: '24.11.2026', nimi: 'Inventuur arvutis: ⚑ üle lugeda + prinditav leht',
     lisati: ['Inventuuri Kokkuvõttes ja „Kõik read“ vaates on igal tootel nupp ⚑ – märgib toote üle lugemiseks (märgitud rida on oranži äärega). Uus klikk võtab märke maha. Valikus „Näita“ on „⚑ üle lugeda“; „Eemalda kõik ⚑“ puhastab.',
              'Nupp „🖨 Ülelugemise leht“ prindib märgitud tooted A4-le: Kood, Nimetus, Kohad (loetud ja plaanijärgsed), tühjad lahtrid „Uus kogus“ ja „Lugeja“. Read on kohtade järjekorras. Linnukesega „loetud kogus lehele“ tuleb ka seni loetud kogus (vaikimisi ei tule, et lugeja ei kopeeriks).',
@@ -7098,13 +7101,14 @@ function buumRibakood(e) {
   }
   return e;
 }
+// 2.72: kui tootel pole Buumi/tabeli ribakoodi, kordub Kood Ribakoodi veergu (Buumi import ei jää tühja ribakoodiga)
 // nimekirjad: [{ read: [{ kood, nimi, kogus }] }]; toode(kood) -> { nimi, ean } või null
 function buumRead(nimekirjad, toode) {
   const m = new Map();
   nimekirjad.forEach(n => (n.read || []).forEach(r => {
     const kood = String(r.kood);
     let x = m.get(kood);
-    if (!x) { const t = toode(kood); x = { kood, ean: buumRibakood(t && t.ean), nimi: (t && t.nimi) || r.nimi || '', kogus: 0 }; m.set(kood, x); }
+    if (!x) { const t = toode(kood); x = { kood, ean: buumRibakood(t && t.ean) || kood, nimi: (t && t.nimi) || r.nimi || '', kogus: 0 }; m.set(kood, x); }
     if (!x.nimi && r.nimi) x.nimi = r.nimi;
     x.kogus = Math.round((x.kogus + Number(r.kogus || 0)) * 1000) / 1000;
   }));
