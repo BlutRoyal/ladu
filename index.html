@@ -1705,8 +1705,8 @@ async function invCsv(kohtadega) {
 
   const kaart = {};
   read.forEach(r => { const k = kohtadega ? r.kood + '\t' + (r.koht || '') : r.kood; kaart[k] = (kaart[k] || 0) + r.kogus; });
-  const pais = kohtadega ? 'Kood;Asukoht;Kogus' : 'Kood;Kogus kokku';
-  const rida = k => { const o = k.split('\t'); return o.concat([String(Math.round(kaart[k] * 1000) / 1000).replace('.', ',')]).join(';'); };
+  const pais = kohtadega ? 'Kood;Asukoht;Kogus' : 'Kood;Ribakood;Kogus kokku';
+  const rida = k => { const o = k.split('\t'); if (!kohtadega) { const t = loToode(k); o.push(buumRibakood(t && t.ean) || k); } return o.concat([String(Math.round(kaart[k] * 1000) / 1000).replace('.', ',')]).join(';'); };
   const csv = '﻿' + [pais].concat(Object.keys(kaart).sort().map(rida)).join('\r\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
