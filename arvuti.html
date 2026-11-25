@@ -4504,6 +4504,9 @@ $('nrAken').addEventListener('mousedown', e => { if (e.target === $('nrAken')) $
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.73', kp: '25.11.2026', nimi: 'Inventuuri koondi CSV: Ribakood',
+    lisati: ['Inventuuri nupu „CSV“ (kogused koodi kaupa kokku) failis on nüüd veerud Kood; Ribakood; Kogus kokku. Ribakood on tabeli/Buumi ribakood, kui seda pole, kordub Kood. „CSV asukohtadega“ jääb samaks. Sama telefonis.'],
+    kasutus: ['Excel võib CSV-s pikad koodid (nt 4740…) kirjutada teaduslikult ja kaotada eesolevad nullid; Buumi jaoks kasuta Loenduse „Excel (Buum)“ faili. 2.73 muudab index.html ja arvuti.html (+ sw.js). Apps Scripti pole vaja uuesti juurutada.'] },
   { v: '2.72', kp: '25.11.2026', nimi: 'Poe loenduse Excel: tühi ribakood = kood',
     lisati: ['Excel (Buum) failis kordub Kood veerg Ribakoodi veergu, kui tootel pole ribakoodi (nt toode, mida pole Buumi andmebaasi pandud ega Lao Andmetesse). Ribakoodiga tooted jäävad nagu enne. Kehtib nii telefoni (admin, Loendus → Kõik nimekirjad) kui arvuti Poe loenduse Excelile.'],
     kasutus: ['Tundmatu toote loendamisel sisesta/skänni selle ribakood: see läheb Excelis Koodi alla ja kordub ka Ribakoodi alla. 2.72 muudab index.html ja arvuti.html (+ sw.js). Apps Scripti pole vaja uuesti juurutada.'] },
@@ -5141,11 +5144,13 @@ function invVkTegevus(mis, vaartus) {
   teade(`${kood}: ${eemalda.length ? eemalda[0].Asukoht + ' → ' : 'lisatud '}${koht}`);
   renderInvRead();
 }
+// 2.73: koondi CSV-s Ribakood (Buumi/tabeli ribakood, muidu Kood kordub)
+function invRibakood(kood) { const t = T.get(kood); return buumRibakood(t && t.ean) || kood; }
 function invCsvArvuti(kohtadega) {
   if (!INV_READ.length) { teade('Loendusi pole', true); return; }
   const k = new Map();
   INV_READ.forEach(r => { const v = kohtadega ? r.kood + ';' + r.koht : r.kood; k.set(v, (k.get(v) || 0) + r.kogus); });
-  const csv = '﻿' + [kohtadega ? 'Kood;Asukoht;Kogus' : 'Kood;Kogus kokku'].concat([...k].sort((a, b) => CN.compare(a[0], b[0])).map(([v, n]) => v + ';' + String(Math.round(n * 1000) / 1000).replace('.', ','))).join('\r\n');
+  const csv = '﻿' + [kohtadega ? 'Kood;Asukoht;Kogus' : 'Kood;Ribakood;Kogus kokku'].concat([...k].sort((a, b) => CN.compare(a[0], b[0])).map(([v, n]) => (kohtadega ? v : v + ';' + invRibakood(v)) + ';' + String(Math.round(n * 1000) / 1000).replace('.', ','))).join('\r\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
   a.download = `inventuur_${String(INV_LIIDA ? 'koond_' + [...INV_LIIDA].join('+') : INV_VALITUD).replace(/[^\wäöüõšž-]+/gi, '_')}${kohtadega ? '_asukohad' : ''}.csv`;
