@@ -4504,6 +4504,10 @@ $('nrAken').addEventListener('mousedown', e => { if (e.target === $('nrAken')) $
 
 /* ---------- UUENDUSED: patch notes (uus kirje ette; lisati = mis tuli, kasutus = kuidas) ---------- */
 const UUENDUSED = [
+  { v: '2.74', kp: '25.11.2026', nimi: 'Poe loenduse Excel Buumi: Ribakood = Kood, pika koodi eesnullid',
+    lisati: ['Excel (Buum) failis on Ribakoodi veerus nüüd sama kood mis Koodi veerus, mitte tabeli põhiribakood. Põhjus: Buumis võis põhiribakood olla koti/kasti ühiku ribakood (nt KZN571660, KOT suhe 6) ja Buum korrutas koguse läbi (50 → 300 jne).',
+             '15–17-kohalised numbrikoodid (nt 571002000070060) saavad nullid ette 18 kohani (000571002000070060), nagu Buumis. Muud koodid jäävad nagu on.'],
+    kasutus: ['Enne päris importi proovi Buumis 2–3 rea failiga, kas kogus tuleb tükkides (10, mitte 60). 2.74 muudab index.html ja arvuti.html (+ sw.js). Apps Scripti pole vaja uuesti juurutada.'] },
   { v: '2.73', kp: '25.11.2026', nimi: 'Inventuuri koondi CSV: Ribakood',
     lisati: ['Inventuuri nupu „CSV“ (kogused koodi kaupa kokku) failis on nüüd veerud Kood; Ribakood; Kogus kokku. Ribakood on tabeli/Buumi ribakood, kui seda pole, kordub Kood. „CSV asukohtadega“ jääb samaks. Sama telefonis.'],
     kasutus: ['Excel võib CSV-s pikad koodid (nt 4740…) kirjutada teaduslikult ja kaotada eesolevad nullid; Buumi jaoks kasuta Loenduse „Excel (Buum)“ faili. 2.73 muudab index.html ja arvuti.html (+ sw.js). Apps Scripti pole vaja uuesti juurutada.'] },
@@ -7106,14 +7110,17 @@ function buumRibakood(e) {
   }
   return e;
 }
-// 2.72: kui tootel pole Buumi/tabeli ribakoodi, kordub Kood Ribakoodi veergu (Buumi import ei jää tühja ribakoodiga)
+// 2.74: Ribakoodi veerg = Kood (mitte tabeli põhiribakood: see võib olla Buumis kasti/koti ühiku ribakood ja Buum korrutaks koguse läbi).
+// Sheets kaotab pika numbrikoodi eesnullid (000571002000070060 -> 571002000070060); Buumi pikad koodid on 18-kohalised, seepärast
+// 15–17-kohaline numbrikood täidetakse nullidega 18 kohani.
+function buumKood(k) { k = String(k == null ? '' : k).trim(); return /^\d{15,17}$/.test(k) ? ('000000000000000000' + k).slice(-18) : k; }
 // nimekirjad: [{ read: [{ kood, nimi, kogus }] }]; toode(kood) -> { nimi, ean } või null
 function buumRead(nimekirjad, toode) {
   const m = new Map();
   nimekirjad.forEach(n => (n.read || []).forEach(r => {
     const kood = String(r.kood);
     let x = m.get(kood);
-    if (!x) { const t = toode(kood); x = { kood, ean: buumRibakood(t && t.ean) || kood, nimi: (t && t.nimi) || r.nimi || '', kogus: 0 }; m.set(kood, x); }
+    if (!x) { const t = toode(kood); x = { kood: buumKood(kood), ean: buumKood(kood), nimi: (t && t.nimi) || r.nimi || '', kogus: 0 }; m.set(kood, x); }
     if (!x.nimi && r.nimi) x.nimi = r.nimi;
     x.kogus = Math.round((x.kogus + Number(r.kogus || 0)) * 1000) / 1000;
   }));
