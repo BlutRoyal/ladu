@@ -2869,14 +2869,17 @@ function buumRibakood(e) {
   }
   return e;
 }
-// 2.72: kui tootel pole Buumi/tabeli ribakoodi, kordub Kood Ribakoodi veergu (Buumi import ei jää tühja ribakoodiga)
+// 2.74: Ribakoodi veerg = Kood (mitte tabeli põhiribakood: see võib olla Buumis kasti/koti ühiku ribakood ja Buum korrutaks koguse läbi).
+// Sheets kaotab pika numbrikoodi eesnullid (000571002000070060 -> 571002000070060); Buumi pikad koodid on 18-kohalised, seepärast
+// 15–17-kohaline numbrikood täidetakse nullidega 18 kohani.
+function buumKood(k) { k = String(k == null ? '' : k).trim(); return /^\d{15,17}$/.test(k) ? ('000000000000000000' + k).slice(-18) : k; }
 // nimekirjad: [{ read: [{ kood, nimi, kogus }] }]; toode(kood) -> { nimi, ean } või null
 function buumRead(nimekirjad, toode) {
   const m = new Map();
   nimekirjad.forEach(n => (n.read || []).forEach(r => {
     const kood = String(r.kood);
     let x = m.get(kood);
-    if (!x) { const t = toode(kood); x = { kood, ean: buumRibakood(t && t.ean) || kood, nimi: (t && t.nimi) || r.nimi || '', kogus: 0 }; m.set(kood, x); }
+    if (!x) { const t = toode(kood); x = { kood: buumKood(kood), ean: buumKood(kood), nimi: (t && t.nimi) || r.nimi || '', kogus: 0 }; m.set(kood, x); }
     if (!x.nimi && r.nimi) x.nimi = r.nimi;
     x.kogus = Math.round((x.kogus + Number(r.kogus || 0)) * 1000) / 1000;
   }));
